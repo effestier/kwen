@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { signIn, signUp } from '@/app/actions/auth'
+import { sendOTP, verifyOTP } from '@/app/actions/otp-auth'
 import { BRAND } from '@/lib/brand/config'
 
 interface AuthFormProps {

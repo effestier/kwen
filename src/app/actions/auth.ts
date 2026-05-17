@@ -28,17 +28,18 @@ export async function signUp(formData: FormData) {
       return { error: 'Password must be at least 6 characters' }
     }
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          username,
-          display_name: displayName,
-        },
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/callback`,
-      },
-    })
+    const { error } = await supabase.auth.signInWithOtp({
+  email,
+  options: {
+    shouldCreateUser: true,
+    data: {
+      username,
+      display_name: displayName,
+    },
+  },
+})
+
+const data = null
 
     if (error) {
       console.error('Signup error:', error)
@@ -68,10 +69,14 @@ export async function signIn(formData: FormData) {
       return { error: 'Email and password are required' }
     }
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    const { error } = await supabase.auth.signInWithOtp({
+  email,
+  options: {
+    shouldCreateUser: false,
+  },
+})
+
+const data = null
 
     if (error) {
       console.error('Signin error:', error)

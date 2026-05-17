@@ -188,7 +188,7 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
                       : 'bg-gradient-to-br from-[var(--accent-primary)] to-[var(--accent-secondary)]'
                 )}
               >
-                <div className="w-full h-full rounded-full p-0.5 bg-black overflow-hidden">
+                <div className="w-full h-full rounded-full p-0.5 bg-[var(--bg-primary)] overflow-hidden">
                   {currentUser.avatar_url ? (
                     <img
                       src={currentUser.avatar_url}
@@ -207,8 +207,8 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
               </div>
               {/* Add icon - only show when no stories */}
               {myStories.length === 0 && (
-                <div className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-[var(--accent-primary)] flex items-center justify-center border-2 border-black">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <div className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-[var(--accent-primary)] flex items-center justify-center border-2 border-[var(--bg-primary)]">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--text-inverse)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M5 12h14" /><path d="M12 5v14" />
                   </svg>
                 </div>
@@ -237,7 +237,7 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
                     : 'bg-gradient-to-br from-[var(--accent-primary)] to-[var(--accent-secondary)]'
                 )}
               >
-                <div className="w-full h-full rounded-full p-0.5 bg-black overflow-hidden">
+                <div className="w-full h-full rounded-full p-0.5 bg-[var(--bg-primary)] overflow-hidden">
                   <Avatar
                     src={story.user.avatar_url}
                     name={story.user.display_name}

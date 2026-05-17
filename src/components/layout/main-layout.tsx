@@ -16,7 +16,7 @@ export function MainLayout({
   showMobileNav = true,
 }: MainLayoutProps) {
   return (
-    <div className="min-h-screen bg-[#09090b]">
+    <div className="min-h-screen bg-[var(--bg-primary)]">
       {showSidebar && <Sidebar />}
       <main className={`
         flex-1 min-h-screen pb-20 lg:pb-0

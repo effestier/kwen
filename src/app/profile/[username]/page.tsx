@@ -240,7 +240,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
         {/* Profile Header */}
         <div className="px-4 pb-4">
           <div className="flex items-start justify-between -mt-12 mb-3">
-            <div className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-[var(--bg-secondary)] border-4 border-black overflow-hidden">
+            <div className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-[var(--bg-secondary)] border-4 border-[var(--bg-primary)] overflow-hidden">
               <Avatar
                 src={profile.avatar_url}
                 name={profile.display_name}

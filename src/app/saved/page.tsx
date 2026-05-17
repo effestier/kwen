@@ -119,7 +119,7 @@ export default function SavedPage() {
   return (
     <MainLayout>
       <div className="min-h-screen">
-        <div className="sticky top-0 z-10 bg-black/90 backdrop-blur-xl border-b border-[var(--border-subtle)] p-4">
+        <div className="sticky top-0 z-10 bg-[var(--bg-primary)]/90 backdrop-blur-xl border-b border-[var(--border-subtle)] p-4">
           <h1 className="text-xl font-bold text-white">Saved</h1>
         </div>
 

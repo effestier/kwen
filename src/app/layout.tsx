@@ -3,22 +3,21 @@ import './globals.css';
 import { Providers } from '@/components/providers';
 import { BRAND } from '@/lib/brand/config';
 
-export const metadata = {
+export const metadata: Metadata = {
   title: 'KWEN',
   description: 'Connect. Share. Grow.',
+  metadataBase: new URL(BRAND.auth.siteUrl),
+
   icons: {
     icon: [
       { url: '/favicon.ico' },
-      { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
-      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/favicon-96x96.png', sizes: '96x96', type: 'image/png' },
     ],
     apple: '/apple-touch-icon.png',
   },
+
   manifest: '/site.webmanifest',
-}
-  title: BRAND.name,
-  description: BRAND.tagline,
-  metadataBase: new URL(BRAND.auth.siteUrl),
+
   openGraph: {
     title: BRAND.name,
     description: BRAND.tagline,
@@ -27,11 +26,13 @@ export const metadata = {
     locale: 'en_US',
     type: 'website',
   },
+
   twitter: {
     card: 'summary_large_image',
     title: BRAND.name,
     description: BRAND.tagline,
   },
+
   robots: {
     index: true,
     follow: true,

@@ -47,7 +47,7 @@ export async function signUp(formData: FormData) {
 
     // Check if user was created (data.user will be null if email confirmation is required)
     // But auth.users row should still be created
-    console.log('Signup response:', { user: data.user, session: data.session })
+    console.log('Signup response:', data)
 
     revalidatePath('/', 'layout')
     return { success: true }

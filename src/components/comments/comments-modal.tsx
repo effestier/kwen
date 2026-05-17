@@ -28,6 +28,7 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
   const [newComment, setNewComment] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [currentUser, setCurrentUser] = useState<{ id: string; username: string; avatar_url: string | null } | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const commentsListRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
@@ -110,7 +111,8 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
         // Rollback on error
         setComments(prev => prev.filter(c => c.id !== tempId));
         setNewComment(newComment);
-        alert(result.error || 'Failed to add comment');
+        setError(result.error || 'Failed to add comment');
+        setTimeout(() => setError(null), 3000);
       }
     } catch (error) {
       // Rollback
@@ -237,12 +239,19 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
               <textarea
                 ref={inputRef}
                 value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
+                onChange={(e) => { setNewComment(e.target.value); setError(null); }}
                 onKeyDown={handleKeyDown}
                 placeholder="Add a comment..."
                 className="w-full min-h-[44px] max-h-32 px-4 py-2.5 rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] resize-none focus:outline-none focus:border-[var(--accent-primary)]"
                 rows={1}
               />
+
+              {/* Error message */}
+              {error && (
+                <div className="absolute bottom-full left-0 mb-2 px-3 py-1.5 rounded-lg bg-[var(--destructive)]/10 border border-[var(--destructive)]/20 text-xs text-[var(--destructive)]">
+                  {error}
+                </div>
+              )}
 
               {/* Emoji Picker */}
               {showEmojiPicker && (

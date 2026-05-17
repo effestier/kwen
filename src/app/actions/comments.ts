@@ -1,7 +1,6 @@
 'use server';
 
-import { createClient } from '@/lib/supabase/client';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase/server';
 
 export interface Comment {
   id: string;
@@ -18,7 +17,7 @@ export interface Comment {
 }
 
 export async function getComments(postId: string, limit = 50): Promise<Comment[]> {
-  const supabase: SupabaseClient = createClient();
+  const supabase = await createClient();
 
   const { data: comments, error } = await supabase
     .from('comments')
@@ -49,7 +48,7 @@ export async function getComments(postId: string, limit = 50): Promise<Comment[]
 }
 
 export async function addComment(postId: string, content: string): Promise<{ success: boolean; error?: string; comment?: Comment }> {
-  const supabase: SupabaseClient = createClient();
+  const supabase = await createClient();
 
   try {
     const { data: { user } } = await supabase.auth.getUser();
@@ -97,7 +96,7 @@ export async function addComment(postId: string, content: string): Promise<{ suc
 }
 
 export async function deleteComment(commentId: string): Promise<{ success: boolean; error?: string }> {
-  const supabase: SupabaseClient = createClient();
+  const supabase = await createClient();
 
   try {
     const { data: { user } } = await supabase.auth.getUser();
@@ -126,7 +125,7 @@ export async function deleteComment(commentId: string): Promise<{ success: boole
 }
 
 export async function getCommentCount(postId: string): Promise<number> {
-  const supabase: SupabaseClient = createClient();
+  const supabase = await createClient();
 
   const { count, error } = await supabase
     .from('comments')

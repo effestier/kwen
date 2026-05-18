@@ -143,7 +143,7 @@ export default function LandingPage() {
             <Link href="#" className="hover:text-[var(--text-secondary)] transition-colors-fast">Privacy</Link>
             <Link href="#" className="hover:text-[var(--text-secondary)] transition-colors-fast">Terms</Link>
           </div>
-          <p className="text-xs text-[var(--text-muted)]">2024 {BRAND.name}</p>
+          <p className="text-xs text-[var(--text-muted)]">© {new Date().getFullYear()} {BRAND.name}</p>
         </div>
       </footer>
     </div>

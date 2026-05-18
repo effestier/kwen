@@ -3,7 +3,16 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
-export async function sendMessage(conversationId: string, content: string, mediaUrl?: string) {
+export interface MediaMetadata {
+  url: string;
+  thumbnailUrl?: string;
+  mimeType?: string;
+  fileSize?: number;
+  width?: number;
+  height?: number;
+}
+
+export async function sendMessage(conversationId: string, content: string, media?: MediaMetadata) {
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -19,7 +28,7 @@ export async function sendMessage(conversationId: string, content: string, media
     const cleanContent = content.trim().slice(0, 5000)
 
     // Must have either content or media
-    if (!cleanContent && !mediaUrl) {
+    if (!cleanContent && !media?.url) {
       return { error: 'Message cannot be empty' }
     }
 
@@ -36,8 +45,8 @@ export async function sendMessage(conversationId: string, content: string, media
     }
 
     // Determine message type and content
-    const messageType = mediaUrl ? (cleanContent ? 'mixed' : 'image') : 'text'
-    const messageContent = cleanContent || (mediaUrl ? 'Photo' : '')
+    const messageType = media?.url ? (cleanContent ? 'mixed' : 'image') : 'text'
+    const messageContent = cleanContent || (media?.url ? 'Photo' : '')
 
     const { data: message, error } = await supabase
       .from('messages')
@@ -46,7 +55,12 @@ export async function sendMessage(conversationId: string, content: string, media
         sender_id: user.id,
         content: messageContent,
         message_type: messageType,
-        media_url: mediaUrl || null,
+        media_url: media?.url || null,
+        thumbnail_url: media?.thumbnailUrl || null,
+        mime_type: media?.mimeType || null,
+        file_size: media?.fileSize || null,
+        media_width: media?.width || null,
+        media_height: media?.height || null,
       })
       .select()
       .single()
@@ -171,7 +185,7 @@ export async function getMessages(conversationId: string) {
 
     const { data: messages, error } = await supabase
       .from('messages')
-      .select('id, content, sender_id, created_at, message_type, media_url')
+      .select('id, content, sender_id, created_at, message_type, media_url, thumbnail_url, mime_type, file_size, media_width, media_height')
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: true })
       .limit(200)
@@ -198,6 +212,11 @@ export async function getMessages(conversationId: string) {
       sender: profileMap.get(msg.sender_id) || null,
       message_type: msg.message_type || 'text',
       media_url: msg.media_url || null,
+      thumbnail_url: msg.thumbnail_url || null,
+      mime_type: msg.mime_type || null,
+      file_size: msg.file_size || null,
+      media_width: msg.media_width || null,
+      media_height: msg.media_height || null,
     }))
 
     return { messages: formattedMessages }

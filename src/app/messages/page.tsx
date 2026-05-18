@@ -9,7 +9,8 @@ import { cn } from '@/lib/utils';
 import { formatTimeAgo } from '@/lib/utils';
 import Link from 'next/link';
 import { getMessages, sendMessage, markConversationAsRead } from '@/app/actions/messages';
-import { validateFile } from '@/lib/storage';
+import type { MediaMetadata } from '@/app/actions/messages';
+import { compressForMessage, generateThumbnail, validateRawFile } from '@/lib/image-compress';
 
 interface Message {
   id: string;
@@ -25,6 +26,11 @@ interface Message {
   } | null;
   message_type?: string;
   media_url?: string | null;
+  thumbnail_url?: string | null;
+  mime_type?: string | null;
+  file_size?: number | null;
+  media_width?: number | null;
+  media_height?: number | null;
 }
 
 interface Conversation {
@@ -62,6 +68,7 @@ export default function MessagesPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // User state
@@ -258,7 +265,7 @@ export default function MessagesPage() {
         .channel(`messages-${selectedId}`)
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${selectedId}` }, async (payload) => {
           if (cancelled) return;
-          const newMsg = payload.new as { id: string; content: string; sender_id: string; created_at: string; message_type?: string; media_url?: string };
+          const newMsg = payload.new as { id: string; content: string; sender_id: string; created_at: string; message_type?: string; media_url?: string; thumbnail_url?: string; mime_type?: string; file_size?: number; media_width?: number; media_height?: number };
           if (messagesRef.current.some(m => m.id === newMsg.id)) return;
           if (sentTempIdsRef.current.has(newMsg.id)) return;
 
@@ -281,6 +288,11 @@ export default function MessagesPage() {
             sender: senderProfile,
             message_type: newMsg.message_type || 'text',
             media_url: newMsg.media_url || null,
+            thumbnail_url: newMsg.thumbnail_url || null,
+            mime_type: newMsg.mime_type || null,
+            file_size: newMsg.file_size || null,
+            media_width: newMsg.media_width || null,
+            media_height: newMsg.media_height || null,
           };
           setMessages(prev => deduplicateMessages([...prev, formattedMessage]));
 
@@ -341,7 +353,7 @@ export default function MessagesPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const error = validateFile(file, 'message');
+    const error = validateRawFile(file);
     if (error) {
       alert(error);
       return;
@@ -371,39 +383,70 @@ export default function MessagesPage() {
     if ((!newMessage.trim() && !imageFile) || !sid || sending || !uid || !profile) return;
 
     setSending(true);
-    let mediaUrl: string | undefined;
+    let media: MediaMetadata | undefined;
 
-    // Upload image if present
+    // Compress and upload image if present
     if (imageFile) {
       setUploadingImage(true);
       try {
-        const ext = imageFile.name.split('.').pop() || 'jpg';
+        // 1. Compress image → WebP, max 1600px
+        const compressed = await compressForMessage(imageFile);
+
+        // 2. Generate thumbnail → WebP, 320px wide
+        const thumbnail = await generateThumbnail(imageFile);
+
+        // 3. Upload both to organized path (UID must be first segment for RLS policy)
         const timestamp = Date.now();
         const random = Math.random().toString(36).substring(2, 8);
-        const fileName = `${uid}/${timestamp}-${random}.${ext}`;
+        const basePath = `${uid}/conversations/${sid}`;
+        const imagePath = `${basePath}/${timestamp}-${random}.webp`;
+        const thumbPath = `${basePath}/${timestamp}-${random}-thumb.webp`;
 
-        const { data, error: uploadError } = await supabase.storage
+        // Upload optimized image
+        const { error: imgErr } = await supabase.storage
           .from('messages')
-          .upload(fileName, imageFile, {
+          .upload(imagePath, compressed.file, {
             cacheControl: '3600',
             upsert: false,
-            contentType: imageFile.type,
+            contentType: 'image/webp',
           });
 
-        if (uploadError) {
-          alert('Failed to upload image. Please try again.');
+        if (imgErr) {
+          console.error('Image upload error:', imgErr);
+          alert(imgErr.message || 'Failed to upload image.');
           setUploadingImage(false);
           setSending(false);
           return;
         }
 
-        const { data: urlData } = supabase.storage
+        // Upload thumbnail
+        const { error: thumbErr } = await supabase.storage
           .from('messages')
-          .getPublicUrl(fileName);
+          .upload(thumbPath, thumbnail.file, {
+            cacheControl: '3600',
+            upsert: false,
+            contentType: 'image/webp',
+          });
 
-        mediaUrl = urlData.publicUrl;
-      } catch {
-        alert('Failed to upload image. Please try again.');
+        if (thumbErr) {
+          console.error('Thumbnail upload error:', thumbErr);
+          // Thumbnail failure is non-fatal — use full image as fallback
+        }
+
+        const { data: imgUrlData } = supabase.storage.from('messages').getPublicUrl(imagePath);
+        const { data: thumbUrlData } = supabase.storage.from('messages').getPublicUrl(thumbPath);
+
+        media = {
+          url: imgUrlData.publicUrl,
+          thumbnailUrl: thumbErr ? imgUrlData.publicUrl : thumbUrlData.publicUrl,
+          mimeType: 'image/webp',
+          fileSize: compressed.file.size,
+          width: compressed.width,
+          height: compressed.height,
+        };
+      } catch (err) {
+        console.error('Image processing error:', err);
+        alert(err instanceof Error ? err.message : 'Failed to process image.');
         setUploadingImage(false);
         setSending(false);
         return;
@@ -414,8 +457,8 @@ export default function MessagesPage() {
     const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     tid.add(tempId);
 
-    const displayContent = newMessage.trim() || (mediaUrl ? 'Photo' : '');
-    const messageType = mediaUrl ? (newMessage.trim() ? 'mixed' : 'image') : 'text';
+    const displayContent = newMessage.trim() || (media ? 'Photo' : '');
+    const messageType = media ? (newMessage.trim() ? 'mixed' : 'image') : 'text';
 
     const tempMessage: Message = {
       id: tempId,
@@ -425,13 +468,18 @@ export default function MessagesPage() {
       isMine: true,
       sender: profile,
       message_type: messageType,
-      media_url: mediaUrl || null,
+      media_url: media?.url || null,
+      thumbnail_url: media?.thumbnailUrl || null,
+      mime_type: media?.mimeType || null,
+      file_size: media?.fileSize || null,
+      media_width: media?.width || null,
+      media_height: media?.height || null,
     };
     setMessages(prev => deduplicateMessages([...prev, tempMessage]));
     clearImagePreview();
     setNewMessage('');
 
-    const result = await sendMessage(sid, displayContent, mediaUrl);
+    const result = await sendMessage(sid, displayContent, media);
 
     if (result.success && result.message) {
       tid.delete(tempId);
@@ -623,16 +671,9 @@ export default function MessagesPage() {
                             'flex flex-col',
                             msg.isMine ? 'items-end' : 'items-start',
                             msg.isMine
-                              ? 'max-w-[65%] md:max-w-[60%]'
-                              : 'max-w-[65%] md:max-w-[60%]'
+                              ? 'max-w-[75%] md:max-w-[65%]'
+                              : 'max-w-[75%] md:max-w-[65%]'
                           )}>
-                            {/* Sender name - only for first message in group from other */}
-                            {!isConsecutive && !msg.isMine && msg.sender && (
-                              <span className="text-xs text-[var(--text-muted)] mb-1 ml-1">
-                                {msg.sender.display_name}
-                              </span>
-                            )}
-
                             {/* Message bubble */}
                             <div className={cn(
                               'text-sm min-w-0 overflow-hidden',
@@ -642,16 +683,25 @@ export default function MessagesPage() {
                               msg.media_url ? 'p-1' : 'px-3.5 py-2'
                             )}>
                               {msg.media_url && (
-                                <img
-                                  src={msg.media_url}
-                                  alt={msg.content !== 'Photo' ? msg.content : 'Sent image'}
-                                  className={cn(
-                                    'max-w-full rounded-[14px] object-cover',
-                                    msg.content && msg.content !== 'Photo' ? 'mb-1' : '',
-                                    msg.message_type === 'image' ? 'max-h-[300px] w-full' : 'max-h-[250px]'
-                                  )}
-                                  loading="lazy"
-                                />
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); setEnlargedImage(msg.media_url!); }}
+                                  className="block w-full cursor-pointer"
+                                  aria-label="View full image"
+                                >
+                                  <img
+                                    src={msg.thumbnail_url || msg.media_url}
+                                    alt={msg.content !== 'Photo' ? msg.content : 'Sent image'}
+                                    className={cn(
+                                      'max-w-full rounded-[14px] object-cover transition-opacity hover:opacity-90',
+                                      msg.content && msg.content !== 'Photo' ? 'mb-1' : '',
+                                      msg.message_type === 'image' ? 'max-h-[300px] w-full' : 'max-h-[250px]'
+                                    )}
+                                    loading="lazy"
+                                    width={msg.media_width || undefined}
+                                    height={msg.media_height || undefined}
+                                  />
+                                </button>
                               )}
                               {msg.content && msg.content !== 'Photo' && (
                                 <p className={cn(
@@ -764,6 +814,32 @@ export default function MessagesPage() {
           )}
         </div>
       </div>
+
+      {/* Image lightbox */}
+      {enlargedImage && (
+        <div
+          role="dialog"
+          aria-label="Image preview"
+          className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4"
+          onClick={() => setEnlargedImage(null)}
+        >
+          <button
+            onClick={() => setEnlargedImage(null)}
+            aria-label="Close image"
+            className="absolute top-4 right-4 p-2 text-white/70 hover:text-white transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+            </svg>
+          </button>
+          <img
+            src={enlargedImage}
+            alt="Full size image"
+            className="max-w-full max-h-[90vh] object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </MainLayout>
   );
 }

@@ -73,11 +73,26 @@ export function Sidebar() {
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) return;
 
-      const { data: profile } = await supabase
+      let { data: profile } = await supabase
         .from('profiles')
         .select('id, username, display_name, avatar_url')
         .eq('id', authUser.id)
         .single();
+
+      // Fallback: create profile if missing
+      if (!profile) {
+        const tempUsername = `user_${authUser.id.slice(0, 8)}`;
+        const { data: newProfile } = await supabase
+          .from('profiles')
+          .upsert({
+            id: authUser.id,
+            username: tempUsername,
+            display_name: authUser.email?.split('@')[0] || 'User',
+          }, { onConflict: 'id' })
+          .select('id, username, display_name, avatar_url')
+          .single();
+        profile = newProfile;
+      }
 
       setUser(profile);
     }

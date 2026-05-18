@@ -199,7 +199,6 @@ export default function CreateStoryPage() {
         .upload(fileName, mediaFile);
 
       if (uploadError) {
-        console.error('[STORY] Upload error:', uploadError);
         alert(`Upload failed: ${uploadError.message}`);
         return;
       }
@@ -233,12 +232,9 @@ export default function CreateStoryPage() {
         .single();
 
       if (storyError) {
-        console.error('[STORY FULL ERROR]', JSON.stringify(storyError, null, 2));
-        console.error('[STORY RAW ERROR]', storyError);
 
         // If visibility column doesn't exist (code 42703), retry without it
         if (storyError.code === '42703' || storyError.message?.includes('visibility')) {
-          console.warn('[STORY] visibility column missing, retrying without...');
           const retryResult = await supabase
             .from('stories')
             .insert(storyPayload)
@@ -246,7 +242,6 @@ export default function CreateStoryPage() {
             .single();
 
           if (retryResult.error) {
-            console.error('[STORY RETRY ERROR]', JSON.stringify(retryResult.error, null, 2));
             alert(`Failed to create story: ${retryResult.error.message}`);
             return;
           }
@@ -278,7 +273,6 @@ export default function CreateStoryPage() {
           .insert(overlayRecords);
 
         if (overlayError) {
-          console.error('[STORY] Overlays error:', overlayError);
         }
       }
 
@@ -305,10 +299,8 @@ export default function CreateStoryPage() {
         });
       }
 
-      console.log('[STORY] Created successfully:', story.id);
       router.push('/feed');
     } catch (err) {
-      console.error('[STORY] Error:', err);
       alert('Failed to post story');
     } finally {
       setIsUploading(false);
@@ -340,7 +332,6 @@ export default function CreateStoryPage() {
           .upload(fileName, mediaFile);
 
         if (uploadError) {
-          console.error('[DRAFT] Upload error:', uploadError);
         } else {
           const { data: urlData } = supabase.storage
             .from('story-drafts')
@@ -366,14 +357,12 @@ export default function CreateStoryPage() {
         });
 
       if (draftError) {
-        console.error('[DRAFT] Save error:', draftError);
         alert('Failed to save draft');
       } else {
         alert('Draft saved!');
         router.push('/feed');
       }
     } catch (err) {
-      console.error('[DRAFT] Error:', err);
     } finally {
       setIsSavingDraft(false);
     }

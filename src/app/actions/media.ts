@@ -144,7 +144,6 @@ export async function createPostWithMedia(formData: FormData) {
     }
   }
 
-  console.log('[POST_CREATE] Creating post:', { content, location, mediaUrl })
 
   // Create post with media_url
   const { data: post, error: postError } = await supabase
@@ -159,11 +158,9 @@ export async function createPostWithMedia(formData: FormData) {
     .single()
 
   if (postError) {
-    console.error('[POST_CREATE] Post insert error:', postError)
     return { error: postError.message }
   }
 
-  console.log('[POST_CREATE] Post created:', post.id)
 
   // Add media to post_media table for additional images
   if (mediaUrls) {
@@ -180,7 +177,6 @@ export async function createPostWithMedia(formData: FormData) {
       .insert(mediaRecords)
 
     if (mediaError) {
-      console.error('[POST_CREATE] Media insert error:', mediaError)
     }
   }
 
@@ -189,12 +185,10 @@ export async function createPostWithMedia(formData: FormData) {
 }
 
 export async function uploadStory(mediaUrl: string, mediaType: string = 'image') {
-  console.log('[UPLOAD_STORY] Starting:', { mediaUrl, mediaType });
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  console.log('[UPLOAD_STORY] Auth user:', user?.id);
 
   if (!user) {
     return { error: 'Not authenticated' }
@@ -203,12 +197,6 @@ export async function uploadStory(mediaUrl: string, mediaType: string = 'image')
   // Stories expire in 24 hours
   const expiresAt = new Date()
   expiresAt.setHours(expiresAt.getHours() + 24)
-
-  console.log('[UPLOAD_STORY] Insert payload:', {
-    user_id: user.id,
-    media_url: mediaUrl,
-    expires_at: expiresAt.toISOString(),
-  });
 
   // Try insert WITH media_type first
   const { data, error } = await supabase
@@ -222,11 +210,9 @@ export async function uploadStory(mediaUrl: string, mediaType: string = 'image')
     .select()
     .single()
 
-  console.log('[UPLOAD_STORY] Insert result with media_type:', { data, error });
 
   // If error, try WITHOUT media_type column (for tables without this column)
   if (error) {
-    console.log('[UPLOAD_STORY] Retrying without media_type column');
 
     const { data: retryData, error: retryError } = await supabase
       .from('stories')
@@ -238,10 +224,8 @@ export async function uploadStory(mediaUrl: string, mediaType: string = 'image')
       .select()
       .single()
 
-    console.log('[UPLOAD_STORY] Retry result:', { data: retryData, error: retryError });
 
     if (retryError) {
-      console.error('[UPLOAD_STORY] Retry error:', retryError);
       return { error: retryError.message }
     }
 

@@ -40,7 +40,6 @@ export async function getComments(postId: string, limit = 50): Promise<Comment[]
     .limit(limit);
 
   if (error) {
-    console.error('[COMMENTS] Fetch error:', error);
     throw new Error(error.message);
   }
 
@@ -84,13 +83,11 @@ export async function addComment(postId: string, content: string): Promise<{ suc
       .single();
 
     if (error) {
-      console.error('[COMMENTS] Insert error:', error);
       return { success: false, error: error.message };
     }
 
     return { success: true, comment: comment as unknown as Comment };
   } catch (err: any) {
-    console.error('[COMMENTS] Exception:', err);
     return { success: false, error: err?.message || 'Failed to add comment' };
   }
 }
@@ -113,13 +110,11 @@ export async function deleteComment(commentId: string): Promise<{ success: boole
       .eq('user_id', user.id);
 
     if (error) {
-      console.error('[COMMENTS] Delete error:', error);
       return { success: false, error: error.message };
     }
 
     return { success: true };
   } catch (err: any) {
-    console.error('[COMMENTS] Delete exception:', err);
     return { success: false, error: err?.message || 'Failed to delete comment' };
   }
 }
@@ -134,7 +129,6 @@ export async function getCommentCount(postId: string): Promise<number> {
     .is('deleted_at', null);
 
   if (error) {
-    console.error('[COMMENTS] Count error:', error);
     return 0;
   }
 

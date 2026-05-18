@@ -67,7 +67,6 @@ export function MediaPicker({ onMediaSelected, onCancel }: MediaPickerProps) {
       stream.getTracks().forEach(track => track.stop());
       fileInputRef.current?.click();
     } catch (err) {
-      console.error('[MEDIA] Camera error:', err);
       fileInputRef.current?.click();
     }
   };

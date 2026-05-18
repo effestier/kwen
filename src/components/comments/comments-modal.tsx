@@ -71,7 +71,6 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
       const data = await getComments(postId);
       setComments(data);
     } catch (error) {
-      console.error('[COMMENTS] Failed to load:', error);
     } finally {
       setLoading(false);
     }
@@ -80,7 +79,9 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
   const handleSubmit = async () => {
     if (!newComment.trim() || submitting) return;
 
+    const commentText = newComment.trim();
     setSubmitting(true);
+    setError(null);
 
     // Optimistic add
     const tempId = `temp-${Date.now()}`;
@@ -88,7 +89,7 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
       id: tempId,
       post_id: postId,
       user_id: currentUser?.id || '',
-      content: newComment.trim(),
+      content: commentText,
       parent_id: null,
       created_at: new Date().toISOString(),
       user: {
@@ -102,22 +103,21 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
     setNewComment('');
 
     try {
-      const result = await addComment(postId, newComment.trim());
+      const result = await addComment(postId, commentText);
 
       if (result.success && result.comment) {
-        // Replace temp comment with real one
         setComments(prev => prev.map(c => c.id === tempId ? result.comment! : c));
       } else {
-        // Rollback on error
         setComments(prev => prev.filter(c => c.id !== tempId));
-        setNewComment(newComment);
+        setNewComment(commentText);
         setError(result.error || 'Failed to add comment');
         setTimeout(() => setError(null), 3000);
       }
-    } catch (error) {
-      // Rollback
+    } catch {
       setComments(prev => prev.filter(c => c.id !== tempId));
-      setNewComment(newComment);
+      setNewComment(commentText);
+      setError('Something went wrong. Try again.');
+      setTimeout(() => setError(null), 3000);
     } finally {
       setSubmitting(false);
     }
@@ -232,10 +232,39 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
           )}
         </div>
 
+        {/* Error message */}
+        {error && (
+          <div className="px-4 py-2 bg-[var(--destructive)]/10 border-t border-[var(--destructive)]/20">
+            <p className="text-xs text-[var(--destructive)] text-center">{error}</p>
+          </div>
+        )}
+
+        {/* Emoji Picker */}
+        {showEmojiPicker && (
+          <div className="border-t border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-3 max-h-48 overflow-y-auto">
+            {Object.entries(EMOJI_CATEGORIES).map(([category, emojis]) => (
+              <div key={category} className="mb-2">
+                <p className="text-xs text-[var(--text-muted)] capitalize mb-1">{category}</p>
+                <div className="flex flex-wrap gap-1">
+                  {emojis.map((emoji) => (
+                    <button
+                      key={emoji}
+                      onClick={() => insertEmoji(emoji)}
+                      className="p-1.5 hover:bg-[var(--bg-tertiary)] rounded text-lg transition-colors-fast active:scale-95"
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Input Area */}
         <div className="border-t border-[var(--border-subtle)] p-3">
           <div className="flex items-end gap-2">
-            <div className="flex-1 relative">
+            <div className="flex-1">
               <textarea
                 ref={inputRef}
                 value={newComment}
@@ -245,41 +274,12 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
                 className="w-full min-h-[44px] max-h-32 px-4 py-2.5 rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] resize-none focus:outline-none focus:border-[var(--accent-primary)]"
                 rows={1}
               />
-
-              {/* Error message */}
-              {error && (
-                <div className="absolute bottom-full left-0 mb-2 px-3 py-1.5 rounded-lg bg-[var(--destructive)]/10 border border-[var(--destructive)]/20 text-xs text-[var(--destructive)]">
-                  {error}
-                </div>
-              )}
-
-              {/* Emoji Picker */}
-              {showEmojiPicker && (
-                <div className="absolute bottom-full left-0 mb-2 bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-xl p-3 shadow-lg max-h-48 overflow-y-auto">
-                  {Object.entries(EMOJI_CATEGORIES).map(([category, emojis]) => (
-                    <div key={category} className="mb-2">
-                      <p className="text-xs text-[var(--text-muted)] capitalize mb-1">{category}</p>
-                      <div className="flex flex-wrap gap-1">
-                        {emojis.map((emoji) => (
-                          <button
-                            key={emoji}
-                            onClick={() => insertEmoji(emoji)}
-                            className="p-1 hover:bg-[var(--bg-tertiary)] rounded text-lg transition-colors-fast"
-                          >
-                            {emoji}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
 
             <button
               onClick={() => setShowEmojiPicker(!showEmojiPicker)}
               className={cn(
-                'p-2.5 rounded-full transition-colors-fast',
+                'p-2.5 rounded-full transition-all duration-200 active:scale-95',
                 showEmojiPicker
                   ? 'bg-[var(--accent-primary)] text-white'
                   : 'text-[var(--text-muted)] hover:bg-[var(--bg-secondary)]'
@@ -294,9 +294,9 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
               onClick={handleSubmit}
               disabled={!newComment.trim() || submitting}
               className={cn(
-                'p-2.5 rounded-full transition-colors-fast',
+                'p-2.5 rounded-full transition-all duration-200 active:scale-95',
                 newComment.trim() && !submitting
-                  ? 'bg-[var(--accent-primary)] text-white'
+                  ? 'bg-[var(--accent-primary)] text-white hover:bg-[var(--accent-hover)]'
                   : 'bg-[var(--bg-tertiary)] text-[var(--text-muted)] cursor-not-allowed'
               )}
             >

@@ -104,13 +104,10 @@ export default function ExplorePage() {
       const explorePosts = rpcResult.data as PostWithDetails[];
       const postsError = rpcResult.error;
 
-      console.log('[EXPLORE] Posts query result:', { count: explorePosts?.length, postsError });
-      console.log('[EXPLORE] Sample posts:', explorePosts?.slice(0, 2));
 
       if (explorePosts && explorePosts.length > 0) {
         // Get media from post_media table
         const postIds = explorePosts.map((p: PostWithDetails) => String(p.id));
-        console.log('[EXPLORE] postIds:', postIds);
 
         // Debug: first try fetching ALL post_media to see if any exists
         const { data: allMedia, error: mediaError } = await supabase
@@ -118,14 +115,12 @@ export default function ExplorePage() {
           .select('post_id, storage_path, sort_order')
           .limit(5);
 
-        console.log('[EXPLORE] ALL MEDIA (first 5):', allMedia, mediaError);
 
         // Simple unfiltered query to test if data exists
         const { data: media, error: mediaError2 } = await supabase
           .from('post_media')
           .select('post_id, storage_path, sort_order');
 
-        console.log('[EXPLORE] UNFILTERED MEDIA:', media, mediaError2);
 
         // Build media map - first image per post (SAME AS PROFILE)
         const mediaMap = new Map<string, string>();
@@ -135,7 +130,6 @@ export default function ExplorePage() {
           }
         });
 
-        console.log('[EXPLORE] MEDIA MAP:', Array.from(mediaMap.entries()));
 
         // Merge images into posts (SAME AS PROFILE)
         const postsWithMedia = explorePosts.map((p: PostWithDetails) => ({
@@ -151,9 +145,6 @@ export default function ExplorePage() {
           images: mediaMap.get(String(p.id)) ? [mediaMap.get(String(p.id))!] : []
         }));
 
-        console.log('[EXPLORE] FINAL POSTS OBJECT:', postsWithMedia.slice(0, 2));
-        console.log('[EXPLORE] FIRST POST:', postsWithMedia[0]);
-        console.log('[EXPLORE] FIRST POST IMAGES:', postsWithMedia[0]?.images);
 
         setPosts(postsWithMedia);
       }

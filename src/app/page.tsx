@@ -11,7 +11,7 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-[var(--bg-tertiary)] border border-[var(--border-subtle)] flex items-center justify-center">
-              <span className="text-base font-semibold text-white">O</span>
+              <span className="text-base font-semibold text-white">{BRAND.logo.symbol}</span>
             </div>
             <span className="text-lg font-semibold text-white tracking-tight">{BRAND.name}</span>
           </Link>
@@ -135,7 +135,7 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-[var(--bg-tertiary)] border border-[var(--border-subtle)] flex items-center justify-center">
-              <span className="text-sm font-semibold text-white">O</span>
+              <span className="text-sm font-semibold text-white">{BRAND.logo.symbol}</span>
             </div>
             <span className="text-sm font-medium text-[var(--text-secondary)]">{BRAND.name}</span>
           </div>

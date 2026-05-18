@@ -70,12 +70,26 @@ export default function FeedPage() {
         return;
       }
 
-      // Get profile
-      const { data: profile } = await supabase
+      // Get profile (with fallback creation)
+      let { data: profile } = await supabase
         .from('profiles')
         .select('id, username, display_name, avatar_url')
         .eq('id', authUser.id)
         .single();
+
+      if (!profile) {
+        const tempUsername = `user_${authUser.id.slice(0, 8)}`;
+        const { data: newProfile } = await supabase
+          .from('profiles')
+          .upsert({
+            id: authUser.id,
+            username: tempUsername,
+            display_name: authUser.email?.split('@')[0] || 'User',
+          }, { onConflict: 'id' })
+          .select('id, username, display_name, avatar_url')
+          .single();
+        profile = newProfile;
+      }
 
       setUser(profile);
 
@@ -85,9 +99,6 @@ export default function FeedPage() {
         p_limit: 20,
         p_cursor: null,
       });
-
-      console.log('[FEED] Posts result:', { count: feedPosts?.length });
-      console.log('[FEED] Sample post:', feedPosts?.[0]);
 
       // Get media from post_media table
       if (feedPosts && feedPosts.length > 0) {
@@ -160,8 +171,6 @@ export default function FeedPage() {
         hasViewed: viewedSet.has(s.id),
       }));
 
-      console.log('[FEED] Stories:', { count: formattedStories.length, stories: formattedStories.slice(0, 2) });
-
       setStories(formattedStories);
       setLoading(false);
     }
@@ -174,8 +183,8 @@ export default function FeedPage() {
     const channel = supabase
       .channel('feed-updates')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, () => {
-        // Refresh feed on new posts
-        loadData();
+        // Reload full feed data
+        window.location.reload();
       })
       .subscribe();
 
@@ -183,18 +192,6 @@ export default function FeedPage() {
       supabase.removeChannel(channel);
     };
   }, []);
-
-  async function loadData() {
-    const { data: { user: authUser } } = await supabase.auth.getUser();
-    if (!authUser) return;
-
-    const { data: feedPosts } = await supabase.rpc('get_timeline', {
-      p_user_id: authUser.id,
-      p_limit: 20,
-      p_cursor: null,
-    });
-    setPosts(feedPosts || []);
-  }
 
   if (loading) {
     return (
@@ -212,8 +209,8 @@ export default function FeedPage() {
         {/* Mobile Header */}
         <div className="lg:hidden sticky top-0 z-20 bg-[var(--bg-primary)]/90 backdrop-blur-xl border-b border-[var(--border-subtle)] px-4 py-3">
           <div className="flex items-center justify-between">
-            <h1 className="text-lg font-bold text-[var(--text-primary)]">Home</h1>
-            <Link href="/notifications" className="p-2 rounded-full hover:bg-[var(--bg-secondary)] transition-colors-fast">
+            <h1 className="text-lg font-bold text-[var(--text-primary)]">KWEN</h1>
+            <Link href="/notifications" className="p-2 rounded-full hover:bg-[var(--bg-secondary)] transition-colors-fast relative">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--text-secondary)]">
                 <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
               </svg>
@@ -221,33 +218,26 @@ export default function FeedPage() {
           </div>
         </div>
 
-        <div className="feed-container">
-          {/* Desktop Header */}
-          <div className="hidden lg:block sticky top-0 z-20 bg-[var(--bg-primary)]/80 backdrop-blur-xl border-b border-[var(--border-subtle)] px-6 py-3">
+        {/* Desktop Header */}
+        <div className="hidden lg:block sticky top-0 z-20 bg-[var(--bg-primary)]/80 backdrop-blur-xl border-b border-[var(--border-subtle)]">
+          <div className="feed-container py-3">
             <h1 className="text-xl font-bold text-[var(--text-primary)]">Home</h1>
           </div>
+        </div>
 
+        <div className="feed-container">
           {/* Composer */}
           {user && (
-            <div className="p-4 border-b border-[var(--border-subtle)]">
+            <div className="py-3 border-b border-[var(--border-subtle)]">
               <Link href="/create" className="flex items-start gap-3 group">
                 <Avatar
                   src={user.avatar_url}
                   name={user.display_name}
                   size="md"
                 />
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <div className="text-[15px] text-[var(--text-muted)] py-2.5 px-4 rounded-xl bg-[var(--bg-secondary)] border border-transparent group-hover:border-[var(--border-soft)] transition-colors-fast">
                     What's happening?
-                  </div>
-                  <div className="flex items-center justify-between mt-3">
-                    <div className="flex items-center gap-0.5">
-                      {['image', 'gif', 'poll', 'emoji', 'location'].map((icon) => (
-                        <button key={icon} className="p-2 rounded-full hover:bg-[var(--bg-secondary)] text-[var(--accent-primary)] transition-colors-fast">
-                          <ComposerIcon name={icon} />
-                        </button>
-                      ))}
-                    </div>
                   </div>
                 </div>
               </Link>
@@ -256,7 +246,7 @@ export default function FeedPage() {
 
           {/* Stories */}
           {(stories.length > 0 || user) && (
-            <div className="p-4 border-b border-[var(--border-subtle)]">
+            <div className="py-3 border-b border-[var(--border-subtle)]">
               <Stories
                 stories={stories}
                 currentUser={user ? {
@@ -266,11 +256,7 @@ export default function FeedPage() {
                   avatar_url: user.avatar_url,
                 } : undefined}
                 onUploadSuccess={() => {
-                  // Reload stories after upload - add small delay to ensure DB commit
-                  console.log('[FEED] onUploadSuccess triggered');
-                  setTimeout(() => {
-                    loadData();
-                  }, 500);
+                  setTimeout(() => window.location.reload(), 500);
                 }}
               />
             </div>
@@ -278,37 +264,35 @@ export default function FeedPage() {
 
           {/* Posts */}
           {posts.length > 0 ? (
-            <div className="space-y-5">
+            <div>
               {posts.map((post) => (
-                <div key={post.id}>
-                  <PostCard post={{
-                    id: post.id,
-                    user: {
-                      id: post.user_id,
-                      username: post.user_username,
-                      displayName: post.user_display_name,
-                      avatar: post.user_avatar_url || '',
-                      isVerified: post.user_is_verified,
-                      bio: '',
-                      followers: 0,
-                      following: 0,
-                      posts: 0,
-                    },
-                    content: post.content || '',
-                    images: post.media?.map(m => m.storage_path) || [],
-                    likes: post.like_count,
-                    comments: post.comment_count,
-                    shares: 0,
-                    isLiked: post.is_liked,
-                    isSaved: post.is_saved,
-                    createdAt: post.created_at,
-                    location: post.location || undefined,
-                  }} />
-                </div>
+                <PostCard key={post.id} post={{
+                  id: post.id,
+                  user: {
+                    id: post.user_id,
+                    username: post.user_username,
+                    displayName: post.user_display_name,
+                    avatar: post.user_avatar_url || '',
+                    isVerified: post.user_is_verified,
+                    bio: '',
+                    followers: 0,
+                    following: 0,
+                    posts: 0,
+                  },
+                  content: post.content || '',
+                  images: post.media?.map(m => m.storage_path) || [],
+                  likes: post.like_count,
+                  comments: post.comment_count,
+                  shares: 0,
+                  isLiked: post.is_liked,
+                  isSaved: post.is_saved,
+                  createdAt: post.created_at,
+                  location: post.location || undefined,
+                }} />
               ))}
             </div>
           ) : (
-            <div className="p-8 text-center text-[var(--text-muted)]">
+            <div className="py-16 text-center text-[var(--text-muted)]">
               <p>No posts yet. Follow some users or create your first post!</p>
             </div>
           )}

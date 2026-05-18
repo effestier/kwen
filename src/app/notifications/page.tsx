@@ -49,13 +49,10 @@ export default function NotificationsPage() {
 
   useEffect(() => {
     async function loadNotifications() {
-      console.log('[NOTIFICATIONS] Starting load...');
 
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      console.log('[NOTIFICATIONS] Auth result:', { userId: user?.id, authError });
 
       if (authError || !user) {
-        console.log('[NOTIFICATIONS] No user, setting loading false');
         setLoading(false);
         return;
       }
@@ -68,17 +65,13 @@ export default function NotificationsPage() {
         .order('created_at', { ascending: false })
         .limit(50);
 
-      console.log('[NOTIFICATIONS] Raw notifications query:', { count: notifs?.length, notifError });
-      console.log('[NOTIFICATIONS] Sample notifications:', notifs?.slice(0, 3));
 
       if (notifError) {
-        console.error('[NOTIFICATIONS] Query error:', notifError);
         setLoading(false);
         return;
       }
 
       if (!notifs || notifs.length === 0) {
-        console.log('[NOTIFICATIONS] No notifications found');
         setNotifications([]);
         setLoading(false);
         return;
@@ -86,7 +79,6 @@ export default function NotificationsPage() {
 
       // Get unique actor IDs
       const actorIds = [...new Set(notifs.map(n => n.actor_id))];
-      console.log('[NOTIFICATIONS] Actor IDs to fetch:', actorIds);
 
       // Fetch actor profiles separately
       const { data: profiles, error: profileError } = await supabase
@@ -94,7 +86,6 @@ export default function NotificationsPage() {
         .select('id, username, display_name, avatar_url')
         .in('id', actorIds);
 
-      console.log('[NOTIFICATIONS] Profiles query:', { count: profiles?.length, profileError });
 
       const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
 
@@ -114,7 +105,6 @@ export default function NotificationsPage() {
         };
       });
 
-      console.log('[NOTIFICATIONS] Mapped notifications:', mappedNotifications.slice(0, 3));
 
       setNotifications(mappedNotifications);
       setLoading(false);

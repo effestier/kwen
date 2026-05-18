@@ -31,18 +31,13 @@ export async function toggleFollow(userId: string) {
       .eq('id', existing.id)
   } else {
     // Follow
-    console.log('[FOLLOWS] Starting follow action')
-    console.log('[FOLLOWS] Current user id:', user.id)
-    console.log('[FOLLOWS] Target user id:', userId)
 
     const { error: followError } = await supabase
       .from('follows')
       .insert({ follower_id: user.id, following_id: userId })
 
     if (followError) {
-      console.error('[FOLLOWS] Follow insert error:', followError)
     } else {
-      console.log('[FOLLOWS] Follow insert success')
     }
 
     // Create notification with explicit payload
@@ -53,7 +48,6 @@ export async function toggleFollow(userId: string) {
       is_read: false,
     }
 
-    console.log('[FOLLOWS] Notification payload:', JSON.stringify(notificationPayload))
 
     // First verify target user exists
     const { data: targetUser, error: targetError } = await supabase
@@ -62,10 +56,8 @@ export async function toggleFollow(userId: string) {
       .eq('id', userId)
       .single()
 
-    console.log('[FOLLOWS] Target user check:', { targetUser, targetError })
 
     if (targetError) {
-      console.error('[FOLLOWS] Target user lookup error:', targetError)
     }
 
     // Insert notification
@@ -74,10 +66,7 @@ export async function toggleFollow(userId: string) {
       .insert(notificationPayload)
 
     if (notifError) {
-      console.error('[FOLLOWS] Notification insert error:', notifError)
-      console.error('[FOLLOWS] Notification insert error details:', JSON.stringify(notifError, null, 2))
     } else {
-      console.log('[FOLLOWS] Notification insert success!')
     }
   }
 

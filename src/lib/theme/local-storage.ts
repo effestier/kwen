@@ -46,16 +46,13 @@ export const syncThemeToDatabase = async (
       return { success: false, error: 'Not authenticated' };
     }
 
-    // Upsert user preferences
     const { error } = await supabase
-      .from('user_preferences')
-      .upsert({
-        user_id: user.id,
+      .from('user_settings')
+      .update({
         theme: theme,
         updated_at: new Date().toISOString(),
-      }, {
-        onConflict: 'user_id'
-      });
+      })
+      .eq('user_id', user.id);
 
     if (error) {
       return { success: false, error: error.message };
@@ -77,7 +74,7 @@ export const loadThemeFromDatabase = async (
     if (!user) return null;
 
     const { data, error } = await supabase
-      .from('user_preferences')
+      .from('user_settings')
       .select('theme')
       .eq('user_id', user.id)
       .single();

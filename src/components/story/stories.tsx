@@ -95,10 +95,8 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    console.log('[STORIES] handleFileChange start:', { file: !!file, currentUser: currentUser?.id });
 
     if (!file || !currentUser) {
-      console.log('[STORIES] Early return - no file or no currentUser');
       return;
     }
 
@@ -107,7 +105,6 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
     try {
       // Get auth user
       const { data: { user: authUser } } = await supabase.auth.getUser();
-      console.log('[STORIES] Auth user:', authUser?.id);
 
       if (!authUser) {
         alert('Please sign in to add a story');
@@ -119,16 +116,13 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
       const fileName = `${authUser.id}/${Date.now()}.${fileExt}`;
       const mediaType = file.type.startsWith('video') ? 'video' : 'image';
 
-      console.log('[STORIES] File:', { name: fileName, type: file.type, mediaType });
 
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('stories')
         .upload(fileName, file);
 
-      console.log('[STORIES] Storage upload:', { uploadData, uploadError });
 
       if (uploadError) {
-        console.error('[STORIES] Storage error:', uploadError);
         alert(`Storage error: ${uploadError.message}`);
         return;
       }
@@ -137,24 +131,19 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
         .from('stories')
         .getPublicUrl(fileName);
 
-      console.log('[STORIES] Public URL:', urlData.publicUrl);
 
       // Create story record
       const result = await uploadStory(urlData.publicUrl, mediaType);
 
-      console.log('[STORIES] Create result:', result);
 
       if (result.error) {
-        console.error('[STORIES] DB insert error:', result.error);
         alert(`Failed to create story: ${result.error}`);
       } else {
-        console.log('[STORIES] Story created successfully:', result.storyId);
 
         // Trigger parent refresh - this will update stories prop
         onUploadSuccess?.();
       }
     } catch (err: any) {
-      console.error('[STORIES] Catch error:', err);
       alert(`Error: ${err?.message || err}`);
     } finally {
       setIsUploading(false);

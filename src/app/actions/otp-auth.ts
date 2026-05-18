@@ -26,7 +26,6 @@ export async function sendOTP(email: string): Promise<AuthResult> {
     });
 
     if (error) {
-      console.error('[OTP] Send error:', error);
 
       if (error.message?.toLowerCase().includes('rate limit')) {
         return { error: 'Too many requests. Please wait a moment and try again.' };
@@ -37,7 +36,6 @@ export async function sendOTP(email: string): Promise<AuthResult> {
 
     return { success: true };
   } catch (err: any) {
-    console.error('[OTP] Send exception:', err);
     return { error: err?.message || 'Failed to send OTP. Please try again.' };
   }
 }
@@ -62,7 +60,6 @@ export async function verifyOTP(email: string, token: string): Promise<AuthResul
     });
 
     if (error) {
-      console.error('[OTP] Verify error:', error);
 
       if (
         error.message?.toLowerCase().includes('invalid') ||
@@ -78,6 +75,7 @@ export async function verifyOTP(email: string, token: string): Promise<AuthResul
       return { error: 'Verification failed. Please try again.' };
     }
 
+    // Ensure profile exists - use upsert to handle race conditions with trigger
     const { data: existingProfile } = await supabase
       .from('profiles')
       .select('id')
@@ -86,22 +84,30 @@ export async function verifyOTP(email: string, token: string): Promise<AuthResul
 
     if (!existingProfile) {
       const displayName = email.split('@')[0];
+      const tempUsername = `user_${data.user.id.slice(0, 8)}`;
 
-      await supabase.from('profiles').insert({
+      // Upsert handles race condition with database trigger
+      const { error: profileError } = await supabase.from('profiles').upsert({
         id: data.user.id,
-        username: `user_${data.user.id.slice(0, 8)}`,
+        username: tempUsername,
         display_name: displayName,
-      });
+      }, { onConflict: 'id' });
 
-      await supabase.from('user_settings').insert({
+      if (profileError) {
+      }
+
+      // Create user settings (ignore if already exists)
+      const { error: settingsError } = await supabase.from('user_settings').upsert({
         user_id: data.user.id,
-      });
+      }, { onConflict: 'user_id' });
+
+      if (settingsError) {
+      }
     }
 
     revalidatePath('/', 'layout');
     return { success: true };
   } catch (err: any) {
-    console.error('[OTP] Verify exception:', err);
     return { error: err?.message || 'Verification failed. Please try again.' };
   }
 }

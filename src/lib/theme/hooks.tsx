@@ -10,20 +10,13 @@ import {
   type ReactNode,
 } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import {
-  Theme,
-  lightTheme,
-  darkTheme,
-  getThemeByName,
-  getSystemTheme,
-} from './themes';
+import type { Theme } from './themes';
 import {
   getStoredTheme,
   setStoredTheme,
-  getInitialTheme,
+  loadThemeFromDatabase,
   syncThemeToDatabase,
   subscribeToSystemTheme,
-  getThemeSource,
 } from './local-storage';
 
 interface ThemeContextValue {
@@ -41,60 +34,84 @@ interface ThemeProviderProps {
   initialTheme?: Theme;
 }
 
+// Resolve theme synchronously (no async, no flash)
+function resolveThemeSync(theme: Theme): 'light' | 'dark' {
+  if (theme === 'system') {
+    if (typeof window !== 'undefined' && window.matchMedia) {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    return 'light';
+  }
+  return theme === 'dark' ? 'dark' : 'light';
+}
+
+// Apply theme to DOM immediately
+function applyThemeToDOM(resolved: 'light' | 'dark') {
+  document.documentElement.setAttribute('data-theme', resolved);
+  document.documentElement.classList.toggle('dark', resolved === 'dark');
+  document.documentElement.classList.toggle('light', resolved === 'light');
+}
+
 export function ThemeProvider({ children, initialTheme }: ThemeProviderProps) {
-  const [theme, setThemeState] = useState<Theme>(initialTheme || 'system');
-  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light');
-  const [isLoading, setIsLoading] = useState(true);
-  const [themeSource, setThemeSource] = useState<'localStorage' | 'database' | null>(null);
   const supabase = createClient();
 
-  // Initialize theme on mount
+  // Initialize synchronously from localStorage to prevent flash
+  const [theme, setThemeState] = useState<Theme>(() => {
+    if (typeof window === 'undefined') return initialTheme || 'system';
+    const stored = getStoredTheme();
+    return stored || initialTheme || 'system';
+  });
+
+  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>(() => {
+    return resolveThemeSync(theme);
+  });
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [themeSource, setThemeSource] = useState<'localStorage' | 'database' | null>(null);
+
+  // Apply theme to DOM on mount (synchronous, before paint)
   useEffect(() => {
-    const init = async () => {
-      try {
-        const initial = await getInitialTheme(supabase);
-        setThemeState(initial);
-        setThemeSource(getThemeSource());
-
-        // Resolve system theme
-        const resolved = getThemeByName(initial);
-        setResolvedTheme(resolved.isDark ? 'dark' : 'light');
-      } catch (error) {
-        console.error('Theme initialization error:', error);
-        setThemeState('system');
-        setResolvedTheme('light');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    init();
+    applyThemeToDOM(resolvedTheme);
   }, []);
 
-  // Apply theme to document
+  // Load from DB in background (for authenticated users)
   useEffect(() => {
-    if (isLoading) return;
+    let cancelled = false;
 
-    const resolved = theme === 'system' ? getSystemTheme() : getThemeByName(theme);
-    const isDark = resolved.isDark;
+    async function loadFromDB() {
+      try {
+        const dbTheme = await loadThemeFromDatabase(supabase);
+        if (!cancelled && dbTheme) {
+          setThemeState(dbTheme);
+          setThemeSource('database');
+          setStoredTheme(dbTheme);
+          const resolved = resolveThemeSync(dbTheme);
+          setResolvedTheme(resolved);
+          applyThemeToDOM(resolved);
+        }
+      } catch {
+        // Ignore DB errors
+      }
+    }
 
-    // Apply to document
-    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
-    document.documentElement.classList.toggle('dark', isDark);
-    document.documentElement.classList.toggle('light', !isDark);
+    loadFromDB();
+    return () => { cancelled = true; };
+  }, []);
 
-    setResolvedTheme(isDark ? 'dark' : 'light');
-  }, [theme, isLoading]);
+  // Apply theme to document when theme changes
+  useEffect(() => {
+    const resolved = resolveThemeSync(theme);
+    setResolvedTheme(resolved);
+    applyThemeToDOM(resolved);
+  }, [theme]);
 
-  // Subscribe to system theme changes
+  // Subscribe to system theme changes (only when theme is 'system')
   useEffect(() => {
     if (theme !== 'system') return;
 
     const unsubscribe = subscribeToSystemTheme((systemTheme) => {
       setResolvedTheme(systemTheme);
-      document.documentElement.setAttribute('data-theme', systemTheme);
-      document.documentElement.classList.toggle('dark', systemTheme === 'dark');
-      document.documentElement.classList.toggle('light', systemTheme === 'light');
+      applyThemeToDOM(systemTheme);
     });
 
     return unsubscribe;

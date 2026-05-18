@@ -105,20 +105,16 @@ export default function AccountPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user?.id) throw new Error('No authenticated user');
 
-      console.log('AUTH USER:', user.id);
-      console.log('UPLOAD BUCKET:', 'avatars');
 
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}.${fileExt}`;
       const filePath = `${user.id}/${fileName}`;
 
-      console.log('UPLOAD PATH:', filePath);
 
       const { error: uploadError, data: uploadData } = await supabase.storage
         .from('avatars')
         .upload(filePath, file, { upsert: true });
 
-      console.log('UPLOAD RESULT:', { error: uploadError, data: uploadData });
       if (uploadError) throw uploadError;
 
       const { data: urlData } = supabase.storage
@@ -126,7 +122,6 @@ export default function AccountPage() {
         .getPublicUrl(filePath);
 
       const publicUrl = urlData?.publicUrl;
-      console.log('PUBLIC URL:', publicUrl);
 
       const { error: updateError } = await supabase
         .from('profiles')

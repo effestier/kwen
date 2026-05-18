@@ -221,13 +221,18 @@ BEGIN
   v_username := NEW.raw_user_meta_data->>'username';
   v_display_name := NEW.raw_user_meta_data->>'display_name';
 
-  -- Validate required fields - signup must provide username and display_name
-  IF v_username IS NULL OR v_display_name IS NULL THEN
-    RAISE EXCEPTION 'Signup must include username and display_name in user_metadata';
+  -- If metadata missing, generate defaults (OTP users won't have metadata)
+  IF v_username IS NULL THEN
+    v_username := 'user_' || substr(NEW.id::text, 1, 8);
+  END IF;
+  IF v_display_name IS NULL THEN
+    v_display_name := 'User';
   END IF;
 
+  -- Use INSERT ... ON CONFLICT to avoid errors if profile already exists
   INSERT INTO public.profiles (id, username, display_name)
-  VALUES (NEW.id, v_username, v_display_name);
+  VALUES (NEW.id, v_username, v_display_name)
+  ON CONFLICT (id) DO NOTHING;
 
   RETURN NEW;
 END;

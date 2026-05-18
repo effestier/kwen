@@ -28,7 +28,6 @@ export function PostCard({ post }: PostCardProps) {
         const count = await getCommentCount(post.id);
         setCommentCount(count);
       } catch (error) {
-        console.error('[POSTCARD] Failed to load comment count:', error);
       }
     }
     loadCommentCount();
@@ -153,10 +152,7 @@ export function PostCard({ post }: PostCardProps) {
 
         {/* Images */}
         {post.images && post.images.length > 0 && (
-          <div className={cn(
-            'mb-4',
-            post.images.length === 1 ? '' : 'grid gap-0.5'
-          )}>
+          <div className="mb-3 rounded-xl overflow-hidden bg-[var(--bg-tertiary)]">
             <div className={cn(
               'grid gap-0.5',
               post.images.length === 1 ? '' : 'grid-cols-2'
@@ -165,14 +161,14 @@ export function PostCard({ post }: PostCardProps) {
                 <div
                   key={i}
                   className={cn(
-                    'bg-[var(--bg-tertiary)] overflow-hidden',
-                    post.images!.length === 1 ? 'max-h-[500px]' : 'aspect-square'
+                    'overflow-hidden',
+                    post.images!.length === 1 ? 'aspect-[4/5]' : 'aspect-square'
                   )}
                 >
                   <img
                     src={image}
                     alt=""
-                    className="post-media"
+                    className="w-full h-full object-cover"
                   />
                 </div>
               ))}
@@ -181,37 +177,37 @@ export function PostCard({ post }: PostCardProps) {
         )}
 
         {/* Actions */}
-        <div className="post-actions">
+        <div className="flex items-center gap-1 mt-2">
           <button
             onClick={handleLike}
             disabled={loading}
             className={cn(
-              'post-action-button',
-              liked ? 'text-[var(--destructive)]' : 'text-[var(--text-muted)] hover:text-[var(--destructive)]',
+              'p-2 rounded-full transition-all duration-200 active:scale-90',
+              liked ? 'text-[var(--destructive)]' : 'text-[var(--text-muted)] hover:text-[var(--destructive)] hover:bg-[var(--bg-tertiary)]',
               loading && 'opacity-50'
             )}
             aria-label={liked ? 'Unlike' : 'Like'}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="post-action-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
             </svg>
           </button>
 
           <button
             onClick={handleOpenComments}
-            className={cn(
-              'post-action-button',
-              'text-[var(--text-muted)] hover:text-[var(--accent-primary)]'
-            )}
-            aria-label="View Comments"
+            className="p-2 rounded-full text-[var(--text-muted)] hover:text-[var(--accent-primary)] hover:bg-[var(--bg-tertiary)] transition-all duration-200 active:scale-90"
+            aria-label="Comments"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="post-action-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
             </svg>
           </button>
 
-          <button className="post-action-button text-[var(--text-muted)] hover:text-[var(--success)]" aria-label="Share">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="post-action-icon">
+          <button
+            className="p-2 rounded-full text-[var(--text-muted)] hover:text-[var(--success)] hover:bg-[var(--bg-tertiary)] transition-all duration-200 active:scale-90"
+            aria-label="Share"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" /><polyline points="16 6 12 2 8 6" /><line x1="12" x2="12" y1="2" y2="15" />
             </svg>
           </button>
@@ -220,29 +216,24 @@ export function PostCard({ post }: PostCardProps) {
             onClick={handleSave}
             disabled={loading}
             className={cn(
-              'post-action-button ml-auto',
-              saved ? 'text-amber-500' : 'text-[var(--text-muted)] hover:text-amber-500',
+              'p-2 rounded-full ml-auto transition-all duration-200 active:scale-90',
+              saved ? 'text-amber-500' : 'text-[var(--text-muted)] hover:text-amber-500 hover:bg-[var(--bg-tertiary)]',
               loading && 'opacity-50'
             )}
             aria-label={saved ? 'Unsave' : 'Save'}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={saved ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="post-action-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill={saved ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
             </svg>
           </button>
         </div>
 
         {/* Engagement Stats */}
-        <div className="flex items-center gap-4 mt-3 text-xs text-[var(--text-muted)]">
-          <button className="hover:underline">
-            <span className="font-semibold text-[var(--text-secondary)]">{formatNumber(likeCount)}</span> likes
-          </button>
+        <div className="flex items-center gap-3 mt-1 text-xs text-[var(--text-muted)]">
+          <span className="font-semibold text-[var(--text-secondary)]">{formatNumber(likeCount)} likes</span>
           <button onClick={handleOpenComments} className="hover:underline">
             <span className="font-semibold text-[var(--text-secondary)]">{formatNumber(commentCount)}</span> comments
           </button>
-          <span>
-            <span className="font-semibold text-[var(--text-secondary)]">{formatNumber(post.shares)}</span> shares
-          </span>
         </div>
       </article>
 

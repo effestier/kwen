@@ -28,13 +28,28 @@ export function useAuth() {
   const supabase = createClient()
 
   useEffect(() => {
-    const fetchProfile = async (userId: string) => {
+    const fetchProfile = async (userId: string): Promise<Profile | null> => {
       const { data: profile } = await supabase
         .from('profiles')
         .select('id, username, display_name, avatar_url, bio, is_verified')
         .eq('id', userId)
         .single()
-      return profile as Profile | null
+
+      if (profile) return profile as Profile
+
+      // Fallback: profile missing for authenticated user - create it
+      const tempUsername = `user_${userId.slice(0, 8)}`
+      const { data: newProfile } = await supabase
+        .from('profiles')
+        .upsert({
+          id: userId,
+          username: tempUsername,
+          display_name: 'User',
+        }, { onConflict: 'id' })
+        .select('id, username, display_name, avatar_url, bio, is_verified')
+        .single()
+
+      return newProfile as Profile | null
     }
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(

@@ -49,18 +49,58 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
   useEffect(() => {
     async function loadData() {
       // Get profile by username (no auth required)
-      const { data: targetProfile, error: profileError } = await supabase
+      let { data: targetProfile, error: profileError } = await supabase
         .from('profiles')
         .select('id, username, display_name, avatar_url, bio, is_verified')
         .eq('username', username)
         .single();
 
-      console.log('[PROFILE] Target profile:', { targetProfile, profileError });
-
+      // Fallback: if profile not found and user is authenticated,
+      // check if this is their own profile (temp username case)
       if (profileError || !targetProfile) {
-        console.log('[PROFILE] Profile not found');
-        setLoading(false);
-        return;
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (authUser) {
+          // Try to find profile by auth user ID
+          const { data: ownProfile } = await supabase
+            .from('profiles')
+            .select('id, username, display_name, avatar_url, bio, is_verified')
+            .eq('id', authUser.id)
+            .single();
+
+          if (ownProfile) {
+            // Profile exists but username doesn't match - redirect to correct URL
+            if (ownProfile.username !== username) {
+              window.location.replace(`/profile/${ownProfile.username}`);
+              return;
+            }
+            targetProfile = ownProfile;
+          } else {
+            // No profile at all - create one as fallback
+            const tempUsername = `user_${authUser.id.slice(0, 8)}`;
+            const { data: newProfile } = await supabase
+              .from('profiles')
+              .upsert({
+                id: authUser.id,
+                username: tempUsername,
+                display_name: authUser.email?.split('@')[0] || 'User',
+              }, { onConflict: 'id' })
+              .select('id, username, display_name, avatar_url, bio, is_verified')
+              .single();
+
+            if (newProfile) {
+              if (newProfile.username !== username) {
+                window.location.replace(`/profile/${newProfile.username}`);
+                return;
+              }
+              targetProfile = newProfile;
+            }
+          }
+        }
+
+        if (!targetProfile) {
+          setLoading(false);
+          return;
+        }
       }
 
       setProfile(targetProfile);
@@ -112,11 +152,8 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
         .order('created_at', { ascending: false })
         .limit(9);
 
-      console.log('[PROFILE] Posts result:', { count: userPosts?.length, postsError });
-      console.log('[PROFILE] Sample post:', userPosts?.[0]);
 
       if (postsError) {
-        console.error('[PROFILE] Posts query error:', JSON.stringify(postsError, null, 2));
       }
 
       if (userPosts && userPosts.length > 0) {
@@ -196,9 +233,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
     if (!profile || messaging) return;
 
     setMessaging(true);
-    console.error('[PROFILE] Starting message to:', profile.id)
     const result = await getOrCreateConversation(profile.id);
-    console.error('[PROFILE] Message result:', JSON.stringify(result))
 
     if (result.conversationId) {
       router.push('/messages');

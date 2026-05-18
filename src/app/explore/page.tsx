@@ -247,8 +247,8 @@ export default function ExplorePage() {
               {posts.map((post, index) => (
                 <Link
                   key={post.id}
-                  href={`/profile/${post.user_username}`}
-                  className="aspect-square bg-[var(--bg-secondary)] relative group block focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)] focus:ring-inset"
+                  href={`/post/${post.id}`}
+                  className="aspect-square bg-[var(--bg-secondary)] relative group block focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)] focus:ring-inset cursor-pointer"
                 >
                   {post.images?.[0] ? (
                     <img

@@ -149,3 +149,90 @@ export async function getPostLikes(postId: string) {
     return { count: 0 }
   }
 }
+
+export async function getPost(postId: string) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!postId || typeof postId !== 'string') {
+      return { error: 'Invalid post ID' }
+    }
+
+    // Fetch post
+    const { data: post, error: postError } = await supabase
+      .from('posts')
+      .select('id, user_id, content, location, created_at')
+      .eq('id', postId)
+      .is('deleted_at', null)
+      .single()
+
+    if (postError || !post) {
+      return { error: 'Post not found' }
+    }
+
+    // Fetch author profile
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id, username, display_name, avatar_url, is_verified')
+      .eq('id', post.user_id)
+      .single()
+
+    // Fetch media
+    const { data: media } = await supabase
+      .from('post_media')
+      .select('id, storage_path, media_type, sort_order')
+      .eq('post_id', postId)
+      .order('sort_order', { ascending: true })
+
+    // Count likes
+    const { count: likeCount } = await supabase
+      .from('post_likes')
+      .select('*', { count: 'exact', head: true })
+      .eq('post_id', postId)
+
+    // Count comments
+    const { count: commentCount } = await supabase
+      .from('comments')
+      .select('*', { count: 'exact', head: true })
+      .eq('post_id', postId)
+      .is('deleted_at', null)
+
+    // Check if current user liked/saved
+    let isLiked = false
+    let isSaved = false
+
+    if (user) {
+      const [{ data: likedRow }, { data: savedRow }] = await Promise.all([
+        supabase.from('post_likes').select('id').eq('post_id', postId).eq('user_id', user.id).maybeSingle(),
+        supabase.from('saved_posts').select('id').eq('post_id', postId).eq('user_id', user.id).maybeSingle(),
+      ])
+      isLiked = !!likedRow
+      isSaved = !!savedRow
+    }
+
+    return {
+      post: {
+        id: post.id,
+        content: post.content,
+        location: post.location,
+        createdAt: post.created_at,
+        user: profile ? {
+          id: profile.id,
+          username: profile.username,
+          displayName: profile.display_name,
+          avatar: profile.avatar_url,
+          isVerified: profile.is_verified,
+        } : null,
+        images: (media || []).map(m => m.storage_path),
+        mediaType: (media || []).map(m => m.media_type),
+        likes: likeCount || 0,
+        comments: commentCount || 0,
+        isLiked,
+        isSaved,
+      }
+    }
+  } catch {
+    return { error: 'Failed to load post' }
+  }
+}

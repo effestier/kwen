@@ -379,7 +379,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
             posts.length > 0 ? (
               <div className="grid grid-cols-3 gap-0.5">
                 {posts.map((post) => (
-                  <Link key={post.id} href={`/profile/${profile.username}`} className="aspect-square bg-[var(--bg-secondary)] relative group block focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)] focus:ring-inset">
+                  <Link key={post.id} href={`/post/${post.id}`} className="aspect-square bg-[var(--bg-secondary)] relative group block focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)] focus:ring-inset cursor-pointer">
                     {post.images?.[0] ? (
                       <img src={post.images[0]} alt={`Post by ${profile.display_name}`} className="w-full h-full object-cover" />
                     ) : (

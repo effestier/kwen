@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { Avatar } from '@/components/ui/avatar';
 import { createClient } from '@/lib/supabase/client';
 import { BRAND } from '@/lib/brand/config';
+import { signOut } from '@/app/actions/otp-auth';
 
 interface Profile {
   id: string;
@@ -60,13 +61,17 @@ const secondaryNavItems: NavItem[] = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [user, setUser] = useState<Profile | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
   const [messageCount, setMessageCount] = useState(0);
   const searchRef = useRef<HTMLDivElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
+  const accountMenuRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
 
   useEffect(() => {
@@ -176,6 +181,9 @@ export function Sidebar() {
       }
       if (moreMenuRef.current && !moreMenuRef.current.contains(event.target as Node)) {
         setMoreMenuOpen(false);
+      }
+      if (accountMenuRef.current && !accountMenuRef.current.contains(event.target as Node)) {
+        setAccountMenuOpen(false);
       }
     }
 
@@ -339,23 +347,69 @@ export function Sidebar() {
         </Link>
       </div>
 
-      {/* User Profile */}
+      {/* User Account Menu */}
       {user && (
-        <div className="p-3 border-t border-[var(--border-subtle)]">
-          <Link href={`/profile/${user.username}`} className="flex items-center gap-3 p-2 rounded-xl hover:bg-[var(--bg-tertiary)] transition-colors-fast">
+        <div className="p-3 border-t border-[var(--border-subtle)] relative" ref={accountMenuRef}>
+          <button
+            onClick={() => setAccountMenuOpen(!accountMenuOpen)}
+            aria-expanded={accountMenuOpen}
+            aria-haspopup="true"
+            aria-label="Account menu"
+            className="flex items-center gap-3 p-2 rounded-xl hover:bg-[var(--bg-tertiary)] transition-colors-fast w-full"
+          >
             <Avatar
               src={user.avatar_url}
               name={user.display_name}
               size="md"
             />
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 text-left">
               <p className="text-sm font-medium text-[var(--text-primary)] truncate">{user.display_name}</p>
               <p className="text-xs text-[var(--text-muted)]">@{user.username}</p>
             </div>
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="text-[var(--text-muted)]">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={cn('text-[var(--text-muted)] transition-transform', accountMenuOpen && 'rotate-180')}>
               <path d="M6 9l6 6 6-6" />
             </svg>
-          </Link>
+          </button>
+
+          {accountMenuOpen && (
+            <div role="menu" className="absolute bottom-full left-3 right-3 mb-1 py-1.5 bg-[var(--bg-elevated)] rounded-xl border border-[var(--border-subtle)] shadow-lg z-50">
+              <Link
+                href={`/profile/${user.username}`}
+                role="menuitem"
+                onClick={() => setAccountMenuOpen(false)}
+                className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors-fast"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="5" /><path d="M20 21a8 8 0 0 0-16 0" /></svg>
+                Profile
+              </Link>
+              <Link
+                href="/settings/account"
+                role="menuitem"
+                onClick={() => setAccountMenuOpen(false)}
+                className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors-fast"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></svg>
+                Settings
+              </Link>
+              <div className="my-1 border-t border-[var(--border-subtle)]" />
+              <button
+                role="menuitem"
+                onClick={async () => {
+                  if (signingOut) return;
+                  setSigningOut(true);
+                  setAccountMenuOpen(false);
+                  await signOut();
+                  router.push('/');
+                  router.refresh();
+                }}
+                disabled={signingOut}
+                className="flex items-center gap-3 px-4 py-2.5 w-full text-sm text-[var(--destructive)] hover:bg-[var(--destructive)]/10 transition-colors-fast disabled:opacity-50"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" x2="9" y1="12" y2="12" /></svg>
+                {signingOut ? 'Signing out...' : 'Sign out'}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </aside>

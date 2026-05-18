@@ -64,6 +64,7 @@ export function Sidebar() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
+  const [messageCount, setMessageCount] = useState(0);
   const searchRef = useRef<HTMLDivElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
@@ -114,6 +115,22 @@ export function Sidebar() {
     }
 
     loadNotificationCount();
+
+    // Load message count
+    async function loadMessageCount() {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) return;
+
+      const { data: participants } = await supabase
+        .from('conversation_participants')
+        .select('unread_count')
+        .eq('user_id', authUser.id);
+
+      const total = participants?.reduce((sum, p) => sum + (p.unread_count || 0), 0) || 0;
+      setMessageCount(total);
+    }
+
+    loadMessageCount();
 
     // Subscribe to realtime notifications
     const channel = supabase
@@ -207,9 +224,9 @@ export function Sidebar() {
                   {notificationCount > 99 ? '99+' : notificationCount}
                 </span>
               )}
-              {item.badge && item.href !== '/notifications' && (
+              {item.href === '/messages' && messageCount > 0 && (
                 <span className="px-2 py-0.5 text-xs font-medium bg-[var(--accent-primary)] text-white rounded-full">
-                  {item.badge}
+                  {messageCount > 99 ? '99+' : messageCount}
                 </span>
               )}
             </Link>

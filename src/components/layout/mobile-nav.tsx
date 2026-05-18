@@ -15,6 +15,7 @@ interface Profile {
 export function MobileNav() {
   const pathname = usePathname();
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [messageCount, setMessageCount] = useState(0);
   const supabase = createClient();
 
   useEffect(() => {
@@ -45,8 +46,36 @@ export function MobileNav() {
       if (data) setProfile(data);
     }
 
+    async function loadMessageCount() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: participants } = await supabase
+        .from('conversation_participants')
+        .select('unread_count')
+        .eq('user_id', user.id);
+
+      const total = participants?.reduce((sum, p) => sum + (p.unread_count || 0), 0) || 0;
+      setMessageCount(total);
+    }
+
     loadProfile();
-  }, []);
+    loadMessageCount();
+
+    // Subscribe to new messages for realtime badge updates
+    const channel = supabase
+      .channel('mobile-messages-badge')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversation_participants' }, (payload) => {
+        const updated = payload.new as { user_id: string; unread_count: number };
+        if (updated.user_id === profile?.id) {
+          // Reload count on any update
+          loadMessageCount();
+        }
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [profile?.id]);
 
   const isActive = (href: string) => {
     if (href === '/feed') return pathname === '/feed';
@@ -78,10 +107,15 @@ export function MobileNav() {
         </Link>
 
         {/* Messages */}
-        <Link href="/messages" className="flex flex-col items-center justify-center gap-0.5 w-full h-full" aria-label="Messages">
+        <Link href="/messages" className="flex flex-col items-center justify-center gap-0.5 w-full h-full relative" aria-label="Messages">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={isActive('/messages') ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={isActive('/messages') ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}>
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
           </svg>
+          {messageCount > 0 && (
+            <span className="absolute top-1 right-1/2 translate-x-4 min-w-[16px] h-4 px-1 rounded-full bg-[var(--accent-primary)] text-white text-[9px] font-bold flex items-center justify-center">
+              {messageCount > 99 ? '99+' : messageCount}
+            </span>
+          )}
           <span className={`text-[10px] ${isActive('/messages') ? 'font-bold text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}>Messages</span>
         </Link>
 

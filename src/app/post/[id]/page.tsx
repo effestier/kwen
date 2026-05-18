@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Avatar } from '@/components/ui/avatar';
 import { cn, formatNumber, formatTimeAgo } from '@/lib/utils';
 import { getPost, toggleLike, toggleSave } from '@/app/actions/posts';
-import { getComments, addComment, getCommentCount, type Comment } from '@/app/actions/comments';
+import { getComments, getReplies, addComment, toggleCommentLike, deleteComment, getCommentCount, type Comment } from '@/app/actions/comments';
 import { createClient } from '@/lib/supabase/client';
 
 interface PostDetail {
@@ -48,9 +48,12 @@ export default function PostDetailPage() {
 
   // Comments
   const [comments, setComments] = useState<Comment[]>([]);
+  const [repliesMap, setRepliesMap] = useState<Map<string, Comment[]>>(new Map());
+  const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set());
   const [commentsLoading, setCommentsLoading] = useState(true);
   const [newComment, setNewComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<Comment | null>(null);
   const [currentUser, setCurrentUser] = useState<{ id: string; username: string; avatar_url: string | null } | null>(null);
   const commentsRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -146,9 +149,63 @@ export default function PostDetailPage() {
     }
   }, [saved, actionLoading, postId]);
 
+  // Load replies for a thread
+  async function loadReplies(parentId: string) {
+    if (repliesMap.has(parentId)) return;
+    const replies = await getReplies(parentId);
+    setRepliesMap(prev => new Map(prev).set(parentId, replies));
+  }
+
+  function toggleThread(parentId: string) {
+    const isExpanded = expandedThreads.has(parentId);
+    if (!isExpanded) loadReplies(parentId);
+    setExpandedThreads(prev => {
+      const next = new Set(prev);
+      if (next.has(parentId)) next.delete(parentId);
+      else next.add(parentId);
+      return next;
+    });
+  }
+
+  const handleReplyClick = (comment: Comment) => {
+    setReplyingTo(comment);
+    setNewComment(`@${comment.user.username} `);
+    inputRef.current?.focus();
+  };
+
+  const handleCommentLike = async (commentId: string) => {
+    // Optimistic
+    setComments(prev => prev.map(c => c.id === commentId ? { ...c, is_liked: !c.is_liked, like_count: (c.like_count ?? 0) + (c.is_liked ? -1 : 1) } : c));
+    setRepliesMap(prev => {
+      const next = new Map(prev);
+      for (const [pid, replies] of next) {
+        next.set(pid, replies.map(r => r.id === commentId ? { ...r, is_liked: !r.is_liked, like_count: (r.like_count ?? 0) + (r.is_liked ? -1 : 1) } : r));
+      }
+      return next;
+    });
+    const result = await toggleCommentLike(commentId);
+    if (!result.success) {
+      setComments(prev => prev.map(c => c.id === commentId ? { ...c, is_liked: !c.is_liked, like_count: (c.like_count ?? 0) + (c.is_liked ? -1 : 1) } : c));
+    }
+  };
+
+  const handleCommentDelete = async (commentId: string) => {
+    setComments(prev => prev.filter(c => c.id !== commentId));
+    setRepliesMap(prev => {
+      const next = new Map(prev);
+      for (const [pid, replies] of next) {
+        next.set(pid, replies.filter(r => r.id !== commentId));
+      }
+      return next;
+    });
+    setCommentCount(prev => Math.max(0, prev - 1));
+    await deleteComment(commentId);
+  };
+
   const handleAddComment = async () => {
     if (!newComment.trim() || submitting) return;
     const text = newComment.trim();
+    const parentId = replyingTo?.parent_id || replyingTo?.id || undefined;
     setSubmitting(true);
 
     const tempId = `temp-${Date.now()}`;
@@ -157,30 +214,48 @@ export default function PostDetailPage() {
       post_id: postId,
       user_id: currentUser?.id || '',
       content: text,
-      parent_id: null,
+      parent_id: parentId || null,
       created_at: new Date().toISOString(),
-      user: {
-        username: currentUser?.username || 'You',
-        display_name: 'You',
-        avatar_url: currentUser?.avatar_url || null,
-      },
+      user: { username: currentUser?.username || 'You', display_name: 'You', avatar_url: currentUser?.avatar_url || null },
+      reply_count: 0, like_count: 0, is_liked: false,
     };
 
-    setComments(prev => [...prev, temp]);
+    if (parentId) {
+      setRepliesMap(prev => new Map(prev).set(parentId, [...(prev.get(parentId) || []), temp]));
+      setComments(prev => prev.map(c => c.id === parentId ? { ...c, reply_count: (c.reply_count ?? 0) + 1 } : c));
+      setExpandedThreads(prev => new Set(prev).add(parentId));
+    } else {
+      setComments(prev => [...prev, temp]);
+    }
+
     setNewComment('');
+    setReplyingTo(null);
     setCommentCount(prev => prev + 1);
 
     try {
-      const result = await addComment(postId, text);
+      const result = await addComment(postId, text, parentId);
       if (result.success && result.comment) {
-        setComments(prev => prev.map(c => c.id === tempId ? result.comment! : c));
+        if (parentId) {
+          setRepliesMap(prev => new Map(prev).set(parentId, (prev.get(parentId) || []).map(r => r.id === tempId ? result.comment! : r)));
+        } else {
+          setComments(prev => prev.map(c => c.id === tempId ? result.comment! : c));
+        }
       } else {
-        setComments(prev => prev.filter(c => c.id !== tempId));
+        if (parentId) {
+          setRepliesMap(prev => new Map(prev).set(parentId, (prev.get(parentId) || []).filter(r => r.id !== tempId)));
+          setComments(prev => prev.map(c => c.id === parentId ? { ...c, reply_count: Math.max(0, (c.reply_count ?? 1) - 1) } : c));
+        } else {
+          setComments(prev => prev.filter(c => c.id !== tempId));
+        }
         setCommentCount(prev => prev - 1);
         setNewComment(text);
       }
     } catch {
-      setComments(prev => prev.filter(c => c.id !== tempId));
+      if (parentId) {
+        setRepliesMap(prev => new Map(prev).set(parentId, (prev.get(parentId) || []).filter(r => r.id !== tempId)));
+      } else {
+        setComments(prev => prev.filter(c => c.id !== tempId));
+      }
       setCommentCount(prev => prev - 1);
       setNewComment(text);
     } finally {
@@ -192,6 +267,10 @@ export default function PostDetailPage() {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleAddComment();
+    }
+    if (e.key === 'Escape' && replyingTo) {
+      setReplyingTo(null);
+      setNewComment('');
     }
   };
 
@@ -383,21 +462,70 @@ export default function PostDetailPage() {
                 </div>
               ) : (
                 comments.map(comment => (
-                  <div key={comment.id} className="flex gap-3">
-                    <Link href={`/profile/${comment.user.username}`} className="flex-shrink-0">
-                      <Avatar src={comment.user.avatar_url} name={comment.user.display_name} size="sm" />
-                    </Link>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <Link href={`/profile/${comment.user.username}`} className="font-semibold text-sm text-[var(--text-primary)] hover:underline">
-                          {comment.user.username}
-                        </Link>
-                        <span className="text-xs text-[var(--text-muted)]">{formatTimeAgo(comment.created_at)}</span>
+                  <div key={comment.id}>
+                    {/* Parent Comment */}
+                    <div className="flex gap-2.5">
+                      <Link href={`/profile/${comment.user.username}`} className="flex-shrink-0 mt-0.5">
+                        <Avatar src={comment.user.avatar_url} name={comment.user.display_name} size="sm" />
+                      </Link>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <Link href={`/profile/${comment.user.username}`} className="font-semibold text-sm text-[var(--text-primary)] hover:underline">
+                            {comment.user.username}
+                          </Link>
+                          <span className="text-xs text-[var(--text-muted)]">{formatTimeAgo(comment.created_at)}</span>
+                        </div>
+                        <p className="text-sm text-[var(--text-secondary)] mt-0.5 whitespace-pre-wrap break-words">{comment.content}</p>
+                        <div className="flex items-center gap-3 mt-1">
+                          <button onClick={() => handleCommentLike(comment.id)} className={cn('text-xs font-medium transition-colors-fast', comment.is_liked ? 'text-[var(--destructive)]' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]')}>
+                            {comment.is_liked ? 'Liked' : 'Like'}{(comment.like_count ?? 0) > 0 && ` · ${comment.like_count}`}
+                          </button>
+                          <button onClick={() => handleReplyClick(comment)} className="text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors-fast">Reply</button>
+                          {comment.user_id === currentUser?.id && (
+                            <button onClick={() => handleCommentDelete(comment.id)} className="text-xs font-medium text-[var(--text-muted)] hover:text-[var(--destructive)] transition-colors-fast">Delete</button>
+                          )}
+                        </div>
                       </div>
-                      <p className="text-sm text-[var(--text-secondary)] mt-0.5 whitespace-pre-wrap break-words">
-                        {comment.content}
-                      </p>
                     </div>
+
+                    {/* View Replies Toggle */}
+                    {(comment.reply_count ?? 0) > 0 && (
+                      <button onClick={() => toggleThread(comment.id)} className="ml-10 mt-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors-fast flex items-center gap-1">
+                        <div className="w-5 h-px bg-[var(--border-subtle)]" />
+                        {expandedThreads.has(comment.id) ? 'Hide replies' : `View ${comment.reply_count} ${comment.reply_count === 1 ? 'reply' : 'replies'}`}
+                      </button>
+                    )}
+
+                    {/* Replies */}
+                    {expandedThreads.has(comment.id) && repliesMap.has(comment.id) && (
+                      <div className="mt-2 space-y-2.5">
+                        {repliesMap.get(comment.id)!.map(reply => (
+                          <div key={reply.id} className="flex gap-2.5 pl-10">
+                            <Link href={`/profile/${reply.user.username}`} className="flex-shrink-0 mt-0.5">
+                              <Avatar src={reply.user.avatar_url} name={reply.user.display_name} size="sm" />
+                            </Link>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <Link href={`/profile/${reply.user.username}`} className="font-semibold text-sm text-[var(--text-primary)] hover:underline">
+                                  {reply.user.username}
+                                </Link>
+                                <span className="text-xs text-[var(--text-muted)]">{formatTimeAgo(reply.created_at)}</span>
+                              </div>
+                              <p className="text-sm text-[var(--text-secondary)] mt-0.5 whitespace-pre-wrap break-words">{reply.content}</p>
+                              <div className="flex items-center gap-3 mt-1">
+                                <button onClick={() => handleCommentLike(reply.id)} className={cn('text-xs font-medium transition-colors-fast', reply.is_liked ? 'text-[var(--destructive)]' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]')}>
+                                  {reply.is_liked ? 'Liked' : 'Like'}{(reply.like_count ?? 0) > 0 && ` · ${reply.like_count}`}
+                                </button>
+                                <button onClick={() => handleReplyClick(reply)} className="text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors-fast">Reply</button>
+                                {reply.user_id === currentUser?.id && (
+                                  <button onClick={() => handleCommentDelete(reply.id)} className="text-xs font-medium text-[var(--text-muted)] hover:text-[var(--destructive)] transition-colors-fast">Delete</button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))
               )}
@@ -456,6 +584,16 @@ export default function PostDetailPage() {
               </div>
             </div>
 
+            {/* Reply Indicator */}
+            {replyingTo && (
+              <div className="px-4 py-2 bg-[var(--bg-secondary)] border-t border-[var(--border-subtle)] flex items-center justify-between">
+                <p className="text-xs text-[var(--text-muted)]">
+                  Replying to <span className="font-medium text-[var(--text-secondary)]">@{replyingTo.user.username}</span>
+                </p>
+                <button onClick={() => { setReplyingTo(null); setNewComment(''); }} className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)]">Cancel</button>
+              </div>
+            )}
+
             {/* Comment Input */}
             <div className="border-t border-[var(--border-subtle)] p-3">
               <div className="flex items-end gap-2">
@@ -463,15 +601,15 @@ export default function PostDetailPage() {
                   <Avatar src={currentUser.avatar_url} name={currentUser.username} size="sm" />
                 )}
                 <div className="flex-1">
-                  <label htmlFor="post-comment" className="sr-only">Add a comment</label>
+                  <label htmlFor="post-comment" className="sr-only">{replyingTo ? `Reply to @${replyingTo.user.username}` : 'Add a comment'}</label>
                   <textarea
                     ref={inputRef}
                     id="post-comment"
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
                     onKeyDown={handleCommentKeyDown}
-                    placeholder="Add a comment..."
-                    aria-label="Add a comment"
+                    placeholder={replyingTo ? `Reply to @${replyingTo.user.username}...` : 'Add a comment...'}
+                    aria-label={replyingTo ? `Reply to @${replyingTo.user.username}` : 'Add a comment'}
                     className="w-full min-h-[40px] max-h-24 px-3 py-2 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] resize-none focus:outline-none focus:border-[var(--accent-primary)]"
                     rows={1}
                   />
@@ -479,7 +617,7 @@ export default function PostDetailPage() {
                 <button
                   onClick={handleAddComment}
                   disabled={!newComment.trim() || submitting}
-                  aria-label="Post comment"
+                  aria-label={replyingTo ? 'Post reply' : 'Post comment'}
                   className={cn(
                     'p-2 rounded-full transition-all active:scale-90',
                     newComment.trim() && !submitting

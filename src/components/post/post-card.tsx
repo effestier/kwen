@@ -32,7 +32,7 @@ export function PostCard({ post }: PostCardProps) {
     }
     loadCommentCount();
 
-    // Subscribe to realtime comment updates
+    // Subscribe to realtime comment updates (insert + delete for accurate counts)
     const channel = supabase
       .channel(`post-${post.id}-comments`)
       .on('postgres_changes', {
@@ -41,8 +41,15 @@ export function PostCard({ post }: PostCardProps) {
         table: 'comments',
         filter: `post_id=eq.${post.id}`
       }, () => {
-        // New comment added, refresh count
         setCommentCount(prev => prev + 1);
+      })
+      .on('postgres_changes', {
+        event: 'DELETE',
+        schema: 'public',
+        table: 'comments',
+        filter: `post_id=eq.${post.id}`
+      }, () => {
+        setCommentCount(prev => Math.max(0, prev - 1));
       })
       .subscribe();
 

@@ -8,50 +8,43 @@ export async function signUp(formData: FormData) {
   try {
     const supabase = await createClient()
 
-    const email = formData.get('email') as string
+    const email = (formData.get('email') as string)?.trim().toLowerCase().slice(0, 254)
     const password = formData.get('password') as string
-    const username = formData.get('username') as string
-    const displayName = formData.get('displayName') as string
+    const username = (formData.get('username') as string)?.trim().toLowerCase()
+    const displayName = (formData.get('displayName') as string)?.trim().slice(0, 100)
 
-    // Validate required fields
     if (!email || !password || !username || !displayName) {
       return { error: 'All fields are required' }
     }
 
-    // Validate username format
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return { error: 'Please enter a valid email address' }
+    }
+
     if (!/^[a-z0-9_]{3,30}$/.test(username)) {
       return { error: 'Username must be 3-30 characters, lowercase letters, numbers, and underscores only' }
     }
 
-    // Validate password
-    if (password.length < 6) {
-      return { error: 'Password must be at least 6 characters' }
+    if (password.length < 8) {
+      return { error: 'Password must be at least 8 characters' }
     }
 
-    const { data, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: {
-          username,
-          display_name: displayName,
-        },
+        data: { username, display_name: displayName },
         emailRedirectTo: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/callback`,
       },
     })
 
     if (error) {
-      console.error('Signup error:', error)
-      return { error: error.message }
+      return { error: 'Sign up failed. Please try again.' }
     }
-
-    // Check if user was created (data.user will be null if email confirmation is required)
-    // But auth.users row should still be created
 
     revalidatePath('/', 'layout')
     return { success: true }
-  } catch (err) {
-    console.error('Signup exception:', err)
+  } catch {
     return { error: 'An unexpected error occurred. Please try again.' }
   }
 }
@@ -60,90 +53,111 @@ export async function signIn(formData: FormData) {
   try {
     const supabase = await createClient()
 
-    const email = formData.get('email') as string
+    const email = (formData.get('email') as string)?.trim().toLowerCase()
     const password = formData.get('password') as string
 
     if (!email || !password) {
       return { error: 'Email and password are required' }
     }
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
 
     if (error) {
-      console.error('Signin error:', error)
-      return { error: 'Invalid login credentials' }
+      return { error: 'Invalid email or password' }
     }
 
     revalidatePath('/', 'layout')
     return { success: true }
-  } catch (err) {
-    console.error('Signin exception:', err)
+  } catch {
     return { error: 'An unexpected error occurred. Please try again.' }
   }
 }
 
 export async function signOut() {
-  const supabase = await createClient()
+  try {
+    const supabase = await createClient()
+    const { error } = await supabase.auth.signOut()
 
-  const { error } = await supabase.auth.signOut()
+    if (error) {
+      return { error: 'Sign out failed' }
+    }
 
-  if (error) {
-    return { error: error.message }
+    revalidatePath('/', 'layout')
+    redirect('/')
+  } catch {
+    return { error: 'Sign out failed' }
   }
-
-  revalidatePath('/', 'layout')
-  redirect('/')
 }
 
 export async function getSession() {
-  const supabase = await createClient()
-  const { data, error } = await supabase.auth.getSession()
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase.auth.getSession()
 
-  if (error) {
-    return { session: null, error: error.message }
+    if (error) {
+      return { session: null, error: 'Session unavailable' }
+    }
+
+    return { session: data.session, error: null }
+  } catch {
+    return { session: null, error: 'Session unavailable' }
   }
-
-  return { session: data.session, error: null }
 }
 
 export async function getUser() {
-  const supabase = await createClient()
-  const { data: { user }, error } = await supabase.auth.getUser()
+  try {
+    const supabase = await createClient()
+    const { data: { user }, error } = await supabase.auth.getUser()
 
-  if (error) {
-    return { user: null, error: error.message }
+    if (error) {
+      return { user: null, error: 'Authentication failed' }
+    }
+
+    return { user, error: null }
+  } catch {
+    return { user: null, error: 'Authentication failed' }
   }
-
-  return { user, error: null }
 }
 
 export async function resetPassword(email: string) {
-  const supabase = await createClient()
+  try {
+    const supabase = await createClient()
+    const cleanEmail = email?.trim().toLowerCase()
 
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/reset-password`,
-  })
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      return { error: 'Please enter a valid email address' }
+    }
 
-  if (error) {
-    return { error: error.message }
+    const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+      redirectTo: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/reset-password`,
+    })
+
+    if (error) {
+      return { error: 'Failed to send reset email' }
+    }
+
+    return { success: true }
+  } catch {
+    return { error: 'Failed to send reset email' }
   }
-
-  return { success: true }
 }
 
 export async function updatePassword(newPassword: string) {
-  const supabase = await createClient()
+  try {
+    const supabase = await createClient()
 
-  const { error } = await supabase.auth.updateUser({
-    password: newPassword,
-  })
+    if (!newPassword || newPassword.length < 8) {
+      return { error: 'Password must be at least 8 characters' }
+    }
 
-  if (error) {
-    return { error: error.message }
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+
+    if (error) {
+      return { error: 'Failed to update password' }
+    }
+
+    return { success: true }
+  } catch {
+    return { error: 'Failed to update password' }
   }
-
-  return { success: true }
 }

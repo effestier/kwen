@@ -17,46 +17,61 @@ export interface Comment {
 }
 
 export async function getComments(postId: string, limit = 50): Promise<Comment[]> {
-  const supabase = await createClient();
+  try {
+    const supabase = await createClient();
 
-  const { data: comments, error } = await supabase
-    .from('comments')
-    .select(`
-      id,
-      post_id,
-      user_id,
-      content,
-      parent_id,
-      created_at,
-      user:profiles!inner(
-        username,
-        display_name,
-        avatar_url
-      )
-    `)
-    .eq('post_id', postId)
-    .is('deleted_at', null)
-    .order('created_at', { ascending: true })
-    .limit(limit);
+    if (!postId || typeof postId !== 'string') {
+      return [];
+    }
 
-  if (error) {
-    throw new Error(error.message);
+    const safeLimit = Math.min(Math.max(1, limit), 100);
+
+    const { data: comments, error } = await supabase
+      .from('comments')
+      .select(`
+        id,
+        post_id,
+        user_id,
+        content,
+        parent_id,
+        created_at,
+        user:profiles!inner(
+          username,
+          display_name,
+          avatar_url
+        )
+      `)
+      .eq('post_id', postId)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: true })
+      .limit(safeLimit);
+
+    if (error) {
+      return [];
+    }
+
+    return (comments || []) as unknown as Comment[];
+  } catch {
+    return [];
   }
-
-  return (comments || []) as unknown as Comment[];
 }
 
 export async function addComment(postId: string, content: string): Promise<{ success: boolean; error?: string; comment?: Comment }> {
-  const supabase = await createClient();
-
   try {
+    const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return { success: false, error: 'Not authenticated' };
     }
 
-    if (!content.trim()) {
+    if (!postId || typeof postId !== 'string') {
+      return { success: false, error: 'Invalid post ID' };
+    }
+
+    const cleanContent = content.trim().slice(0, 2000);
+
+    if (!cleanContent) {
       return { success: false, error: 'Comment cannot be empty' };
     }
 
@@ -65,7 +80,7 @@ export async function addComment(postId: string, content: string): Promise<{ suc
       .insert({
         post_id: postId,
         user_id: user.id,
-        content: content.trim(),
+        content: cleanContent,
       })
       .select(`
         id,
@@ -83,26 +98,28 @@ export async function addComment(postId: string, content: string): Promise<{ suc
       .single();
 
     if (error) {
-      return { success: false, error: error.message };
+      return { success: false, error: 'Failed to add comment' };
     }
 
     return { success: true, comment: comment as unknown as Comment };
-  } catch (err: any) {
-    return { success: false, error: err?.message || 'Failed to add comment' };
+  } catch {
+    return { success: false, error: 'Failed to add comment' };
   }
 }
 
 export async function deleteComment(commentId: string): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createClient();
-
   try {
+    const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return { success: false, error: 'Not authenticated' };
     }
 
-    // Soft delete - mark as deleted
+    if (!commentId || typeof commentId !== 'string') {
+      return { success: false, error: 'Invalid comment ID' };
+    }
+
     const { error } = await supabase
       .from('comments')
       .update({ deleted_at: new Date().toISOString() })
@@ -110,27 +127,35 @@ export async function deleteComment(commentId: string): Promise<{ success: boole
       .eq('user_id', user.id);
 
     if (error) {
-      return { success: false, error: error.message };
+      return { success: false, error: 'Failed to delete comment' };
     }
 
     return { success: true };
-  } catch (err: any) {
-    return { success: false, error: err?.message || 'Failed to delete comment' };
+  } catch {
+    return { success: false, error: 'Failed to delete comment' };
   }
 }
 
 export async function getCommentCount(postId: string): Promise<number> {
-  const supabase = await createClient();
+  try {
+    const supabase = await createClient();
 
-  const { count, error } = await supabase
-    .from('comments')
-    .select('*', { count: 'exact', head: true })
-    .eq('post_id', postId)
-    .is('deleted_at', null);
+    if (!postId || typeof postId !== 'string') {
+      return 0;
+    }
 
-  if (error) {
+    const { count, error } = await supabase
+      .from('comments')
+      .select('*', { count: 'exact', head: true })
+      .eq('post_id', postId)
+      .is('deleted_at', null);
+
+    if (error) {
+      return 0;
+    }
+
+    return count || 0;
+  } catch {
     return 0;
   }
-
-  return count || 0;
 }

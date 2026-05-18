@@ -108,6 +108,14 @@ export default function NotificationsPage() {
 
       setNotifications(mappedNotifications);
       setLoading(false);
+
+      // Auto-mark all as read when visiting notifications page
+      if (notifs.some(n => !n.is_read)) {
+        await markAllNotificationsAsRead();
+        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+        // Notify sidebar to reset badge
+        window.dispatchEvent(new CustomEvent('notifications-read'));
+      }
     }
 
     loadNotifications();
@@ -138,7 +146,7 @@ export default function NotificationsPage() {
             <div className="text-[var(--text-muted)]">Loading...</div>
           </div>
         ) : notifications.length > 0 ? (
-          <div className="divide-y divide-[var(--border-subtle)]">
+          <div role="feed" aria-label="Notifications" className="divide-y divide-[var(--border-subtle)]">
             {notifications.map((notif) => (
               <Link
                 key={notif.id}
@@ -149,7 +157,7 @@ export default function NotificationsPage() {
                 )}
               >
                 <div className="flex items-start gap-3">
-                  <div className={cn('p-1.5 rounded-full', iconColors[notif.type])}>
+                  <div aria-hidden="true" className={cn('p-1.5 rounded-full', iconColors[notif.type])}>
                     {iconMap[notif.type]}
                   </div>
                   <Avatar
@@ -165,7 +173,7 @@ export default function NotificationsPage() {
                     <p className="text-xs text-[var(--text-muted)] mt-0.5">{formatTimeAgo(notif.created_at)}</p>
                   </div>
                   {!notif.is_read && (
-                    <div className="w-2 h-2 rounded-full bg-[var(--accent-primary)]" />
+                    <div aria-label="Unread" className="w-2 h-2 rounded-full bg-[var(--accent-primary)]" />
                   )}
                 </div>
               </Link>

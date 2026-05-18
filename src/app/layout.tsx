@@ -4,15 +4,21 @@ import { Providers } from '@/components/providers';
 import { BRAND } from '@/lib/brand/config';
 
 export const metadata: Metadata = {
-  title: 'KWEN',
-  description: 'Connect. Share. Grow.',
+  title: {
+    default: `${BRAND.name} — ${BRAND.tagline}`,
+    template: `%s | ${BRAND.name}`,
+  },
+  description: BRAND.tagline,
   metadataBase: new URL(BRAND.auth.siteUrl),
+  alternates: {
+    canonical: '/',
+  },
 
-icons: {
-  icon: '/favicon.ico',
-  shortcut: '/favicon.ico',
-  apple: '/apple-touch-icon.png',
-},
+  icons: {
+    icon: '/favicon.ico',
+    shortcut: '/favicon.ico',
+    apple: '/apple-touch-icon.png',
+  },
 
   manifest: '/site.webmanifest',
 
@@ -68,8 +74,47 @@ export default function RootLayout({
             `,
           }}
         />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'Organization',
+              name: BRAND.name,
+              url: BRAND.social.website,
+              logo: `${BRAND.social.website}/web-app-manifest-512x512.png`,
+              description: BRAND.tagline,
+              sameAs: [],
+              contactPoint: {
+                '@type': 'ContactPoint',
+                email: BRAND.social.supportEmail,
+                contactType: 'customer service',
+              },
+            }),
+          }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'WebSite',
+              name: BRAND.name,
+              url: BRAND.social.website,
+              description: BRAND.tagline,
+              potentialAction: {
+                '@type': 'SearchAction',
+                target: `${BRAND.social.website}/explore?q={search_term_string}`,
+                'query-input': 'required name=search_term_string',
+              },
+            }),
+          }}
+        />
       </head>
       <body className="antialiased">
+        <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:rounded-lg focus:bg-[var(--accent-primary)] focus:text-white focus:text-sm focus:font-semibold">
+          Skip to main content
+        </a>
         <Providers>
           {children}
         </Providers>

@@ -16,6 +16,7 @@ export function MobileNav() {
   const pathname = usePathname();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [messageCount, setMessageCount] = useState(0);
+  const [notificationCount, setNotificationCount] = useState(0);
   const supabase = createClient();
 
   useEffect(() => {
@@ -59,8 +60,22 @@ export function MobileNav() {
       setMessageCount(total);
     }
 
+    async function loadNotificationCount() {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) return;
+
+      const { count } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', authUser.id)
+        .eq('is_read', false);
+
+      setNotificationCount(count || 0);
+    }
+
     loadProfile();
     loadMessageCount();
+    loadNotificationCount();
 
     // Subscribe to new messages for realtime badge updates
     const channel = supabase
@@ -68,13 +83,26 @@ export function MobileNav() {
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversation_participants' }, (payload) => {
         const updated = payload.new as { user_id: string; unread_count: number };
         if (updated.user_id === profile?.id) {
-          // Reload count on any update
           loadMessageCount();
+        }
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload) => {
+        if (payload.new && (payload.new as any).user_id === profile?.id) {
+          setNotificationCount(prev => prev + 1);
         }
       })
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    // Listen for notifications-read event
+    function handleNotificationsRead() {
+      setNotificationCount(0);
+    }
+    window.addEventListener('notifications-read', handleNotificationsRead);
+
+    return () => {
+      window.removeEventListener('notifications-read', handleNotificationsRead);
+      supabase.removeChannel(channel);
+    };
   }, [profile?.id]);
 
   const isActive = (href: string) => {
@@ -86,11 +114,11 @@ export function MobileNav() {
   const profileHref = profile ? `/profile/${profile.username}` : '/feed';
 
   return (
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-[var(--border-subtle)] bg-[var(--bg-primary)]">
+    <nav aria-label="Mobile navigation" className="lg:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-[var(--border-subtle)] bg-[var(--bg-primary)]">
       <div className="flex items-center justify-around h-16">
         {/* Home */}
-        <Link href="/feed" className="flex flex-col items-center justify-center gap-0.5 w-full h-full" aria-label="Home">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={isActive('/feed') ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={isActive('/feed') ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}>
+        <Link href="/feed" className="flex flex-col items-center justify-center gap-0.5 w-full h-full" aria-label="Home" aria-current={isActive('/feed') ? 'page' : undefined}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={isActive('/feed') ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={isActive('/feed') ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}>
             <path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8" />
             <path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
           </svg>
@@ -98,8 +126,8 @@ export function MobileNav() {
         </Link>
 
         {/* Explore */}
-        <Link href="/explore" className="flex flex-col items-center justify-center gap-0.5 w-full h-full" aria-label="Explore">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={isActive('/explore') ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={isActive('/explore') ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}>
+        <Link href="/explore" className="flex flex-col items-center justify-center gap-0.5 w-full h-full" aria-label="Explore" aria-current={isActive('/explore') ? 'page' : undefined}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={isActive('/explore') ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={isActive('/explore') ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}>
             <circle cx="12" cy="12" r="10" />
             <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
           </svg>
@@ -107,8 +135,8 @@ export function MobileNav() {
         </Link>
 
         {/* Messages */}
-        <Link href="/messages" className="flex flex-col items-center justify-center gap-0.5 w-full h-full relative" aria-label="Messages">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={isActive('/messages') ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={isActive('/messages') ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}>
+        <Link href="/messages" className="flex flex-col items-center justify-center gap-0.5 w-full h-full relative" aria-label="Messages" aria-current={isActive('/messages') ? 'page' : undefined}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={isActive('/messages') ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={isActive('/messages') ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}>
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
           </svg>
           {messageCount > 0 && (
@@ -120,15 +148,15 @@ export function MobileNav() {
         </Link>
 
         {/* Reels */}
-        <Link href="/reels" className="flex flex-col items-center justify-center gap-0.5 w-full h-full" aria-label="Reels">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={isActive('/reels') ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={isActive('/reels') ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}>
+        <Link href="/reels" className="flex flex-col items-center justify-center gap-0.5 w-full h-full" aria-label="Reels" aria-current={isActive('/reels') ? 'page' : undefined}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={isActive('/reels') ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={isActive('/reels') ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}>
             <polygon points="5 3 19 12 5 21 5 3" />
           </svg>
           <span className={`text-[10px] ${isActive('/reels') ? 'font-bold text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}>Reels</span>
         </Link>
 
         {/* Profile */}
-        <Link href={profileHref} className="flex flex-col items-center justify-center gap-0.5 w-full h-full" aria-label="Profile">
+        <Link href={profileHref} className="flex flex-col items-center justify-center gap-0.5 w-full h-full" aria-label="Profile" aria-current={isActive('/profile') ? 'page' : undefined}>
           {profile?.avatar_url ? (
             <img
               src={profile.avatar_url}
@@ -136,7 +164,7 @@ export function MobileNav() {
               className={`w-6 h-6 rounded-full object-cover ${isActive('/profile') ? 'ring-2 ring-[var(--text-primary)]' : ''}`}
             />
           ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={isActive('/profile') ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={isActive('/profile') ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={isActive('/profile') ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={isActive('/profile') ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}>
               <circle cx="12" cy="8" r="5" />
               <path d="M20 21a8 8 0 1 0-16 0" />
             </svg>

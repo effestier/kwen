@@ -16,7 +16,7 @@ export default function LandingPage() {
             <span className="text-lg font-semibold text-white tracking-tight">{BRAND.name}</span>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-8">
+          <nav aria-label="Main navigation" className="hidden md:flex items-center gap-8">
             <Link href="/feed" className="text-sm text-[var(--text-secondary)] hover:text-white transition-colors-fast">Feed</Link>
             <Link href="/explore" className="text-sm text-[var(--text-secondary)] hover:text-white transition-colors-fast">Explore</Link>
           </nav>
@@ -107,7 +107,7 @@ export default function LandingPage() {
               {[
                 { title: 'No algorithms', desc: 'See posts in chronological order, the way social should work.' },
                 { title: 'Privacy first', desc: 'Your data is yours. No tracking, no selling, no compromises.' },
-                { title: 'Clean design', desc: 'No clutter, no clutter, no ads. Just your feed.' },
+                { title: 'Clean design', desc: 'No clutter, no ads. Just your feed.' },
               ].map((f, i) => (
                 <div key={i} className="text-center">
                   <h3 className="text-base font-semibold text-white mb-2">{f.title}</h3>
@@ -140,8 +140,8 @@ export default function LandingPage() {
             <span className="text-sm font-medium text-[var(--text-secondary)]">{BRAND.name}</span>
           </div>
           <div className="flex items-center gap-6 text-xs text-[var(--text-muted)]">
-            <Link href="#" className="hover:text-[var(--text-secondary)] transition-colors-fast">Privacy</Link>
-            <Link href="#" className="hover:text-[var(--text-secondary)] transition-colors-fast">Terms</Link>
+            <Link href="/privacy" className="hover:text-[var(--text-secondary)] transition-colors-fast">Privacy</Link>
+            <Link href="/terms" className="hover:text-[var(--text-secondary)] transition-colors-fast">Terms</Link>
           </div>
           <p className="text-xs text-[var(--text-muted)]">© {new Date().getFullYear()} {BRAND.name}</p>
         </div>

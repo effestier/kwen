@@ -317,7 +317,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
             <div className="flex items-center gap-1.5 mb-1">
               <h1 className="text-xl font-bold text-white">{profile.display_name}</h1>
               {profile.is_verified && (
-                <svg className="w-5 h-5 text-[var(--accent-blue)]" viewBox="0 0 20 20" fill="currentColor">
+                <svg aria-label="Verified" className="w-5 h-5 text-[var(--accent-blue)]" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143z" clipRule="evenodd" />
                 </svg>
               )}
@@ -353,10 +353,12 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
         </div>
 
         {/* Tabs */}
-        <div className="flex border-t border-b border-[var(--border-subtle)]">
+        <div role="tablist" aria-label="Profile sections" className="flex border-t border-b border-[var(--border-subtle)]">
           {tabs.map((tab) => (
             <button
               key={tab}
+              role="tab"
+              aria-selected={activeTab === tab}
               onClick={() => setActiveTab(tab)}
               className={cn(
                 'flex-1 py-3.5 text-sm font-semibold capitalize transition-colors-fast relative',
@@ -377,19 +379,19 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
             posts.length > 0 ? (
               <div className="grid grid-cols-3 gap-0.5">
                 {posts.map((post) => (
-                  <div key={post.id} className="aspect-square bg-[var(--bg-secondary)] relative group">
+                  <Link key={post.id} href={`/profile/${profile.username}`} className="aspect-square bg-[var(--bg-secondary)] relative group block focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)] focus:ring-inset">
                     {post.images?.[0] ? (
-                      <img src={post.images[0]} alt="" className="w-full h-full object-cover" />
+                      <img src={post.images[0]} alt={`Post by ${profile.display_name}`} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center p-2">
                         <p className="text-xs text-[var(--text-muted)] text-center line-clamp-3">{post.content}</p>
                       </div>
                     )}
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-4 text-white text-sm">
+                    <div aria-hidden="true" className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-4 text-white text-sm">
                       <span>♥ {formatNumber(post.likes)}</span>
                       <span>💬 {formatNumber(post.comments)}</span>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             ) : (

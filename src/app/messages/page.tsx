@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { formatTimeAgo } from '@/lib/utils';
 import Link from 'next/link';
 import { getMessages, sendMessage, markConversationAsRead } from '@/app/actions/messages';
+import { validateFile } from '@/lib/storage';
 
 interface Message {
   id: string;
@@ -22,6 +23,8 @@ interface Message {
     display_name: string;
     avatar_url: string | null;
   } | null;
+  message_type?: string;
+  media_url?: string | null;
 }
 
 interface Conversation {
@@ -56,6 +59,10 @@ export default function MessagesPage() {
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
   const [hoveredMsgId, setHoveredMsgId] = useState<string | null>(null);
   const [tappedMsgId, setTappedMsgId] = useState<string | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // User state
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -142,14 +149,14 @@ export default function MessagesPage() {
 
       const { data: lastMessages } = await supabase
         .from('messages')
-        .select('conversation_id, content, created_at')
+        .select('conversation_id, content, created_at, message_type')
         .in('conversation_id', conversationIds)
         .order('created_at', { ascending: false });
 
-      const lastMessageMap = new Map<string, { content: string; created_at: string }>();
+      const lastMessageMap = new Map<string, { content: string; created_at: string; message_type?: string }>();
       lastMessages?.forEach(m => {
         if (!lastMessageMap.has(m.conversation_id)) {
-          lastMessageMap.set(m.conversation_id, { content: m.content, created_at: m.created_at });
+          lastMessageMap.set(m.conversation_id, { content: m.content, created_at: m.created_at, message_type: m.message_type });
         }
       });
 
@@ -167,7 +174,7 @@ export default function MessagesPage() {
         return {
           id: c.id,
           other_user: profile ? { id: profile.id, username: profile.username, display_name: profile.display_name, avatar_url: profile.avatar_url } : null,
-          last_message: lastMsg?.content || 'Start a conversation',
+          last_message: lastMsg?.message_type === 'image' ? 'Photo' : lastMsg?.message_type === 'mixed' ? `Photo · ${lastMsg.content}` : (lastMsg?.content || 'Start a conversation'),
           unread_count: participant?.unread_count || 0,
           updated_at: lastMsg?.created_at || c.updated_at,
         };
@@ -181,15 +188,16 @@ export default function MessagesPage() {
     const convChannel = supabase
       .channel('conversations-updates')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
-        const msg = payload.new as { id: string; conversation_id: string; content: string; sender_id: string; created_at: string };
+        const msg = payload.new as { id: string; conversation_id: string; content: string; sender_id: string; created_at: string; message_type?: string };
         setConversations(prev => {
           const exists = prev.some(c => c.id === msg.conversation_id);
           if (!exists) return prev;
           return prev.map(c => {
             if (c.id === msg.conversation_id) {
+              const preview = msg.message_type === 'image' ? 'Photo' : msg.message_type === 'mixed' ? `Photo · ${msg.content}` : msg.content;
               return {
                 ...c,
-                last_message: msg.content,
+                last_message: preview,
                 updated_at: msg.created_at,
                 unread_count: msg.sender_id !== currentUserIdRef.current ? (c.unread_count || 0) + 1 : 0,
               };
@@ -250,7 +258,7 @@ export default function MessagesPage() {
         .channel(`messages-${selectedId}`)
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${selectedId}` }, async (payload) => {
           if (cancelled) return;
-          const newMsg = payload.new as { id: string; content: string; sender_id: string; created_at: string };
+          const newMsg = payload.new as { id: string; content: string; sender_id: string; created_at: string; message_type?: string; media_url?: string };
           if (messagesRef.current.some(m => m.id === newMsg.id)) return;
           if (sentTempIdsRef.current.has(newMsg.id)) return;
 
@@ -264,7 +272,16 @@ export default function MessagesPage() {
             senderProfile = fetchedProfile;
           }
 
-          const formattedMessage: Message = { id: newMsg.id, content: newMsg.content, senderId: newMsg.sender_id, createdAt: newMsg.created_at, isMine: newMsg.sender_id === currentUserIdRef.current, sender: senderProfile };
+          const formattedMessage: Message = {
+            id: newMsg.id,
+            content: newMsg.content,
+            senderId: newMsg.sender_id,
+            createdAt: newMsg.created_at,
+            isMine: newMsg.sender_id === currentUserIdRef.current,
+            sender: senderProfile,
+            message_type: newMsg.message_type || 'text',
+            media_url: newMsg.media_url || null,
+          };
           setMessages(prev => deduplicateMessages([...prev, formattedMessage]));
 
           if (newMsg.sender_id !== currentUserIdRef.current) {
@@ -320,6 +337,30 @@ export default function MessagesPage() {
     await tc.track({ user_id: uid, display_name: 'Me', typing_at: Date.now() });
   }, []);
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const error = validateFile(file, 'message');
+    if (error) {
+      alert(error);
+      return;
+    }
+
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onload = () => setImagePreview(reader.result as string);
+    reader.readAsDataURL(file);
+
+    // Reset input so same file can be re-selected
+    e.target.value = '';
+  };
+
+  const clearImagePreview = () => {
+    setImagePreview(null);
+    setImageFile(null);
+  };
+
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     const sid = selectedIdRef.current;
@@ -327,21 +368,74 @@ export default function MessagesPage() {
     const profile = currentUserProfileRef.current;
     const tid = sentTempIdsRef.current;
 
-    if (!newMessage.trim() || !sid || sending || !uid || !profile) return;
+    if ((!newMessage.trim() && !imageFile) || !sid || sending || !uid || !profile) return;
+
+    setSending(true);
+    let mediaUrl: string | undefined;
+
+    // Upload image if present
+    if (imageFile) {
+      setUploadingImage(true);
+      try {
+        const ext = imageFile.name.split('.').pop() || 'jpg';
+        const timestamp = Date.now();
+        const random = Math.random().toString(36).substring(2, 8);
+        const fileName = `${uid}/${timestamp}-${random}.${ext}`;
+
+        const { data, error: uploadError } = await supabase.storage
+          .from('messages')
+          .upload(fileName, imageFile, {
+            cacheControl: '3600',
+            upsert: false,
+            contentType: imageFile.type,
+          });
+
+        if (uploadError) {
+          alert('Failed to upload image. Please try again.');
+          setUploadingImage(false);
+          setSending(false);
+          return;
+        }
+
+        const { data: urlData } = supabase.storage
+          .from('messages')
+          .getPublicUrl(fileName);
+
+        mediaUrl = urlData.publicUrl;
+      } catch {
+        alert('Failed to upload image. Please try again.');
+        setUploadingImage(false);
+        setSending(false);
+        return;
+      }
+      setUploadingImage(false);
+    }
 
     const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     tid.add(tempId);
 
-    const tempMessage: Message = { id: tempId, content: newMessage, senderId: uid, createdAt: new Date().toISOString(), isMine: true, sender: profile };
-    setMessages(prev => deduplicateMessages([...prev, tempMessage]));
-    setSending(true);
+    const displayContent = newMessage.trim() || (mediaUrl ? 'Photo' : '');
+    const messageType = mediaUrl ? (newMessage.trim() ? 'mixed' : 'image') : 'text';
 
-    const result = await sendMessage(sid, newMessage);
+    const tempMessage: Message = {
+      id: tempId,
+      content: displayContent,
+      senderId: uid,
+      createdAt: new Date().toISOString(),
+      isMine: true,
+      sender: profile,
+      message_type: messageType,
+      media_url: mediaUrl || null,
+    };
+    setMessages(prev => deduplicateMessages([...prev, tempMessage]));
+    clearImagePreview();
+    setNewMessage('');
+
+    const result = await sendMessage(sid, displayContent, mediaUrl);
 
     if (result.success && result.message) {
       tid.delete(tempId);
       setMessages(prev => deduplicateMessages(prev.map(m => m.id === tempId ? { ...m, id: result.message!.id, createdAt: result.message!.created_at } : m)));
-      setNewMessage('');
     } else {
       tid.delete(tempId);
       setMessages(prev => prev.filter(m => m.id !== tempId));
@@ -382,9 +476,9 @@ export default function MessagesPage() {
           <div className="p-4 border-b border-[var(--border-subtle)]">
             <h1 className="text-xl font-bold text-[var(--text-primary)]">Messages</h1>
           </div>
-          <div className="flex-1 overflow-y-auto">
+          <div role="list" aria-label="Conversations" className="flex-1 overflow-y-auto">
             {loading ? (
-              <div className="p-4 text-center text-[var(--text-muted)]">Loading...</div>
+              <div role="status" className="p-4 text-center text-[var(--text-muted)]">Loading...</div>
             ) : conversations.length > 0 ? (
               conversations.map((conv) => {
                 const isUnread = conv.unread_count > 0;
@@ -392,6 +486,8 @@ export default function MessagesPage() {
                 return (
                   <button
                     key={conv.id}
+                    role="listitem"
+                    aria-current={isSelected ? 'true' : undefined}
                     onClick={() => handleSelectConversation(conv)}
                     className={cn(
                       'w-full flex items-center gap-3 px-4 py-3 transition-colors-fast text-left',
@@ -460,9 +556,10 @@ export default function MessagesPage() {
               <div className="px-4 py-3 border-b border-[var(--border-subtle)] flex items-center gap-3">
                 <button
                   onClick={() => setShowMobileChat(false)}
+                  aria-label="Back to conversations"
                   className="md:hidden p-2 -ml-2 hover:bg-[var(--bg-secondary)] rounded-full transition-colors-fast"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="m15 18-6-6 6-6" />
                   </svg>
                 </button>
@@ -482,13 +579,13 @@ export default function MessagesPage() {
               </div>
 
               {/* Messages */}
-              <div className="flex-1 overflow-y-auto px-4 py-2">
+              <div role="log" aria-label="Messages" aria-live="polite" className="flex-1 overflow-y-auto px-4 py-2">
                 {loadingMessages ? (
                   <div className="flex items-center justify-center h-full">
                     <div className="text-center text-[var(--text-muted)]">Loading messages...</div>
                   </div>
                 ) : messages.length > 0 ? (
-                  <div className="space-y-1">
+                  <div className="py-2">
                     {messages.map((msg, i) => {
                       const showTimestamp = hoveredMsgId === msg.id || tappedMsgId === msg.id;
                       const prevMsg = i > 0 ? messages[i - 1] : null;
@@ -498,55 +595,82 @@ export default function MessagesPage() {
                         <div
                           key={msg.id}
                           className={cn(
-                            'group relative',
-                            isConsecutive ? 'mt-0.5' : 'mt-3',
-                            msg.isMine ? 'flex justify-end' : 'flex justify-start'
+                            'group relative w-full',
+                            isConsecutive ? 'mt-[2px]' : 'mt-3',
+                            'flex',
+                            msg.isMine ? 'justify-end' : 'justify-start'
                           )}
                           onMouseEnter={() => setHoveredMsgId(msg.id)}
                           onMouseLeave={() => setHoveredMsgId(null)}
                           onClick={() => handleMessageTap(msg.id)}
                         >
-                          <div className={cn('flex items-end gap-2', msg.isMine ? 'flex-row-reverse' : 'flex-row')}>
-                            {/* Avatar - only show for first message in group */}
-                            {!isConsecutive && !msg.isMine && (
-                              <Avatar
-                                src={msg.sender?.avatar_url || null}
-                                name={msg.sender?.display_name || 'User'}
-                                size="sm"
-                                className="flex-shrink-0 mb-1"
-                              />
-                            )}
-                            {isConsecutive && !msg.isMine && <div className="w-8" />}
-
-                            <div className="flex flex-col items-end max-w-[75%] md:max-w-[60%]">
-                              {/* Sender name - only for first message in group from other */}
-                              {!isConsecutive && !msg.isMine && msg.sender && (
-                                <span className="text-xs text-[var(--text-muted)] mb-1 ml-1">
-                                  {msg.sender.display_name}
-                                </span>
+                          {/* Avatar column - fixed width, only for first in group from other */}
+                          {!msg.isMine && (
+                            <div className="w-8 flex-shrink-0 mr-2">
+                              {!isConsecutive && (
+                                <Avatar
+                                  src={msg.sender?.avatar_url || null}
+                                  name={msg.sender?.display_name || 'User'}
+                                  size="sm"
+                                  className="mb-1"
+                                />
                               )}
+                            </div>
+                          )}
 
-                              {/* Message bubble */}
-                              <div className={cn(
-                                'px-3.5 py-2 text-sm',
-                                msg.isMine
-                                  ? 'bg-[var(--accent-primary)] text-white rounded-2xl rounded-br-md'
-                                  : 'bg-[var(--bg-secondary)] text-[var(--text-primary)] rounded-2xl rounded-bl-md'
-                              )}>
-                                <p className="whitespace-pre-wrap break-words">{msg.content}</p>
-                              </div>
+                          {/* Bubble column - constrained max width */}
+                          <div className={cn(
+                            'flex flex-col',
+                            msg.isMine ? 'items-end' : 'items-start',
+                            msg.isMine
+                              ? 'max-w-[65%] md:max-w-[60%]'
+                              : 'max-w-[65%] md:max-w-[60%]'
+                          )}>
+                            {/* Sender name - only for first message in group from other */}
+                            {!isConsecutive && !msg.isMine && msg.sender && (
+                              <span className="text-xs text-[var(--text-muted)] mb-1 ml-1">
+                                {msg.sender.display_name}
+                              </span>
+                            )}
 
-                              {/* Timestamp - hidden by default, shown on hover/tap */}
-                              <div className={cn(
-                                'text-[10px] mt-0.5 px-1 transition-all duration-200',
-                                msg.isMine ? 'text-right' : 'text-left',
-                                showTimestamp
-                                  ? 'opacity-100 translate-y-0'
-                                  : 'opacity-0 translate-y-1 pointer-events-none',
-                                msg.isMine ? 'text-[var(--text-muted)]' : 'text-[var(--text-muted)]'
-                              )}>
-                                {formatTimeAgo(msg.createdAt)}
-                              </div>
+                            {/* Message bubble */}
+                            <div className={cn(
+                              'text-sm min-w-0 overflow-hidden',
+                              msg.isMine
+                                ? 'bg-[var(--accent-primary)] text-white rounded-2xl rounded-br-md'
+                                : 'bg-[var(--bg-secondary)] text-[var(--text-primary)] rounded-2xl rounded-bl-md',
+                              msg.media_url ? 'p-1' : 'px-3.5 py-2'
+                            )}>
+                              {msg.media_url && (
+                                <img
+                                  src={msg.media_url}
+                                  alt={msg.content !== 'Photo' ? msg.content : 'Sent image'}
+                                  className={cn(
+                                    'max-w-full rounded-[14px] object-cover',
+                                    msg.content && msg.content !== 'Photo' ? 'mb-1' : '',
+                                    msg.message_type === 'image' ? 'max-h-[300px] w-full' : 'max-h-[250px]'
+                                  )}
+                                  loading="lazy"
+                                />
+                              )}
+                              {msg.content && msg.content !== 'Photo' && (
+                                <p className={cn(
+                                  'whitespace-pre-wrap text-sm',
+                                  msg.media_url ? 'px-2.5 py-1.5' : ''
+                                )} style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{msg.content}</p>
+                              )}
+                            </div>
+
+                            {/* Timestamp - hidden by default, shown on hover/tap */}
+                            <div className={cn(
+                              'text-[10px] mt-0.5 px-1 transition-all duration-200',
+                              msg.isMine ? 'text-right' : 'text-left',
+                              showTimestamp
+                                ? 'opacity-100 translate-y-0'
+                                : 'opacity-0 translate-y-1 pointer-events-none',
+                              'text-[var(--text-muted)]'
+                            )}>
+                              {formatTimeAgo(msg.createdAt)}
                             </div>
                           </div>
                         </div>
@@ -566,21 +690,63 @@ export default function MessagesPage() {
 
               {/* Message Input */}
               <form onSubmit={handleSend} className="p-3 border-t border-[var(--border-subtle)]">
+                {/* Image preview */}
+                {imagePreview && (
+                  <div className="mb-2 relative inline-block">
+                    <img src={imagePreview} alt="Preview" className="max-h-[120px] rounded-lg object-cover" />
+                    <button
+                      type="button"
+                      onClick={clearImagePreview}
+                      aria-label="Remove image"
+                      className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-[var(--bg-tertiary)] border border-[var(--border-subtle)] text-[var(--text-muted)] flex items-center justify-center text-xs hover:text-[var(--text-primary)]"
+                    >
+                      &times;
+                    </button>
+                    {uploadingImage && (
+                      <div className="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center">
+                        <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full" />
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className="flex items-center gap-2">
                   <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={handleImageSelect}
+                    className="hidden"
+                    aria-label="Upload image"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={sending || uploadingImage || !currentUserProfile}
+                    aria-label="Attach image"
+                    className="p-2.5 rounded-full text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] transition-colors-fast disabled:opacity-30"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <rect width="18" height="18" x="3" y="3" rx="2" ry="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+                    </svg>
+                  </button>
+                  <label htmlFor="message-input" className="sr-only">Type a message</label>
+                  <input
+                    id="message-input"
                     type="text"
                     value={newMessage}
                     onChange={(e) => { setNewMessage(e.target.value); handleTyping(); }}
                     placeholder="Message..."
+                    aria-label="Type a message"
                     disabled={!currentUserProfile}
                     className="flex-1 px-4 py-2.5 rounded-full bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--accent-primary)] disabled:opacity-50 text-sm"
                   />
                   <button
                     type="submit"
-                    disabled={!newMessage.trim() || sending || !currentUserProfile}
+                    disabled={(!newMessage.trim() && !imageFile) || sending || !currentUserProfile}
+                    aria-label="Send message"
                     className="p-2.5 rounded-full bg-[var(--accent-primary)] text-white disabled:opacity-30 hover:opacity-90 transition-all active:scale-95"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" />
                     </svg>
                   </button>

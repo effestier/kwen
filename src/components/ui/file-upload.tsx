@@ -87,7 +87,7 @@ export function FileUpload({
       }
 
       const uploadedUrls: string[] = []
-      const bucket = type === 'avatar' ? 'avatars' : type === 'story' ? 'stories' : 'posts'
+      const bucket = type === 'avatar' ? 'avatars' : type === 'story' ? 'stories' : type === 'message' ? 'messages' : 'posts'
       const folder = type
 
       for (let i = 0; i < validFiles.length; i++) {

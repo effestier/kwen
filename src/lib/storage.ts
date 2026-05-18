@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/client'
 
-export type UploadType = 'avatar' | 'post' | 'story'
+export type UploadType = 'avatar' | 'post' | 'story' | 'message'
 
 export interface UploadConfig {
   bucket: string
@@ -32,6 +32,13 @@ export const UPLOAD_CONFIGS: Record<UploadType, UploadConfig> = {
     allowedTypes: ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/webm'],
     allowedExtensions: ['jpg', 'jpeg', 'png', 'webp', 'mp4', 'webm'],
   },
+  message: {
+    bucket: 'messages',
+    folder: 'messages',
+    maxSize: 10 * 1024 * 1024, // 10MB for message images
+    allowedTypes: ['image/jpeg', 'image/png', 'image/webp'],
+    allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],
+  },
 }
 
 export interface UploadResult {
@@ -49,7 +56,12 @@ export function validateFile(file: File, type: UploadType): string | null {
     return `File too large. Maximum size is ${maxMB}MB`
   }
 
-  // Check file type
+  // Zero-byte check
+  if (file.size === 0) {
+    return 'Empty file not allowed'
+  }
+
+  // Check file type (MIME)
   if (!config.allowedTypes.includes(file.type)) {
     return `Invalid file type. Allowed: ${config.allowedExtensions.join(', ')}`
   }
@@ -58,6 +70,15 @@ export function validateFile(file: File, type: UploadType): string | null {
   const ext = file.name.split('.').pop()?.toLowerCase()
   if (ext && !config.allowedExtensions.includes(ext)) {
     return `Invalid file extension. Allowed: ${config.allowedExtensions.join(', ')}`
+  }
+
+  // Reject double extensions and executable patterns
+  const nameLower = file.name.toLowerCase()
+  const dangerousPatterns = ['.exe', '.bat', '.cmd', '.sh', '.ps1', '.js', '.mjs', '.html', '.htm', '.svg', '.php', '.py', '.rb']
+  for (const pattern of dangerousPatterns) {
+    if (nameLower.includes(pattern)) {
+      return 'File type not allowed'
+    }
   }
 
   return null

@@ -26,27 +26,27 @@ const mainNavItems: NavItem[] = [
   {
     href: '/feed',
     label: 'Home',
-    icon: <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8" /><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg>,
+    icon: <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8" /><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg>,
   },
   {
     href: '/explore',
     label: 'Explore',
-    icon: <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>,
+    icon: <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>,
   },
   {
     href: '/saved',
     label: 'Saved',
-    icon: <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" /></svg>,
+    icon: <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" /></svg>,
   },
   {
     href: '/messages',
     label: 'Messages',
-    icon: <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" /></svg>,
+    icon: <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" /></svg>,
   },
   {
     href: '/notifications',
     label: 'Notifications',
-    icon: <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></svg>,
+    icon: <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></svg>,
   },
 ];
 
@@ -54,7 +54,7 @@ const secondaryNavItems: NavItem[] = [
   {
     href: '/settings/appearance',
     label: 'Settings',
-    icon: <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></svg>,
+    icon: <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></svg>,
   },
 ];
 
@@ -142,6 +142,23 @@ export function Sidebar() {
       })
       .subscribe();
 
+    // Subscribe to realtime message count updates
+    const msgChannel = supabase
+      .channel('sidebar-messages')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversation_participants' }, (payload) => {
+        const updated = payload.new as { user_id: string; unread_count: number };
+        if (updated.user_id === user?.id) {
+          // Reload message count
+          loadMessageCount();
+        }
+      })
+      .subscribe();
+
+    // Listen for notifications-read event from notifications page
+    function handleNotificationsRead() {
+      setNotificationCount(0);
+    }
+
     // Listen for profile updates from settings
     function handleProfileUpdate(event: CustomEvent) {
       setUser(prev => prev ? {
@@ -163,10 +180,13 @@ export function Sidebar() {
     }
 
     document.addEventListener('mousedown', handleClickOutside);
+    window.addEventListener('notifications-read', handleNotificationsRead);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
       window.removeEventListener('profile-updated', handleProfileUpdate as EventListener);
+      window.removeEventListener('notifications-read', handleNotificationsRead);
       supabase.removeChannel(channel);
+      supabase.removeChannel(msgChannel);
     };
   }, []);
 
@@ -185,27 +205,31 @@ export function Sidebar() {
       {/* Search */}
       <div className="px-4 mb-4" ref={searchRef}>
         <div className={`relative transition-all ${searchOpen ? 'ring-2 ring-[var(--accent-primary)] rounded-lg' : ''}`}>
+          <label htmlFor="sidebar-search" className="sr-only">Search</label>
           <input
+            id="sidebar-search"
             type="text"
             placeholder="Search"
+            aria-label="Search"
             onFocus={() => setSearchOpen(true)}
             onBlur={() => setSearchOpen(false)}
             className="w-full py-2.5 pl-10 pr-4 rounded-lg bg-[var(--bg-secondary)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] text-sm focus:outline-none"
           />
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]">
             <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
           </svg>
         </div>
       </div>
 
       {/* Main Navigation */}
-      <nav className="flex-1 px-3 py-2 overflow-y-auto">
+      <nav aria-label="Main navigation" className="flex-1 px-3 py-2 overflow-y-auto">
         {mainNavItems.map((item) => {
           const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
           return (
             <Link
               key={item.href}
               href={item.href}
+              aria-current={isActive ? 'page' : undefined}
               className={cn(
                 'flex items-center justify-between px-4 py-3 rounded-xl text-[15px] font-medium transition-colors-fast mb-0.5',
                 isActive
@@ -239,6 +263,7 @@ export function Sidebar() {
           {user && (
             <Link
               href={`/profile/${user.username}`}
+              aria-current={pathname?.startsWith('/profile/') ? 'page' : undefined}
               className={cn(
                 'flex items-center gap-3 px-4 py-3 rounded-xl text-[15px] font-medium transition-colors-fast mb-0.5',
                 pathname?.startsWith('/profile/')
@@ -247,7 +272,7 @@ export function Sidebar() {
               )}
             >
               <span className={cn(pathname?.startsWith('/profile/') && 'text-[var(--accent-primary)]')}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="5" /><path d="M20 21a8 8 0 1 0-16 0" /></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="5" /><path d="M20 21a8 8 0 1 0-16 0" /></svg>
               </span>
               <span>Profile</span>
             </Link>
@@ -258,6 +283,7 @@ export function Sidebar() {
               <Link
                 key={item.href}
                 href={item.href}
+                aria-current={isActive ? 'page' : undefined}
                 className={cn(
                   'flex items-center gap-3 px-4 py-3 rounded-xl text-[15px] font-medium transition-colors-fast mb-0.5',
                   isActive
@@ -278,17 +304,21 @@ export function Sidebar() {
         <div className="mt-2 relative" ref={moreMenuRef}>
           <button
             onClick={() => setMoreMenuOpen(!moreMenuOpen)}
+            aria-expanded={moreMenuOpen}
+            aria-haspopup="true"
+            aria-label="More options"
             className="flex items-center gap-3 px-4 py-3 rounded-xl text-[15px] font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)] transition-colors-fast w-full"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" /></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" /></svg>
             <span>More</span>
           </button>
 
           {moreMenuOpen && (
-            <div className="absolute left-2 right-2 mt-1 py-2 bg-[var(--bg-elevated)] rounded-xl border border-[var(--border-subtle)] shadow-lg z-50">
+            <div role="menu" className="absolute left-2 right-2 mt-1 py-2 bg-[var(--bg-elevated)] rounded-xl border border-[var(--border-subtle)] shadow-lg z-50">
               {['Lists', 'Bookmarks', 'Spaces', 'Fundraisers'].map((item) => (
                 <button
                   key={item}
+                  role="menuitem"
                   className="flex items-center gap-3 px-4 py-2.5 w-full text-[15px] text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] transition-colors-fast"
                 >
                   {item}
@@ -322,7 +352,7 @@ export function Sidebar() {
               <p className="text-sm font-medium text-[var(--text-primary)] truncate">{user.display_name}</p>
               <p className="text-xs text-[var(--text-muted)]">@{user.username}</p>
             </div>
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--text-muted)]">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="text-[var(--text-muted)]">
               <path d="M6 9l6 6 6-6" />
             </svg>
           </Link>

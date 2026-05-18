@@ -18,7 +18,7 @@ export function MainLayout({
   return (
     <div className="min-h-screen bg-[var(--bg-primary)]">
       {showSidebar && <Sidebar />}
-      <main className={`
+      <main id="main-content" className={`
         flex-1 min-h-screen pb-20 lg:pb-0
         ${showSidebar ? 'lg:ml-[280px]' : ''}
       `}>

@@ -2,241 +2,150 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
 
-export async function createPost(formData: FormData) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+export async function toggleLike(postId: string) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user) {
-    redirect('/auth/login')
+    if (!user) {
+      return { error: 'Not authenticated' }
+    }
+
+    if (!postId || typeof postId !== 'string') {
+      return { error: 'Invalid post ID' }
+    }
+
+    // Check if already liked
+    const { data: existing } = await supabase
+      .from('post_likes')
+      .select('id')
+      .eq('post_id', postId)
+      .eq('user_id', user.id)
+      .single()
+
+    if (existing) {
+      // Unlike
+      await supabase
+        .from('post_likes')
+        .delete()
+        .eq('id', existing.id)
+
+      return { success: true, liked: false }
+    } else {
+      // Like
+      const { error } = await supabase
+        .from('post_likes')
+        .insert({ post_id: postId, user_id: user.id })
+
+      if (error) {
+        return { error: 'Failed to like post' }
+      }
+
+      return { success: true, liked: true }
+    }
+  } catch {
+    return { error: 'Failed to process like' }
   }
+}
 
-  const content = formData.get('content') as string | null
-  const location = formData.get('location') as string | null
+export async function toggleSave(postId: string) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-  // Validation: content OR media must be provided
-  // Media handling would be done separately
-  if (!content) {
-    return { error: 'Post must have content' }
+    if (!user) {
+      return { error: 'Not authenticated' }
+    }
+
+    if (!postId || typeof postId !== 'string') {
+      return { error: 'Invalid post ID' }
+    }
+
+    // Check if already saved
+    const { data: existing } = await supabase
+      .from('saved_posts')
+      .select('id')
+      .eq('post_id', postId)
+      .eq('user_id', user.id)
+      .single()
+
+    if (existing) {
+      // Unsave
+      await supabase
+        .from('saved_posts')
+        .delete()
+        .eq('id', existing.id)
+
+      return { success: true, saved: false }
+    } else {
+      // Save
+      const { error } = await supabase
+        .from('saved_posts')
+        .insert({ post_id: postId, user_id: user.id })
+
+      if (error) {
+        return { error: 'Failed to save post' }
+      }
+
+      return { success: true, saved: true }
+    }
+  } catch {
+    return { error: 'Failed to process save' }
   }
-
-  const { data, error } = await supabase
-    .from('posts')
-    .insert({
-      user_id: user.id,
-      content,
-      location: location || null,
-    })
-    .select()
-    .single()
-
-  if (error) {
-    return { error: error.message }
-  }
-
-  revalidatePath('/feed')
-  return { success: true, postId: data.id }
 }
 
 export async function deletePost(postId: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user) {
-    return { error: 'Not authenticated' }
-  }
+    if (!user) {
+      return { error: 'Not authenticated' }
+    }
 
-  const { error } = await supabase
-    .from('posts')
-    .update({ deleted_at: new Date().toISOString() })
-    .eq('id', postId)
-    .eq('user_id', user.id)
+    if (!postId || typeof postId !== 'string') {
+      return { error: 'Invalid post ID' }
+    }
 
-  if (error) {
-    return { error: error.message }
-  }
-
-  revalidatePath('/feed')
-  return { success: true }
-}
-
-export async function togglePostLike(postId: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    return { error: 'Not authenticated' }
-  }
-
-  // Check if already liked
-  const { data: existing } = await supabase
-    .from('post_likes')
-    .select('id')
-    .eq('post_id', postId)
-    .eq('user_id', user.id)
-    .single()
-
-  if (existing) {
-    // Unlike
-    await supabase
-      .from('post_likes')
-      .delete()
-      .eq('id', existing.id)
-
-    // Create notification for unlike? No, just remove
-  } else {
-    // Like
-    await supabase
-      .from('post_likes')
-      .insert({ post_id: postId, user_id: user.id })
-
-    // Create notification (don't notify self)
+    // Verify ownership
     const { data: post } = await supabase
       .from('posts')
       .select('user_id')
       .eq('id', postId)
       .single()
 
-    if (post && post.user_id !== user.id) {
-      await supabase
-        .from('notifications')
-        .insert({
-          user_id: post.user_id,
-          type: 'like',
-          actor_id: user.id,
-          post_id: postId,
-        })
+    if (!post || post.user_id !== user.id) {
+      return { error: 'Unauthorized' }
     }
-  }
 
-  revalidatePath('/feed')
-  return { success: true }
-}
-
-export async function togglePostSave(postId: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    return { error: 'Not authenticated' }
-  }
-
-  const { data: existing } = await supabase
-    .from('saved_posts')
-    .select('id')
-    .eq('post_id', postId)
-    .eq('user_id', user.id)
-    .single()
-
-  if (existing) {
-    await supabase
-      .from('saved_posts')
+    const { error } = await supabase
+      .from('posts')
       .delete()
-      .eq('id', existing.id)
-  } else {
-    await supabase
-      .from('saved_posts')
-      .insert({ post_id: postId, user_id: user.id })
-  }
+      .eq('id', postId)
 
-  revalidatePath('/feed')
-  return { success: true }
+    if (error) {
+      return { error: 'Failed to delete post' }
+    }
+
+    revalidatePath('/feed')
+    return { success: true }
+  } catch {
+    return { error: 'Failed to delete post' }
+  }
 }
 
-export async function createComment(postId: string, content: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+export async function getPostLikes(postId: string) {
+  try {
+    const supabase = await createClient()
 
-  if (!user) {
-    return { error: 'Not authenticated' }
+    const { count } = await supabase
+      .from('post_likes')
+      .select('*', { count: 'exact', head: true })
+      .eq('post_id', postId)
+
+    return { count: count || 0 }
+  } catch {
+    return { count: 0 }
   }
-
-  const { data, error } = await supabase
-    .from('comments')
-    .insert({
-      post_id: postId,
-      user_id: user.id,
-      content,
-    })
-    .select()
-    .single()
-
-  if (error) {
-    return { error: error.message }
-  }
-
-  // Create notification
-  const { data: post } = await supabase
-    .from('posts')
-    .select('user_id')
-    .eq('id', postId)
-    .single()
-
-  if (post && post.user_id !== user.id) {
-    await supabase
-      .from('notifications')
-      .insert({
-        user_id: post.user_id,
-        type: 'comment',
-        actor_id: user.id,
-        post_id: postId,
-        comment_id: data.id,
-      })
-  }
-
-  revalidatePath('/feed')
-  return { success: true, commentId: data.id }
-}
-
-export async function deleteComment(commentId: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    return { error: 'Not authenticated' }
-  }
-
-  const { error } = await supabase
-    .from('comments')
-    .update({ deleted_at: new Date().toISOString() })
-    .eq('id', commentId)
-    .eq('user_id', user.id)
-
-  if (error) {
-    return { error: error.message }
-  }
-
-  revalidatePath('/feed')
-  return { success: true }
-}
-
-export async function toggleCommentLike(commentId: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    return { error: 'Not authenticated' }
-  }
-
-  const { data: existing } = await supabase
-    .from('comment_likes')
-    .select('id')
-    .eq('comment_id', commentId)
-    .eq('user_id', user.id)
-    .single()
-
-  if (existing) {
-    await supabase
-      .from('comment_likes')
-      .delete()
-      .eq('id', existing.id)
-  } else {
-    await supabase
-      .from('comment_likes')
-      .insert({ comment_id: commentId, user_id: user.id })
-  }
-
-  revalidatePath('/feed')
-  return { success: true }
 }

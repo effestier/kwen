@@ -169,7 +169,7 @@ export default function AccountPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div role="status" className="flex items-center justify-center min-h-[400px]">
         <div className="animate-spin h-8 w-8 border-2 border-[var(--accent-primary)] border-t-transparent rounded-full" />
       </div>
     );
@@ -196,13 +196,13 @@ export default function AccountPage() {
       </div>
 
       {error && (
-        <div className="mb-4 p-3 rounded-lg bg-[var(--destructive)]/10 border border-[var(--destructive)] text-[var(--destructive)] text-sm">
+        <div role="alert" aria-live="polite" className="mb-4 p-3 rounded-lg bg-[var(--destructive)]/10 border border-[var(--destructive)] text-[var(--destructive)] text-sm">
           {error}
         </div>
       )}
 
       {success && (
-        <div className="mb-4 p-3 rounded-lg bg-[var(--success)]/10 border border-[var(--success)] text-[var(--success)] text-sm">
+        <div role="status" aria-live="polite" className="mb-4 p-3 rounded-lg bg-[var(--success)]/10 border border-[var(--success)] text-[var(--success)] text-sm">
           Profile updated successfully!
         </div>
       )}
@@ -247,6 +247,7 @@ export default function AccountPage() {
                 type="file"
                 accept="image/*"
                 onChange={handleAvatarUpload}
+                aria-label="Upload profile photo"
                 className="hidden"
               />
             </div>
@@ -262,8 +263,9 @@ export default function AccountPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-[var(--text-primary)]">Display Name</label>
+              <label htmlFor="settings-display-name" className="text-sm font-medium text-[var(--text-primary)]">Display Name</label>
               <input
+                id="settings-display-name"
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
@@ -272,12 +274,13 @@ export default function AccountPage() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-[var(--text-primary)]">Username</label>
+              <label htmlFor="settings-username" className="text-sm font-medium text-[var(--text-primary)]">Username</label>
               <div className="flex items-center">
-                <span className="px-3 py-2 rounded-l-lg border border-[var(--border-subtle)] border-r-0 bg-[var(--bg-secondary)] text-[var(--text-muted)] text-sm">
+                <span aria-hidden="true" className="px-3 py-2 rounded-l-lg border border-[var(--border-subtle)] border-r-0 bg-[var(--bg-secondary)] text-[var(--text-muted)] text-sm">
                   @
                 </span>
                 <input
+                  id="settings-username"
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
@@ -287,8 +290,9 @@ export default function AccountPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-[var(--text-primary)]">Bio</label>
+              <label htmlFor="settings-bio" className="text-sm font-medium text-[var(--text-primary)]">Bio</label>
               <textarea
+                id="settings-bio"
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
                 className="w-full min-h-[100px] px-3 py-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--input-bg)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)] focus:border-transparent resize-none"

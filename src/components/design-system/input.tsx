@@ -48,6 +48,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           <input
             ref={ref}
             id={inputId}
+            aria-invalid={!!error}
+            aria-describedby={error ? `${inputId}-error` : hint ? `${inputId}-hint` : undefined}
             className={cn(
               'w-full h-10 px-3 rounded-lg text-[var(--text-primary)]',
               'bg-[var(--input-bg)] border border-[var(--input-border)]',
@@ -69,10 +71,10 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           )}
         </div>
         {error && (
-          <p className="text-xs text-[var(--destructive)]">{error}</p>
+          <p id={`${inputId}-error`} role="alert" className="text-xs text-[var(--destructive)]">{error}</p>
         )}
         {hint && !error && (
-          <p className="text-xs text-[var(--text-muted)]">{hint}</p>
+          <p id={`${inputId}-hint`} className="text-xs text-[var(--text-muted)]">{hint}</p>
         )}
       </div>
     );
@@ -106,6 +108,8 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
         <textarea
           ref={ref}
           id={textareaId}
+          aria-invalid={!!error}
+          aria-describedby={error ? `${textareaId}-error` : hint ? `${textareaId}-hint` : undefined}
           className={cn(
             'w-full min-h-[100px] px-3 py-2 rounded-lg text-[var(--text-primary)]',
             'bg-[var(--input-bg)] border border-[var(--input-border)]',
@@ -120,10 +124,10 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
           {...props}
         />
         {error && (
-          <p className="text-xs text-[var(--destructive)]">{error}</p>
+          <p id={`${textareaId}-error`} role="alert" className="text-xs text-[var(--destructive)]">{error}</p>
         )}
         {hint && !error && (
-          <p className="text-xs text-[var(--text-muted)]">{hint}</p>
+          <p id={`${textareaId}-hint`} className="text-xs text-[var(--text-muted)]">{hint}</p>
         )}
       </div>
     );

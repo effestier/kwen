@@ -3,7 +3,7 @@ import { cn, formatNumber, formatTimeAgo } from '@/lib/utils';
 import { Avatar } from '@/components/ui/avatar';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { togglePostLike, togglePostSave } from '@/app/actions/posts';
+import { toggleLike as togglePostLike, toggleSave as togglePostSave } from '@/app/actions/posts';
 import { CommentsModal } from '@/components/comments/comments-modal';
 import { getCommentCount } from '@/app/actions/comments';
 import { createClient } from '@/lib/supabase/client';
@@ -118,7 +118,7 @@ export function PostCard({ post }: PostCardProps) {
                 {post.user.displayName}
               </Link>
               {post.user.isVerified && (
-                <svg className="w-4 h-4 text-[var(--accent-primary)] flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                <svg aria-label="Verified" className="w-4 h-4 text-[var(--accent-primary)] flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143z" clipRule="evenodd" />
                 </svg>
               )}
@@ -136,8 +136,8 @@ export function PostCard({ post }: PostCardProps) {
             </div>
           </div>
 
-          <button className="p-1.5 rounded-full hover:bg-[var(--bg-tertiary)] text-[var(--text-muted)] transition-colors-fast">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <button aria-label="More options" className="p-1.5 rounded-full hover:bg-[var(--bg-tertiary)] text-[var(--text-muted)] transition-colors-fast">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" />
             </svg>
           </button>
@@ -167,7 +167,7 @@ export function PostCard({ post }: PostCardProps) {
                 >
                   <img
                     src={image}
-                    alt=""
+                    alt={`Post image ${i + 1} by ${post.user.displayName}`}
                     className="w-full h-full object-cover"
                   />
                 </div>

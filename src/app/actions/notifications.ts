@@ -1,95 +1,128 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
 
-export async function getNotifications(userId: string, limit = 20) {
-  const supabase = await createClient()
+export async function getNotifications(limit = 20, cursor?: string) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-  // First get notifications
-  const { data: notifications, error } = await supabase
-    .from('notifications')
-    .select('id, user_id, type, actor_id, post_id, comment_id, is_read, created_at')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-    .limit(limit)
-
-  if (error || !notifications) {
-    return []
-  }
-
-  // Get unique actor IDs
-  const actorIds = [...new Set(notifications.map(n => n.actor_id).filter(Boolean))]
-
-  // Fetch actor profiles in bulk
-  const { data: profiles } = await supabase
-    .from('profiles')
-    .select('id, username, display_name, avatar_url')
-    .in('id', actorIds)
-
-  const profileMap = new Map(profiles?.map(p => [p.id, p]) || [])
-
-  return notifications.map(n => {
-    const actor = profileMap.get(n.actor_id)
-    return {
-      id: n.id,
-      type: n.type,
-      actor_id: n.actor_id,
-      actor_username: actor?.username || '',
-      actor_display_name: actor?.display_name || '',
-      actor_avatar_url: actor?.avatar_url || null,
-      post_id: n.post_id,
-      comment_id: n.comment_id,
-      is_read: n.is_read,
-      created_at: n.created_at,
+    if (!user) {
+      return { notifications: [], nextCursor: undefined }
     }
-  })
-}
 
-export async function getUnreadCount(userId: string): Promise<number> {
-  const supabase = await createClient()
+    const safeLimit = Math.min(Math.max(1, limit), 50)
 
-  const { count } = await supabase
-    .from('notifications')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('is_read', false)
+    let query = supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(safeLimit)
 
-  return count || 0
+    if (cursor) {
+      query = query.lt('created_at', cursor)
+    }
+
+    const { data: notifications, error } = await query
+
+    if (error || !notifications) {
+      return { notifications: [], nextCursor: undefined }
+    }
+
+    const actorIds = [...new Set(notifications.map(n => n.actor_id).filter(Boolean))]
+
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, username, display_name, avatar_url')
+      .in('id', actorIds)
+
+    const profileMap = new Map(profiles?.map(p => [p.id, p]) || [])
+
+    const enriched = notifications.map(n => ({
+      ...n,
+      actor: n.actor_id ? profileMap.get(n.actor_id) || null : null,
+    }))
+
+    const nextCursor = notifications.length === safeLimit ? notifications[safeLimit - 1].created_at : undefined
+
+    return { notifications: enriched, nextCursor }
+  } catch {
+    return { notifications: [], nextCursor: undefined }
+  }
 }
 
 export async function markNotificationAsRead(notificationId: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user) {
-    return { error: 'Not authenticated' }
+    if (!user || !notificationId) {
+      return { error: 'Invalid request' }
+    }
+
+    const { error } = await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('id', notificationId)
+      .eq('user_id', user.id)
+
+    if (error) {
+      return { error: 'Failed to mark as read' }
+    }
+
+    return { success: true }
+  } catch {
+    return { error: 'Failed to mark as read' }
   }
-
-  await supabase
-    .from('notifications')
-    .update({ is_read: true })
-    .eq('id', notificationId)
-    .eq('user_id', user.id)
-
-  revalidatePath('/notifications')
-  return { success: true }
 }
 
 export async function markAllNotificationsAsRead() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user) {
-    return { error: 'Not authenticated' }
+    if (!user) {
+      return { error: 'Not authenticated' }
+    }
+
+    const { error } = await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('user_id', user.id)
+      .eq('is_read', false)
+
+    if (error) {
+      return { error: 'Failed to mark all as read' }
+    }
+
+    return { success: true }
+  } catch {
+    return { error: 'Failed to mark all as read' }
   }
+}
 
-  await supabase
-    .from('notifications')
-    .update({ is_read: true })
-    .eq('user_id', user.id)
-    .eq('is_read', false)
+export async function getUnreadNotificationCount() {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-  revalidatePath('/notifications')
-  return { success: true }
+    if (!user) {
+      return 0
+    }
+
+    const { count, error } = await supabase
+      .from('notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('is_read', false)
+
+    if (error) {
+      return 0
+    }
+
+    return count || 0
+  } catch {
+    return 0
+  }
 }

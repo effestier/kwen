@@ -2,80 +2,210 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { checkRateLimit, OTP_SEND_LIMIT, OTP_VERIFY_LIMIT, type RateLimitConfig } from '@/lib/rate-limit';
 
 export interface AuthResult {
   success?: boolean;
   error?: string;
 }
 
-// Send OTP to email
-export async function sendOTP(email: string): Promise<AuthResult> {
-  try {
-    const supabase = await createClient();
+function sanitizeEmail(email: string): string {
+  return email.trim().toLowerCase().slice(0, 254);
+}
 
-    if (!email || !email.includes('@')) {
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+interface TurnstileResponse {
+  success: boolean;
+  'error-codes'?: string[];
+  hostname?: string;
+  action?: string;
+}
+
+// One-time-use token cache to prevent replay attacks
+const usedTokens = new Map<string, number>();
+const TOKEN_TTL = 5 * 60 * 1000; // 5 minutes
+
+// Cleanup expired tokens every minute
+setInterval(() => {
+  const now = Date.now();
+  for (const [token, expiry] of usedTokens) {
+    if (now > expiry) usedTokens.delete(token);
+  }
+}, 60 * 1000);
+
+function markTokenUsed(token: string): void {
+  usedTokens.set(token, Date.now() + TOKEN_TTL);
+}
+
+function isTokenUsed(token: string): boolean {
+  const expiry = usedTokens.get(token);
+  if (!expiry) return false;
+  if (Date.now() > expiry) {
+    usedTokens.delete(token);
+    return false;
+  }
+  return true;
+}
+
+async function verifyTurnstileToken(token: string): Promise<{ valid: boolean; degraded: boolean }> {
+  const secretKey = process.env.TURNSTILE_SECRET_KEY;
+
+  // No secret key configured — fail open with degraded flag
+  // This prevents a misconfigured env from locking out all users
+  if (!secretKey) {
+    console.error('TURNSTILE_SECRET_KEY is not set — allowing request without verification');
+    return { valid: true, degraded: true };
+  }
+
+  // Reject already-used tokens (replay protection)
+  if (isTokenUsed(token)) {
+    return { valid: false, degraded: false };
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000); // 5s timeout
+
+    const response = await fetch(
+      'https://challenges.cloudflare.com/turnstile/v0/siteverify',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ secret: secretKey, response: token }),
+        signal: controller.signal,
+      }
+    );
+    clearTimeout(timeout);
+
+    const data: TurnstileResponse = await response.json();
+
+    if (data.success !== true) {
+      return { valid: false, degraded: false };
+    }
+
+    // Validate hostname matches our domain
+    const expectedHostname = process.env.TURNSTILE_HOSTNAME || 'kwen.in';
+    if (data.hostname && data.hostname !== expectedHostname) {
+      console.error(`Turnstile hostname mismatch: expected ${expectedHostname}, got ${data.hostname}`);
+      return { valid: false, degraded: false };
+    }
+
+    // Validate action matches what the widget sends
+    if (data.action && data.action !== 'send-otp') {
+      console.error(`Turnstile action mismatch: expected send-otp, got ${data.action}`);
+      return { valid: false, degraded: false };
+    }
+
+    // Mark token as used (one-time)
+    markTokenUsed(token);
+
+    return { valid: true, degraded: false };
+  } catch (error) {
+    // Network error or timeout — degrade gracefully
+    // Allow the request but flag it so rate limiting can be stricter
+    console.error('Turnstile verification failed (network error):', error);
+    return { valid: true, degraded: true };
+  }
+}
+
+// Degraded mode: stricter limit when Turnstile can't be verified
+const OTP_SEND_LIMIT_DEGRADED: RateLimitConfig = {
+  windowMs: 60 * 1000, // 1 minute
+  maxAttempts: 1,       // only 1 OTP per minute when degraded
+};
+
+export async function sendOTP(email: string, turnstileToken: string): Promise<AuthResult> {
+  try {
+    const cleanEmail = sanitizeEmail(email);
+
+    if (!cleanEmail || !isValidEmail(cleanEmail)) {
       return { error: 'Please enter a valid email address' };
     }
 
+    // Verify Turnstile token before rate limiting
+    if (!turnstileToken) {
+      return { error: 'Security check required. Please complete the challenge.' };
+    }
+    const turnstileResult = await verifyTurnstileToken(turnstileToken);
+    if (!turnstileResult.valid) {
+      return { error: 'Security check failed. Please try again.' };
+    }
+
+    // Use stricter rate limit when Turnstile verification is degraded
+    const rateConfig = turnstileResult.degraded ? OTP_SEND_LIMIT_DEGRADED : OTP_SEND_LIMIT;
+    const limit = checkRateLimit(`otp-send:${cleanEmail}`, rateConfig);
+    if (!limit.allowed) {
+      const seconds = Math.ceil((limit.retryAfterMs || 0) / 1000);
+      return { error: `Too many requests. Try again in ${seconds}s.` };
+    }
+
+    const supabase = await createClient();
+
     const { error } = await supabase.auth.signInWithOtp({
-      email,
+      email: cleanEmail,
       options: {
         shouldCreateUser: true,
-        emailRedirectTo: '', // FORCE OTP instead of magic link
+        emailRedirectTo: '',
       },
     });
 
     if (error) {
-
       if (error.message?.toLowerCase().includes('rate limit')) {
         return { error: 'Too many requests. Please wait a moment and try again.' };
       }
-
-      return { error: error.message };
+      // Don't leak whether email exists
+      return { success: true };
     }
 
     return { success: true };
-  } catch (err: any) {
-    return { error: err?.message || 'Failed to send OTP. Please try again.' };
+  } catch {
+    return { error: 'Failed to send code. Please try again.' };
   }
 }
 
-// Verify OTP and create/log in user
 export async function verifyOTP(email: string, token: string): Promise<AuthResult> {
   try {
-    const supabase = await createClient();
+    const cleanEmail = sanitizeEmail(email);
+    const cleanToken = token.trim();
 
-    if (!email || !token) {
-      return { error: 'Email and code are required' };
+    if (!cleanEmail || !isValidEmail(cleanEmail)) {
+      return { error: 'Invalid email' };
     }
 
-    if (token.length !== 6) {
+    if (!cleanToken || cleanToken.length !== 6 || !/^\d{6}$/.test(cleanToken)) {
       return { error: 'Please enter the 6-digit code' };
     }
 
+    // Rate limit: 10 verification attempts per 15 min per email
+    const limit = checkRateLimit(`otp-verify:${cleanEmail}`, OTP_VERIFY_LIMIT);
+    if (!limit.allowed) {
+      const minutes = Math.ceil((limit.retryAfterMs || 0) / 60000);
+      return { error: `Too many attempts. Try again in ${minutes} minute(s).` };
+    }
+
+    const supabase = await createClient();
+
     const { data, error } = await supabase.auth.verifyOtp({
-      email,
-      token,
+      email: cleanEmail,
+      token: cleanToken,
       type: 'email',
     });
 
     if (error) {
-
-      if (
-        error.message?.toLowerCase().includes('invalid') ||
-        error.message?.toLowerCase().includes('expired')
-      ) {
+      if (error.message?.toLowerCase().includes('invalid') || error.message?.toLowerCase().includes('expired')) {
         return { error: 'Invalid or expired code. Please request a new one.' };
       }
-
-      return { error: error.message };
+      return { error: 'Verification failed. Please try again.' };
     }
 
     if (!data.user) {
       return { error: 'Verification failed. Please try again.' };
     }
 
-    // Ensure profile exists - use upsert to handle race conditions with trigger
+    // Ensure profile exists
     const { data: existingProfile } = await supabase
       .from('profiles')
       .select('id')
@@ -83,99 +213,102 @@ export async function verifyOTP(email: string, token: string): Promise<AuthResul
       .single();
 
     if (!existingProfile) {
-      const displayName = email.split('@')[0];
+      const displayName = cleanEmail.split('@')[0].slice(0, 50);
       const tempUsername = `user_${data.user.id.slice(0, 8)}`;
 
-      // Upsert handles race condition with database trigger
-      const { error: profileError } = await supabase.from('profiles').upsert({
+      await supabase.from('profiles').upsert({
         id: data.user.id,
         username: tempUsername,
         display_name: displayName,
       }, { onConflict: 'id' });
 
-      if (profileError) {
-      }
-
-      // Create user settings (ignore if already exists)
-      const { error: settingsError } = await supabase.from('user_settings').upsert({
+      await supabase.from('user_settings').upsert({
         user_id: data.user.id,
       }, { onConflict: 'user_id' });
-
-      if (settingsError) {
-      }
     }
 
     revalidatePath('/', 'layout');
     return { success: true };
-  } catch (err: any) {
-    return { error: err?.message || 'Verification failed. Please try again.' };
+  } catch {
+    return { error: 'Verification failed. Please try again.' };
   }
 }
 
-export async function checkUserExists(email: string): Promise<{ exists: boolean; isNewUser: boolean }> {
+export async function checkUserExists(_email: string): Promise<{ exists: boolean; isNewUser: boolean }> {
+  // Always return true to prevent account enumeration
   return { exists: true, isNewUser: false };
 }
 
 export async function signOut() {
-  const supabase = await createClient();
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase.auth.signOut();
 
-  const { error } = await supabase.auth.signOut();
+    if (error) {
+      return { error: 'Sign out failed' };
+    }
 
-  if (error) {
-    return { error: error.message };
+    revalidatePath('/', 'layout');
+    return { success: true };
+  } catch {
+    return { error: 'Sign out failed' };
   }
-
-  revalidatePath('/', 'layout');
-  return { success: true };
 }
 
 export async function getSession() {
-  const supabase = await createClient();
-  const { data, error } = await supabase.auth.getSession();
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.auth.getSession();
 
-  if (error) {
-    return { session: null, error: error.message };
+    if (error) {
+      return { session: null, error: 'Session unavailable' };
+    }
+
+    return { session: data.session, error: null };
+  } catch {
+    return { session: null, error: 'Session unavailable' };
   }
-
-  return { session: data.session, error: null };
 }
 
 export async function getUser() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
+  try {
+    const supabase = await createClient();
+    const { data: { user }, error } = await supabase.auth.getUser();
 
-  if (error) {
-    return { user: null, error: error.message };
+    if (error) {
+      return { user: null, error: 'Authentication failed' };
+    }
+
+    return { user, error: null };
+  } catch {
+    return { user: null, error: 'Authentication failed' };
   }
-
-  return { user, error: null };
 }
 
 export async function completeProfile(username: string, displayName: string): Promise<AuthResult> {
   try {
     const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return { error: 'Not authenticated' };
     }
 
-    if (!/^[a-z0-9_]{3,30}$/.test(username)) {
-      return {
-        error:
-          'Username must be 3-30 characters, lowercase letters, numbers, and underscores only',
-      };
+    const cleanUsername = username.trim().toLowerCase();
+    const cleanDisplayName = displayName.trim().slice(0, 100);
+
+    if (!/^[a-z0-9_]{3,30}$/.test(cleanUsername)) {
+      return { error: 'Username must be 3-30 characters, lowercase letters, numbers, and underscores only' };
+    }
+
+    if (!cleanDisplayName) {
+      return { error: 'Display name is required' };
     }
 
     const { data: existing } = await supabase
       .from('profiles')
       .select('id')
-      .eq('username', username)
+      .eq('username', cleanUsername)
       .neq('id', user.id)
       .single();
 
@@ -185,19 +318,16 @@ export async function completeProfile(username: string, displayName: string): Pr
 
     const { error: updateError } = await supabase
       .from('profiles')
-      .update({
-        username,
-        display_name: displayName,
-      })
+      .update({ username: cleanUsername, display_name: cleanDisplayName })
       .eq('id', user.id);
 
     if (updateError) {
-      return { error: updateError.message };
+      return { error: 'Failed to update profile' };
     }
 
     revalidatePath('/', 'layout');
     return { success: true };
-  } catch (err: any) {
-    return { error: err?.message || 'Failed to update profile' };
+  } catch {
+    return { error: 'Failed to update profile' };
   }
 }

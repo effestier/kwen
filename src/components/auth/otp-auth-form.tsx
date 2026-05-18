@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { sendOTP, verifyOTP, completeProfile } from '@/app/actions/otp-auth';
 import { BRAND } from '@/lib/brand/config';
-import { cn } from '@/lib/utils';
+import { TurnstileWidget } from '@/components/auth/turnstile-widget';
 
 type AuthMode = 'login' | 'register';
 type Step = 'email' | 'otp' | 'profile';
@@ -21,69 +21,86 @@ export function OTPAuthForm({ mode }: { mode: AuthMode }) {
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [resendTimer, setResendTimer] = useState(0);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
   // Refs for OTP inputs
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-
-  // Timer for resend
-  useEffect(() => {
-    if (resendTimer > 0) {
-      const timer = setTimeout(() => setResendTimer(resendTimer - 1), 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [resendTimer]);
+  const submittingRef = useRef(false);
 
   // Handle email submit
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setLoading(true);
 
-    const result = await sendOTP(email);
-
-    if (result.error) {
-      setError(result.error);
-      setLoading(false);
+    if (!turnstileToken) {
+      setError('Please complete the security check');
       return;
     }
 
-    // Success - move to OTP step
-    setStep('otp');
-    setResendTimer(60); // 60 second cooldown
-    setLoading(false);
-    setSuccessMessage('Code sent! Check your email.');
+    // Double-submit guard (ref is synchronous, state is async)
+    if (submittingRef.current || loading) return;
+    submittingRef.current = true;
+    setLoading(true);
 
-    // Clear success message after 3 seconds
-    setTimeout(() => setSuccessMessage(null), 3000);
+    try {
+      const result = await sendOTP(email, turnstileToken);
 
-    // Focus first OTP input
-    setTimeout(() => inputRefs.current[0]?.focus(), 100);
+      if (result.error) {
+        setError(result.error);
+        setLoading(false);
+        submittingRef.current = false;
+        return;
+      }
+
+      // Success - move to OTP step
+      setStep('otp');
+      setTurnstileToken(null);
+      setSuccessMessage('Code sent! Check your email.');
+
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccessMessage(null), 3000);
+
+      // Focus first OTP input
+      setTimeout(() => inputRefs.current[0]?.focus(), 100);
+    } catch {
+      setError('Something went wrong. Please try again.');
+    } finally {
+      setLoading(false);
+      submittingRef.current = false;
+    }
   };
 
   // Handle OTP submit
   const handleOtpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    if (submittingRef.current || loading) return;
+    submittingRef.current = true;
     setLoading(true);
 
-    const result = await verifyOTP(email, otpCode);
+    try {
+      const result = await verifyOTP(email, otpCode);
 
-    if (result.error) {
-      setError(result.error);
-      setLoading(false);
-      return;
-    }
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
 
-    // If this is registration mode, ask for profile completion
-    if (mode === 'register') {
-      setStep('profile');
+      // If this is registration mode, ask for profile completion
+      if (mode === 'register') {
+        setStep('profile');
+      } else {
+        // Login success - redirect
+        router.push('/feed');
+        router.refresh();
+      }
+    } catch {
+      setError('Something went wrong. Please try again.');
+    } finally {
       setLoading(false);
-    } else {
-      // Login success - redirect
-      router.push('/feed');
-      router.refresh();
+      submittingRef.current = false;
     }
   };
 
@@ -103,39 +120,27 @@ export function OTPAuthForm({ mode }: { mode: AuthMode }) {
       return;
     }
 
+    if (submittingRef.current || loading) return;
+    submittingRef.current = true;
     setLoading(true);
 
-    const result = await completeProfile(username, displayName);
+    try {
+      const result = await completeProfile(username, displayName);
 
-    if (result.error) {
-      setError(result.error);
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+
+      // Success - redirect to feed
+      router.push('/feed');
+      router.refresh();
+    } catch {
+      setError('Something went wrong. Please try again.');
+    } finally {
       setLoading(false);
-      return;
+      submittingRef.current = false;
     }
-
-    // Success - redirect to feed
-    router.push('/feed');
-    router.refresh();
-  };
-
-  // Resend OTP
-  const handleResend = async () => {
-    if (resendTimer > 0) return;
-
-    setError(null);
-    setLoading(true);
-
-    const result = await sendOTP(email);
-
-    if (result.error) {
-      setError(result.error);
-    } else {
-      setResendTimer(60);
-      setSuccessMessage('Code resent! Check your email.');
-      setTimeout(() => setSuccessMessage(null), 3000);
-    }
-
-    setLoading(false);
   };
 
   // Handle OTP input change
@@ -173,15 +178,15 @@ export function OTPAuthForm({ mode }: { mode: AuthMode }) {
     return (
       <div className="min-h-screen flex flex-col bg-[var(--bg-primary)]">
         <header className="p-6">
-          <Link href="/" className="inline-flex items-center gap-2 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors-fast">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <Link href="/" aria-label="Back to home" className="inline-flex items-center gap-2 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors-fast">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="m12 19-7-7 7-7" /><path d="M19 12H5" />
             </svg>
             Back
           </Link>
         </header>
 
-        <main className="flex-1 flex items-center justify-center px-6 py-12">
+        <main id="main-content" className="flex-1 flex items-center justify-center px-6 py-12">
           <div className="w-full max-w-[380px]">
             {/* Logo */}
             <div className="flex items-center justify-center gap-2.5 mb-10">
@@ -203,32 +208,45 @@ export function OTPAuthForm({ mode }: { mode: AuthMode }) {
               </p>
 
               {error && (
-                <div className="mb-4 p-3 rounded-lg bg-[var(--destructive)]/10 border border-[var(--destructive)]/20 text-sm text-[var(--destructive)]">
+                <div role="alert" aria-live="polite" className="mb-4 p-3 rounded-lg bg-[var(--destructive)]/10 border border-[var(--destructive)]/20 text-sm text-[var(--destructive)]">
                   {error}
                 </div>
               )}
 
               {successMessage && (
-                <div className="mb-4 p-3 rounded-lg bg-[var(--success)]/10 border border-[var(--success)]/20 text-sm text-[var(--success)]">
+                <div role="status" aria-live="polite" className="mb-4 p-3 rounded-lg bg-[var(--success)]/10 border border-[var(--success)]/20 text-sm text-[var(--success)]">
                   {successMessage}
                 </div>
               )}
 
               <form onSubmit={handleEmailSubmit} className="space-y-5">
                 <div>
+                  <label htmlFor="email-input" className="sr-only">Email address</label>
                   <input
+                    id="email-input"
                     type="email"
                     placeholder="Email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    aria-label="Email address"
                     className="w-full px-4 py-3 rounded-xl bg-[var(--bg-tertiary)] border border-[var(--border-subtle)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--accent-primary)] text-[var(--text-primary)]"
                   />
                 </div>
 
+                <TurnstileWidget
+                  siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+                  onSuccess={setTurnstileToken}
+                  onExpire={() => setTurnstileToken(null)}
+                  onError={() => {
+                    setTurnstileToken(null);
+                    setError('Security check failed. Please try again.');
+                  }}
+                />
+
                 <button
                   type="submit"
-                  disabled={loading || !email}
+                  disabled={loading || !email || !turnstileToken}
                   className="w-full py-3 rounded-xl bg-[var(--accent-primary)] text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
                 >
                   {loading ? 'Sending...' : 'Continue'}
@@ -261,17 +279,18 @@ export function OTPAuthForm({ mode }: { mode: AuthMode }) {
       <div className="min-h-screen flex flex-col bg-[var(--bg-primary)]">
         <header className="p-6">
           <button
-            onClick={() => { setStep('email'); setError(null); }}
+            onClick={() => { setStep('email'); setError(null); setTurnstileToken(null); }}
+            aria-label="Back to email step"
             className="inline-flex items-center gap-2 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors-fast"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="m12 19-7-7 7-7" /><path d="M19 12H5" />
             </svg>
             Back
           </button>
         </header>
 
-        <main className="flex-1 flex items-center justify-center px-6 py-12">
+        <main id="main-content" className="flex-1 flex items-center justify-center px-6 py-12">
           <div className="w-full max-w-[380px]">
             {/* Logo */}
             <div className="flex items-center justify-center gap-2.5 mb-10">
@@ -290,34 +309,38 @@ export function OTPAuthForm({ mode }: { mode: AuthMode }) {
               </p>
 
               {error && (
-                <div className="mb-4 p-3 rounded-lg bg-[var(--destructive)]/10 border border-[var(--destructive)]/20 text-sm text-[var(--destructive)]">
+                <div role="alert" aria-live="polite" className="mb-4 p-3 rounded-lg bg-[var(--destructive)]/10 border border-[var(--destructive)]/20 text-sm text-[var(--destructive)]">
                   {error}
                 </div>
               )}
 
               {successMessage && (
-                <div className="mb-4 p-3 rounded-lg bg-[var(--success)]/10 border border-[var(--success)]/20 text-sm text-[var(--success)]">
+                <div role="status" aria-live="polite" className="mb-4 p-3 rounded-lg bg-[var(--success)]/10 border border-[var(--success)]/20 text-sm text-[var(--success)]">
                   {successMessage}
                 </div>
               )}
 
               <form id="otp-form" onSubmit={handleOtpSubmit} className="space-y-6">
                 {/* OTP Inputs */}
-                <div className="flex justify-center gap-2">
-                  {[0, 1, 2, 3, 4, 5].map((i) => (
-                    <input
-                      key={i}
-                      ref={(el) => { inputRefs.current[i] = el; }}
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={1}
-                      value={otpCode[i] || ''}
-                      onChange={(e) => handleOtpChange(i, e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(i, e)}
-                      className="w-12 h-14 text-center text-xl font-bold rounded-xl bg-[var(--bg-tertiary)] border border-[var(--border-subtle)] focus:outline-none focus:border-[var(--accent-primary)] text-[var(--text-primary)]"
-                    />
-                  ))}
-                </div>
+                <fieldset>
+                  <legend className="sr-only">Enter 6-digit verification code</legend>
+                  <div className="flex justify-center gap-2" role="group" aria-label="Verification code">
+                    {[0, 1, 2, 3, 4, 5].map((i) => (
+                      <input
+                        key={i}
+                        ref={(el) => { inputRefs.current[i] = el; }}
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={1}
+                        value={otpCode[i] || ''}
+                        onChange={(e) => handleOtpChange(i, e.target.value)}
+                        onKeyDown={(e) => handleKeyDown(i, e)}
+                        aria-label={`Digit ${i + 1} of 6`}
+                        className="w-12 h-14 text-center text-xl font-bold rounded-xl bg-[var(--bg-tertiary)] border border-[var(--border-subtle)] focus:outline-none focus:border-[var(--accent-primary)] text-[var(--text-primary)]"
+                      />
+                    ))}
+                  </div>
+                </fieldset>
 
                 <button
                   type="submit"
@@ -330,19 +353,15 @@ export function OTPAuthForm({ mode }: { mode: AuthMode }) {
 
               {/* Resend */}
               <div className="mt-6 text-center">
-                {resendTimer > 0 ? (
-                  <p className="text-sm text-[var(--text-muted)]">
-                    Resend in {resendTimer}s
-                  </p>
-                ) : (
+                <p className="text-sm text-[var(--text-muted)]">
+                  Didn&apos;t receive code?{' '}
                   <button
-                    onClick={handleResend}
-                    disabled={loading}
-                    className="text-sm text-[var(--accent-primary)] hover:underline disabled:opacity-50"
+                    onClick={() => { setStep('email'); setError(null); setTurnstileToken(null); }}
+                    className="text-[var(--accent-primary)] hover:underline"
                   >
-                    Didn't receive code? Resend
+                    Go back and resend
                   </button>
-                )}
+                </p>
               </div>
             </div>
           </div>
@@ -359,7 +378,7 @@ export function OTPAuthForm({ mode }: { mode: AuthMode }) {
           {/* Can't go back from profile step */}
         </header>
 
-        <main className="flex-1 flex items-center justify-center px-6 py-12">
+        <main id="main-content" className="flex-1 flex items-center justify-center px-6 py-12">
           <div className="w-full max-w-[380px]">
             {/* Logo */}
             <div className="flex items-center justify-center gap-2.5 mb-10">
@@ -377,25 +396,30 @@ export function OTPAuthForm({ mode }: { mode: AuthMode }) {
               </p>
 
               {error && (
-                <div className="mb-4 p-3 rounded-lg bg-[var(--destructive)]/10 border border-[var(--destructive)]/20 text-sm text-[var(--destructive)]">
+                <div role="alert" aria-live="polite" className="mb-4 p-3 rounded-lg bg-[var(--destructive)]/10 border border-[var(--destructive)]/20 text-sm text-[var(--destructive)]">
                   {error}
                 </div>
               )}
 
               <form onSubmit={handleProfileSubmit} className="space-y-5">
                 <div>
+                  <label htmlFor="display-name-input" className="sr-only">Display name</label>
                   <input
+                    id="display-name-input"
                     type="text"
                     placeholder="Display Name"
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
                     required
+                    aria-label="Display name"
                     className="w-full px-4 py-3 rounded-xl bg-[var(--bg-tertiary)] border border-[var(--border-subtle)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--accent-primary)] text-[var(--text-primary)]"
                   />
                 </div>
 
                 <div>
+                  <label htmlFor="username-input" className="sr-only">Username</label>
                   <input
+                    id="username-input"
                     type="text"
                     placeholder="Username"
                     value={username}
@@ -403,6 +427,7 @@ export function OTPAuthForm({ mode }: { mode: AuthMode }) {
                     required
                     pattern="^[a-z0-9_]{3,30}$"
                     title="3-30 characters, lowercase letters, numbers, and underscores only"
+                    aria-label="Username"
                     className="w-full px-4 py-3 rounded-xl bg-[var(--bg-tertiary)] border border-[var(--border-subtle)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--accent-primary)] text-[var(--text-primary)]"
                   />
                   <p className="text-xs text-[var(--text-muted)] mt-2">This will be your unique URL: /profile/{username || 'username'}</p>

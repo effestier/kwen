@@ -236,3 +236,73 @@ export async function getPost(postId: string) {
     return { error: 'Failed to load post' }
   }
 }
+
+// =============================================
+// BLOCK / MUTE
+// =============================================
+
+export async function blockUser(userId: string) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) return { error: 'Not authenticated' }
+    if (!userId || userId === user.id) return { error: 'Invalid user' }
+
+    const { error } = await supabase
+      .from('blocks')
+      .upsert({ blocker_id: user.id, blocked_id: userId }, { onConflict: 'blocker_id,blocked_id' })
+
+    if (error) return { error: 'Failed to block user' }
+    return { success: true }
+  } catch {
+    return { error: 'Failed to block user' }
+  }
+}
+
+export async function unblockUser(userId: string) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) return { error: 'Not authenticated' }
+
+    await supabase.from('blocks').delete().eq('blocker_id', user.id).eq('blocked_id', userId)
+    return { success: true }
+  } catch {
+    return { error: 'Failed to unblock user' }
+  }
+}
+
+export async function muteUser(userId: string) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) return { error: 'Not authenticated' }
+    if (!userId || userId === user.id) return { error: 'Invalid user' }
+
+    const { error } = await supabase
+      .from('mutes')
+      .upsert({ muter_id: user.id, muted_id: userId }, { onConflict: 'muter_id,muted_id' })
+
+    if (error) return { error: 'Failed to mute user' }
+    return { success: true }
+  } catch {
+    return { error: 'Failed to mute user' }
+  }
+}
+
+export async function unmuteUser(userId: string) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) return { error: 'Not authenticated' }
+
+    await supabase.from('mutes').delete().eq('muter_id', user.id).eq('muted_id', userId)
+    return { success: true }
+  } catch {
+    return { error: 'Failed to unmute user' }
+  }
+}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { MainLayout } from '@/components/layout/main-layout';
 import { Stories } from '@/components/story/stories';
 import { PostCard } from '@/components/post/post-card';
@@ -8,26 +8,21 @@ import { Avatar } from '@/components/ui/avatar';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 
-interface PostWithDetails {
+interface FeedPost {
   id: string;
   user_id: string;
   content: string | null;
   location: string | null;
   created_at: string;
-  user_display_name: string;
-  user_username: string;
-  user_avatar_url: string | null;
-  user_is_verified: boolean;
   like_count: number;
   comment_count: number;
   is_liked: boolean;
   is_saved: boolean;
-  media?: Array<{
-    id: string;
-    storage_path: string;
-    media_type: string;
-    sort_order: number;
-  }>;
+  display_name: string;
+  username: string;
+  avatar_url: string | null;
+  media: Array<{ id: string; storage_path: string; sort_order: number }>;
+  tier: string;
 }
 
 interface Story {
@@ -37,13 +32,7 @@ interface Story {
   media_type: string;
   expires_at: string;
   created_at: string;
-  user: {
-    id: string;
-    username: string;
-    display_name: string;
-    avatar_url: string | null;
-    is_verified: boolean;
-  };
+  user: { id: string; username: string; display_name: string; avatar_url: string | null; is_verified: boolean };
   hasViewed: boolean;
 }
 
@@ -56,21 +45,30 @@ interface Profile {
 
 export default function FeedPage() {
   const [user, setUser] = useState<Profile | null>(null);
-  const [posts, setPosts] = useState<PostWithDetails[]>([]);
+  const [posts, setPosts] = useState<FeedPost[]>([]);
   const [stories, setStories] = useState<Story[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const sentinelRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
 
+  const loadPosts = useCallback(async (userId: string, cursorVal: string | null) => {
+    const { data: feedPosts } = await supabase.rpc('get_discovery_feed', {
+      p_user_id: userId,
+      p_limit: 20,
+      p_cursor: cursorVal,
+    });
+    return feedPosts || [];
+  }, [supabase]);
+
+  // Initial load
   useEffect(() => {
     async function loadData() {
       const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) { setLoading(false); return; }
 
-      if (!authUser) {
-        setLoading(false);
-        return;
-      }
-
-      // Get profile (with fallback creation)
       let { data: profile } = await supabase
         .from('profiles')
         .select('id, username, display_name, avatar_url')
@@ -81,11 +79,7 @@ export default function FeedPage() {
         const tempUsername = `user_${authUser.id.slice(0, 8)}`;
         const { data: newProfile } = await supabase
           .from('profiles')
-          .upsert({
-            id: authUser.id,
-            username: tempUsername,
-            display_name: authUser.email?.split('@')[0] || 'User',
-          }, { onConflict: 'id' })
+          .upsert({ id: authUser.id, username: tempUsername, display_name: authUser.email?.split('@')[0] || 'User' }, { onConflict: 'id' })
           .select('id, username, display_name, avatar_url')
           .single();
         profile = newProfile;
@@ -93,105 +87,89 @@ export default function FeedPage() {
 
       setUser(profile);
 
-      // Get feed posts using RPC
-      const { data: feedPosts } = await supabase.rpc('get_timeline', {
-        p_user_id: authUser.id,
-        p_limit: 20,
-        p_cursor: null,
-      });
-
-      // Get media from post_media table
-      if (feedPosts && feedPosts.length > 0) {
-        const postIds = feedPosts.map((p: any) => p.id);
-        const { data: media } = await supabase
-          .from('post_media')
-          .select('id, post_id, storage_path, media_type, sort_order')
-          .in('post_id', postIds)
-          .order('sort_order', { ascending: true });
-
-        const mediaMap = new Map<string, any[]>();
-        media?.forEach(m => {
-          const existing = mediaMap.get(m.post_id) || [];
-          mediaMap.set(m.post_id, [...existing, m]);
-        });
-
-        const postsWithMedia = feedPosts.map((p: any) => ({
-          ...p,
-          media: mediaMap.get(p.id) || []
-        }));
-        setPosts(postsWithMedia);
-      } else {
-        setPosts(feedPosts || []);
+      const feedPosts = await loadPosts(authUser.id, null);
+      setPosts(feedPosts);
+      if (feedPosts.length > 0) {
+        setCursor(feedPosts[feedPosts.length - 1].created_at);
       }
+      if (feedPosts.length < 20) setHasMore(false);
 
-      // Get stories from current user and followed users
-      // First get IDs of users we follow
-      const { data: following } = await supabase
-        .from('follows')
-        .select('following_id')
-        .eq('follower_id', authUser.id);
-
+      // Stories
+      const { data: following } = await supabase.from('follows').select('following_id').eq('follower_id', authUser.id);
       const followingIds = following?.map(f => f.following_id) || [];
-      // Include current user in the list
       const allUserIds = [authUser.id, ...followingIds];
 
-      // Get non-expired stories from these users
       const { data: userStories } = await supabase
         .from('stories')
-        .select(`
-          id,
-          user_id,
-          media_url,
-          media_type,
-          expires_at,
-          created_at,
-          user:profiles!inner(id, username, display_name, avatar_url, is_verified)
-        `)
+        .select('id, user_id, media_url, media_type, expires_at, created_at, user:profiles!inner(id, username, display_name, avatar_url, is_verified)')
         .in('user_id', allUserIds)
         .gt('expires_at', new Date().toISOString())
         .order('created_at', { ascending: false })
         .limit(50);
 
-      // Get story views for current user
-      const { data: views } = await supabase
-        .from('story_views')
-        .select('story_id')
-        .eq('user_id', authUser.id);
-
+      const { data: views } = await supabase.from('story_views').select('story_id').eq('user_id', authUser.id);
       const viewedSet = new Set(views?.map(v => v.story_id) || []);
 
-      const formattedStories: Story[] = (userStories || []).map((s: any) => ({
-        id: s.id,
-        user_id: s.user_id,
-        media_url: s.media_url,
-        media_type: s.media_type || 'image',
-        expires_at: s.expires_at,
-        created_at: s.created_at,
-        user: s.user,
-        hasViewed: viewedSet.has(s.id),
-      }));
+      setStories((userStories || []).map((s: any) => ({
+        id: s.id, user_id: s.user_id, media_url: s.media_url, media_type: s.media_type || 'image',
+        expires_at: s.expires_at, created_at: s.created_at, user: s.user, hasViewed: viewedSet.has(s.id),
+      })));
 
-      setStories(formattedStories);
       setLoading(false);
     }
-
     loadData();
   }, []);
 
-  // Subscribe to realtime updates
+  // Infinite scroll
+  useEffect(() => {
+    if (!hasMore || loading || !cursor) return;
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(async (entries) => {
+      if (entries[0].isIntersecting && !loadingMore) {
+        setLoadingMore(true);
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (authUser) {
+          const morePosts = await loadPosts(authUser.id, cursor);
+          setPosts(prev => [...prev, ...morePosts]);
+          if (morePosts.length > 0) {
+            setCursor(morePosts[morePosts.length - 1].created_at);
+          }
+          if (morePosts.length < 20) setHasMore(false);
+        }
+        setLoadingMore(false);
+      }
+    }, { rootMargin: '200px' });
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [cursor, hasMore, loading, loadingMore]);
+
+  // Realtime: new post insert (without full reload)
   useEffect(() => {
     const channel = supabase
       .channel('feed-updates')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, () => {
-        // Reload full feed data
-        window.location.reload();
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, async (payload) => {
+        const newPost = payload.new as { id: string; user_id: string; content: string; created_at: string };
+        if (!user) return;
+        // Don't duplicate
+        if (posts.some(p => p.id === newPost.id)) return;
+        // Fetch full post data
+        const { data: fullPost } = await supabase.rpc('get_discovery_feed', {
+          p_user_id: user.id,
+          p_limit: 1,
+          p_cursor: null,
+        });
+        // Only insert if it's from a followed user or high engagement
+        if (fullPost && fullPost.length > 0) {
+          setPosts(prev => [fullPost[0], ...prev]);
+        }
       })
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
+    return () => { supabase.removeChannel(channel); };
+  }, [user, posts]);
 
   if (loading) {
     return (
@@ -230,14 +208,10 @@ export default function FeedPage() {
           {user && (
             <div className="py-3 border-b border-[var(--border-subtle)]">
               <Link href="/create" aria-label="Create a new post" className="flex items-start gap-3 group">
-                <Avatar
-                  src={user.avatar_url}
-                  name={user.display_name}
-                  size="md"
-                />
+                <Avatar src={user.avatar_url} name={user.display_name} size="md" />
                 <div className="flex-1 min-w-0">
                   <div className="text-[15px] text-[var(--text-muted)] py-2.5 px-4 rounded-xl bg-[var(--bg-secondary)] border border-transparent group-hover:border-[var(--border-soft)] transition-colors-fast">
-                    What's happening?
+                    What&apos;s happening?
                   </div>
                 </div>
               </Link>
@@ -249,15 +223,8 @@ export default function FeedPage() {
             <div className="py-3 border-b border-[var(--border-subtle)]">
               <Stories
                 stories={stories}
-                currentUser={user ? {
-                  id: user.id,
-                  username: user.username,
-                  display_name: user.display_name,
-                  avatar_url: user.avatar_url,
-                } : undefined}
-                onUploadSuccess={() => {
-                  setTimeout(() => window.location.reload(), 500);
-                }}
+                currentUser={user ? { id: user.id, username: user.username, display_name: user.display_name, avatar_url: user.avatar_url } : undefined}
+                onUploadSuccess={() => { setTimeout(() => window.location.reload(), 500); }}
               />
             </div>
           )}
@@ -268,17 +235,7 @@ export default function FeedPage() {
               {posts.map((post) => (
                 <PostCard key={post.id} post={{
                   id: post.id,
-                  user: {
-                    id: post.user_id,
-                    username: post.user_username,
-                    displayName: post.user_display_name,
-                    avatar: post.user_avatar_url || '',
-                    isVerified: post.user_is_verified,
-                    bio: '',
-                    followers: 0,
-                    following: 0,
-                    posts: 0,
-                  },
+                  user: { id: post.user_id, username: post.username, displayName: post.display_name, avatar: post.avatar_url || '', isVerified: false, bio: '', followers: 0, following: 0, posts: 0 },
                   content: post.content || '',
                   images: post.media?.map(m => m.storage_path) || [],
                   likes: post.like_count,
@@ -290,6 +247,11 @@ export default function FeedPage() {
                   location: post.location || undefined,
                 }} />
               ))}
+              {/* Infinite scroll sentinel */}
+              <div ref={sentinelRef} className="h-1" />
+              {loadingMore && (
+                <div className="py-8 text-center text-[var(--text-muted)] text-sm">Loading more...</div>
+              )}
             </div>
           ) : (
             <div className="py-16 text-center text-[var(--text-muted)]">
@@ -300,15 +262,4 @@ export default function FeedPage() {
       </div>
     </MainLayout>
   );
-}
-
-function ComposerIcon({ name }: { name: string }) {
-  const icons: Record<string, React.ReactNode> = {
-    image: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" /></svg>,
-    gif: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" /><text x="7" y="15" fontSize="7" fill="currentColor">GIF</text></svg>,
-    poll: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18" /><path d="m19 9-5 5-4-4-3 3" /></svg>,
-    emoji: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M8 14s1.5 2 4 2 4-2 4-2" /><line x1="9" x2="9.01" y1="9" y2="9" /><line x1="15" x2="15.01" y1="9" y2="9" /></svg>,
-    location: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /><circle cx="12" cy="10" r="3" /></svg>,
-  };
-  return icons[name] || null;
 }

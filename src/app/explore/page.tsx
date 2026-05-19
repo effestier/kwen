@@ -38,11 +38,15 @@ export default function ExplorePage() {
   const [activeCategory, setActiveCategory] = useState('All');
   const [posts, setPosts] = useState<PostWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Profile[]>([]);
   const [searching, setSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
 
   // Search users
@@ -94,59 +98,30 @@ export default function ExplorePage() {
     async function loadPosts() {
       const { data: { user } } = await supabase.auth.getUser();
 
-      // Use RPC with proper args
-      const rpcResult = await supabase.rpc('get_explore_posts', {
+      const { data: explorePosts } = await supabase.rpc('get_explore_feed', {
         p_user_id: user?.id ?? null,
-        p_limit: 20,
-        p_cursor: null
+        p_limit: 30,
+        p_cursor: null,
       });
 
-      const explorePosts = rpcResult.data as PostWithDetails[];
-      const postsError = rpcResult.error;
-
-
       if (explorePosts && explorePosts.length > 0) {
-        // Get media from post_media table
-        const postIds = explorePosts.map((p: PostWithDetails) => String(p.id));
-
-        // Debug: first try fetching ALL post_media to see if any exists
-        const { data: allMedia, error: mediaError } = await supabase
-          .from('post_media')
-          .select('post_id, storage_path, sort_order')
-          .limit(5);
-
-
-        // Simple unfiltered query to test if data exists
-        const { data: media, error: mediaError2 } = await supabase
-          .from('post_media')
-          .select('post_id, storage_path, sort_order');
-
-
-        // Build media map - first image per post (SAME AS PROFILE)
-        const mediaMap = new Map<string, string>();
-        media?.forEach(m => {
-          if (!mediaMap.has(m.post_id)) {
-            mediaMap.set(m.post_id, m.storage_path);
-          }
-        });
-
-
-        // Merge images into posts (SAME AS PROFILE)
-        const postsWithMedia = explorePosts.map((p: PostWithDetails) => ({
+        const formatted = explorePosts.map((p: any) => ({
           id: p.id,
           user_id: p.user_id,
           content: p.content,
           created_at: p.created_at,
-          user_username: p.user_username,
-          user_display_name: p.user_display_name,
-          user_avatar_url: p.user_avatar_url,
+          user_username: p.username,
+          user_display_name: p.display_name,
+          user_avatar_url: p.avatar_url,
           like_count: p.like_count,
           comment_count: p.comment_count,
-          images: mediaMap.get(String(p.id)) ? [mediaMap.get(String(p.id))!] : []
+          images: (p.media || []).map((m: any) => m.storage_path),
         }));
-
-
-        setPosts(postsWithMedia);
+        setPosts(formatted);
+        if (formatted.length > 0) {
+          setCursor(formatted[formatted.length - 1].created_at);
+        }
+        if (formatted.length < 30) setHasMore(false);
       }
 
       setLoading(false);
@@ -154,6 +129,43 @@ export default function ExplorePage() {
 
     loadPosts();
   }, []);
+
+  // Infinite scroll
+  useEffect(() => {
+    if (!hasMore || loading || !cursor) return;
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(async (entries) => {
+      if (entries[0].isIntersecting && !loadingMore) {
+        setLoadingMore(true);
+        const { data: { user } } = await supabase.auth.getUser();
+        const { data: morePosts } = await supabase.rpc('get_explore_feed', {
+          p_user_id: user?.id ?? null,
+          p_limit: 30,
+          p_cursor: cursor,
+        });
+
+        if (morePosts && morePosts.length > 0) {
+          const formatted = morePosts.map((p: any) => ({
+            id: p.id, user_id: p.user_id, content: p.content, created_at: p.created_at,
+            user_username: p.username, user_display_name: p.display_name, user_avatar_url: p.avatar_url,
+            like_count: p.like_count, comment_count: p.comment_count,
+            images: (p.media || []).map((m: any) => m.storage_path),
+          }));
+          setPosts(prev => [...prev, ...formatted]);
+          if (formatted.length > 0) setCursor(formatted[formatted.length - 1].created_at);
+          if (formatted.length < 30) setHasMore(false);
+        } else {
+          setHasMore(false);
+        }
+        setLoadingMore(false);
+      }
+    }, { rootMargin: '200px' });
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [cursor, hasMore, loading, loadingMore]);
 
   return (
     <MainLayout>
@@ -283,6 +295,10 @@ export default function ExplorePage() {
                 </Link>
               ))}
             </div>
+            <div ref={sentinelRef} className="h-1" />
+            {loadingMore && (
+              <div className="py-8 text-center text-[var(--text-muted)] text-sm">Loading more...</div>
+            )}
           </div>
         ) : (
           <div className="text-center py-20">

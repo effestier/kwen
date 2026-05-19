@@ -8,9 +8,10 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { cn } from '@/lib/utils';
 import { formatTimeAgo } from '@/lib/utils';
 import Link from 'next/link';
-import { getMessages, sendMessage, markConversationAsRead } from '@/app/actions/messages';
+import { getMessages, sendMessage, markConversationAsRead, getSignedUrl } from '@/app/actions/messages';
 import type { MediaMetadata } from '@/app/actions/messages';
-import { compressForMessage, generateThumbnail, validateRawFile } from '@/lib/image-compress';
+import { compressForMessage, generateThumbnail, validateRawFile, verifyImageContent } from '@/lib/image-compress';
+import { ListSkeleton, Skeleton } from '@/components/design-system/skeleton';
 
 interface Message {
   id: string;
@@ -25,12 +26,22 @@ interface Message {
     avatar_url: string | null;
   } | null;
   message_type?: string;
+  media_path?: string | null;
   media_url?: string | null;
+  thumbnail_path?: string | null;
   thumbnail_url?: string | null;
   mime_type?: string | null;
   file_size?: number | null;
   media_width?: number | null;
   media_height?: number | null;
+  status?: 'sending' | 'sent' | 'failed';
+  file?: File;
+}
+
+interface FailedMessageData {
+  content: string;
+  media?: MediaMetadata;
+  file?: File;
 }
 
 interface Conversation {
@@ -67,8 +78,9 @@ export default function MessagesPage() {
   const [tappedMsgId, setTappedMsgId] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(-1); // -1 = idle, 0-100 = uploading
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
+  const [failedMessages, setFailedMessages] = useState<Map<string, FailedMessageData>>(new Map());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // User state
@@ -86,6 +98,7 @@ export default function MessagesPage() {
   const currentUserProfileRef = useRef<UserProfile | null>(null);
   const selectedIdRef = useRef<string | null>(null);
   const isSubscribedRef = useRef<boolean>(false);
+  const signedUrlCacheRef = useRef<Map<string, { url: string; expiresAt: number }>>(new Map());
 
   const supabase = createClient();
 
@@ -279,6 +292,14 @@ export default function MessagesPage() {
             senderProfile = fetchedProfile;
           }
 
+          // Resolve signed URLs for media
+          const mediaPath = newMsg.media_url || null;
+          const thumbPath = newMsg.thumbnail_url || null;
+          const [resolvedMediaUrl, resolvedThumbUrl] = await Promise.all([
+            mediaPath ? getOrRefreshSignedUrl(mediaPath) : Promise.resolve(null),
+            thumbPath ? getOrRefreshSignedUrl(thumbPath) : Promise.resolve(null),
+          ]);
+
           const formattedMessage: Message = {
             id: newMsg.id,
             content: newMsg.content,
@@ -287,8 +308,10 @@ export default function MessagesPage() {
             isMine: newMsg.sender_id === currentUserIdRef.current,
             sender: senderProfile,
             message_type: newMsg.message_type || 'text',
-            media_url: newMsg.media_url || null,
-            thumbnail_url: newMsg.thumbnail_url || null,
+            media_path: mediaPath,
+            media_url: resolvedMediaUrl,
+            thumbnail_path: thumbPath,
+            thumbnail_url: resolvedThumbUrl,
             mime_type: newMsg.mime_type || null,
             file_size: newMsg.file_size || null,
             media_width: newMsg.media_width || null,
@@ -349,13 +372,19 @@ export default function MessagesPage() {
     await tc.track({ user_id: uid, display_name: 'Me', typing_at: Date.now() });
   }, []);
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const error = validateRawFile(file);
     if (error) {
       alert(error);
+      return;
+    }
+
+    const contentError = await verifyImageContent(file);
+    if (contentError) {
+      alert(contentError);
       return;
     }
 
@@ -373,6 +402,147 @@ export default function MessagesPage() {
     setImageFile(null);
   };
 
+  const getOrRefreshSignedUrl = async (path: string): Promise<string | null> => {
+    if (!path) return null;
+    // Legacy full URL — return as-is
+    if (path.startsWith('http')) return path;
+
+    const cached = signedUrlCacheRef.current.get(path);
+    if (cached && cached.expiresAt > Date.now() + 60_000) {
+      return cached.url;
+    }
+
+    const result = await getSignedUrl(path);
+    if (result.url) {
+      signedUrlCacheRef.current.set(path, {
+        url: result.url,
+        expiresAt: Date.now() + 15 * 60 * 1000,
+      });
+      return result.url;
+    }
+
+    console.error('Failed to get signed URL:', result.error);
+    return null;
+  };
+
+  const uploadWithProgress = async (
+    path: string,
+    file: File | Blob,
+    contentType: string,
+    onProgress: (percent: number) => void
+  ): Promise<{ error: string | null }> => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return { error: 'Not authenticated' };
+
+    const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/messages/${path}`;
+
+    return new Promise((resolve) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', url);
+      xhr.setRequestHeader('Authorization', `Bearer ${session.access_token}`);
+      xhr.setRequestHeader('x-upsert', 'false');
+      xhr.setRequestHeader('cacheControl', '3600');
+      xhr.setRequestHeader('Content-Type', contentType);
+
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          onProgress(Math.round((e.loaded / e.total) * 100));
+        }
+      };
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve({ error: null });
+        } else {
+          try {
+            const body = JSON.parse(xhr.responseText);
+            resolve({ error: body.message || 'Upload failed' });
+          } catch {
+            resolve({ error: 'Upload failed' });
+          }
+        }
+      };
+
+      xhr.onerror = () => resolve({ error: 'Network error during upload' });
+      xhr.send(file);
+    });
+  };
+
+  const handleRetryMessage = async (tempId: string) => {
+    const failedData = failedMessages.get(tempId);
+    if (!failedData) return;
+
+    const uid = currentUserIdRef.current;
+    const sid = selectedIdRef.current;
+    const profile = currentUserProfileRef.current;
+    if (!uid || !sid || !profile) return;
+
+    // Mark as sending
+    setMessages(prev => prev.map(m => m.id === tempId ? { ...m, status: 'sending' as const } : m));
+
+    let media: MediaMetadata | undefined;
+
+    if (failedData.file) {
+      setUploadProgress(0);
+      try {
+        const compressed = await compressForMessage(failedData.file);
+        const thumbnail = await generateThumbnail(failedData.file);
+
+        const timestamp = Date.now();
+        const random = Math.random().toString(36).substring(2, 8);
+        const basePath = `${uid}/conversations/${sid}`;
+        const imagePath = `${basePath}/${timestamp}-${random}.webp`;
+        const thumbPath = `${basePath}/${timestamp}-${random}-thumb.webp`;
+
+        const imgResult = await uploadWithProgress(imagePath, compressed.file, 'image/webp', setUploadProgress);
+        if (imgResult.error) throw new Error(imgResult.error);
+
+        // Upload thumbnail (non-fatal)
+        await uploadWithProgress(thumbPath, thumbnail.file, 'image/webp', () => {});
+
+        media = {
+          path: imagePath,
+          thumbnailPath: thumbPath,
+          mimeType: 'image/webp',
+          fileSize: compressed.file.size,
+          width: compressed.width,
+          height: compressed.height,
+        };
+      } catch (err) {
+        setUploadProgress(-1);
+        setMessages(prev => prev.map(m => m.id === tempId ? { ...m, status: 'failed' as const } : m));
+        return;
+      }
+      setUploadProgress(-1);
+    }
+
+    const displayContent = failedData.content;
+    const result = await sendMessage(sid, displayContent, media);
+
+    if (result.success && result.message) {
+      const [signedMedia, signedThumb] = await Promise.all([
+        media?.path ? getOrRefreshSignedUrl(media.path) : Promise.resolve(null),
+        media?.thumbnailPath ? getOrRefreshSignedUrl(media.thumbnailPath) : Promise.resolve(null),
+      ]);
+      setMessages(prev => prev.map(m => m.id === tempId ? {
+        ...m,
+        id: result.message!.id,
+        createdAt: result.message!.created_at,
+        status: 'sent' as const,
+        media_url: signedMedia || m.media_url,
+        thumbnail_url: signedThumb || m.thumbnail_url,
+      } : m));
+      setFailedMessages(prev => { const next = new Map(prev); next.delete(tempId); return next; });
+    } else {
+      setMessages(prev => prev.map(m => m.id === tempId ? { ...m, status: 'failed' as const } : m));
+    }
+  };
+
+  const handleDeleteFailedMessage = (tempId: string) => {
+    setMessages(prev => prev.filter(m => m.id !== tempId));
+    setFailedMessages(prev => { const next = new Map(prev); next.delete(tempId); return next; });
+  };
+
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     const sid = selectedIdRef.current;
@@ -387,7 +557,7 @@ export default function MessagesPage() {
 
     // Compress and upload image if present
     if (imageFile) {
-      setUploadingImage(true);
+      setUploadProgress(0);
       try {
         // 1. Compress image → WebP, max 1600px
         const compressed = await compressForMessage(imageFile);
@@ -402,43 +572,22 @@ export default function MessagesPage() {
         const imagePath = `${basePath}/${timestamp}-${random}.webp`;
         const thumbPath = `${basePath}/${timestamp}-${random}-thumb.webp`;
 
-        // Upload optimized image
-        const { error: imgErr } = await supabase.storage
-          .from('messages')
-          .upload(imagePath, compressed.file, {
-            cacheControl: '3600',
-            upsert: false,
-            contentType: 'image/webp',
-          });
+        // Upload optimized image with progress
+        const imgResult = await uploadWithProgress(imagePath, compressed.file, 'image/webp', setUploadProgress);
 
-        if (imgErr) {
-          console.error('Image upload error:', imgErr);
-          alert(imgErr.message || 'Failed to upload image.');
-          setUploadingImage(false);
+        if (imgResult.error) {
+          alert(imgResult.error);
+          setUploadProgress(-1);
           setSending(false);
           return;
         }
 
-        // Upload thumbnail
-        const { error: thumbErr } = await supabase.storage
-          .from('messages')
-          .upload(thumbPath, thumbnail.file, {
-            cacheControl: '3600',
-            upsert: false,
-            contentType: 'image/webp',
-          });
-
-        if (thumbErr) {
-          console.error('Thumbnail upload error:', thumbErr);
-          // Thumbnail failure is non-fatal — use full image as fallback
-        }
-
-        const { data: imgUrlData } = supabase.storage.from('messages').getPublicUrl(imagePath);
-        const { data: thumbUrlData } = supabase.storage.from('messages').getPublicUrl(thumbPath);
+        // Upload thumbnail (non-fatal)
+        const thumbResult = await uploadWithProgress(thumbPath, thumbnail.file, 'image/webp', () => {});
 
         media = {
-          url: imgUrlData.publicUrl,
-          thumbnailUrl: thumbErr ? imgUrlData.publicUrl : thumbUrlData.publicUrl,
+          path: imagePath,
+          thumbnailPath: thumbResult.error ? imagePath : thumbPath,
           mimeType: 'image/webp',
           fileSize: compressed.file.size,
           width: compressed.width,
@@ -447,11 +596,11 @@ export default function MessagesPage() {
       } catch (err) {
         console.error('Image processing error:', err);
         alert(err instanceof Error ? err.message : 'Failed to process image.');
-        setUploadingImage(false);
+        setUploadProgress(-1);
         setSending(false);
         return;
       }
-      setUploadingImage(false);
+      setUploadProgress(-1);
     }
 
     const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -459,6 +608,9 @@ export default function MessagesPage() {
 
     const displayContent = newMessage.trim() || (media ? 'Photo' : '');
     const messageType = media ? (newMessage.trim() ? 'mixed' : 'image') : 'text';
+
+    // For temp message display, use blob URL from the file
+    const tempMediaUrl = imageFile ? URL.createObjectURL(imageFile) : null;
 
     const tempMessage: Message = {
       id: tempId,
@@ -468,12 +620,16 @@ export default function MessagesPage() {
       isMine: true,
       sender: profile,
       message_type: messageType,
-      media_url: media?.url || null,
-      thumbnail_url: media?.thumbnailUrl || null,
+      media_path: media?.path || null,
+      media_url: tempMediaUrl,
+      thumbnail_path: media?.thumbnailPath || null,
+      thumbnail_url: tempMediaUrl,
       mime_type: media?.mimeType || null,
       file_size: media?.fileSize || null,
       media_width: media?.width || null,
       media_height: media?.height || null,
+      status: 'sending',
+      file: imageFile ?? undefined,
     };
     setMessages(prev => deduplicateMessages([...prev, tempMessage]));
     clearImagePreview();
@@ -483,10 +639,24 @@ export default function MessagesPage() {
 
     if (result.success && result.message) {
       tid.delete(tempId);
-      setMessages(prev => deduplicateMessages(prev.map(m => m.id === tempId ? { ...m, id: result.message!.id, createdAt: result.message!.created_at } : m)));
+      // Resolve signed URLs for the confirmed message
+      const [signedMedia, signedThumb] = await Promise.all([
+        media?.path ? getOrRefreshSignedUrl(media.path) : Promise.resolve(null),
+        media?.thumbnailPath ? getOrRefreshSignedUrl(media.thumbnailPath) : Promise.resolve(null),
+      ]);
+      setMessages(prev => deduplicateMessages(prev.map(m => m.id === tempId ? {
+        ...m,
+        id: result.message!.id,
+        createdAt: result.message!.created_at,
+        status: 'sent' as const,
+        media_url: signedMedia || m.media_url,
+        thumbnail_url: signedThumb || m.thumbnail_url,
+      } : m)));
     } else {
       tid.delete(tempId);
-      setMessages(prev => prev.filter(m => m.id !== tempId));
+      // Mark as failed instead of removing — user can retry
+      setMessages(prev => prev.map(m => m.id === tempId ? { ...m, status: 'failed' as const } : m));
+      setFailedMessages(prev => new Map(prev).set(tempId, { content: displayContent, media, file: imageFile ?? undefined }));
     }
     setSending(false);
   };
@@ -526,7 +696,9 @@ export default function MessagesPage() {
           </div>
           <div role="list" aria-label="Conversations" className="flex-1 overflow-y-auto">
             {loading ? (
-              <div role="status" className="p-4 text-center text-[var(--text-muted)]">Loading...</div>
+              <div role="status" className="p-4">
+                <ListSkeleton items={6} />
+              </div>
             ) : conversations.length > 0 ? (
               conversations.map((conv) => {
                 const isUnread = conv.unread_count > 0;
@@ -629,8 +801,15 @@ export default function MessagesPage() {
               {/* Messages */}
               <div role="log" aria-label="Messages" aria-live="polite" className="flex-1 overflow-y-auto px-4 py-2">
                 {loadingMessages ? (
-                  <div className="flex items-center justify-center h-full">
-                    <div className="text-center text-[var(--text-muted)]">Loading messages...</div>
+                  <div role="status" className="py-2 space-y-3">
+                    {[40, 60, 50, 55, 35, 50].map((w, i) => (
+                      <div key={i} className={`flex ${i % 2 === 0 ? 'justify-start' : 'justify-end'}`}>
+                        <div className="flex items-end gap-2" style={{ maxWidth: '65%' }}>
+                          {i % 2 === 0 && <Skeleton variant="circular" width={32} height={32} className="flex-shrink-0" />}
+                          <Skeleton className="rounded-2xl" width={`${w}%`} height={36} />
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 ) : messages.length > 0 ? (
                   <div className="py-2">
@@ -680,12 +859,19 @@ export default function MessagesPage() {
                               msg.isMine
                                 ? 'bg-[var(--accent-primary)] text-white rounded-2xl rounded-br-md'
                                 : 'bg-[var(--bg-secondary)] text-[var(--text-primary)] rounded-2xl rounded-bl-md',
-                              msg.media_url ? 'p-1' : 'px-3.5 py-2'
+                              msg.media_url ? 'p-1' : 'px-3.5 py-2',
+                              msg.status === 'failed' && 'opacity-70'
                             )}>
                               {msg.media_url && (
                                 <button
                                   type="button"
-                                  onClick={(e) => { e.stopPropagation(); setEnlargedImage(msg.media_url!); }}
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    // Get fresh signed URL for full-res lightbox
+                                    const path = msg.media_path || msg.media_url!;
+                                    const url = await getOrRefreshSignedUrl(path);
+                                    if (url) setEnlargedImage(url);
+                                  }}
                                   className="block w-full cursor-pointer"
                                   aria-label="View full image"
                                 >
@@ -722,6 +908,38 @@ export default function MessagesPage() {
                             )}>
                               {formatTimeAgo(msg.createdAt)}
                             </div>
+
+                            {/* Failed message actions */}
+                            {msg.status === 'failed' && msg.isMine && (
+                              <div className="flex items-center gap-2 mt-1">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400 flex-shrink-0" aria-hidden="true">
+                                  <circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="8" y2="12" /><line x1="12" x2="12.01" y1="16" y2="16" />
+                                </svg>
+                                <span className="text-[11px] text-red-400">Failed to send</span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); handleRetryMessage(msg.id); }}
+                                  className="text-[11px] text-[var(--accent-primary)] font-medium hover:underline"
+                                >
+                                  Retry
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); handleDeleteFailedMessage(msg.id); }}
+                                  className="text-[11px] text-[var(--text-muted)] hover:underline"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Sending indicator */}
+                            {msg.status === 'sending' && msg.isMine && (
+                              <div className="flex items-center gap-1 mt-1">
+                                <div className="animate-spin w-3 h-3 border border-[var(--text-muted)] border-t-transparent rounded-full" />
+                                <span className="text-[10px] text-[var(--text-muted)]">Sending...</span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
@@ -748,13 +966,19 @@ export default function MessagesPage() {
                       type="button"
                       onClick={clearImagePreview}
                       aria-label="Remove image"
-                      className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-[var(--bg-tertiary)] border border-[var(--border-subtle)] text-[var(--text-muted)] flex items-center justify-center text-xs hover:text-[var(--text-primary)]"
+                      className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-[var(--bg-tertiary)] border border-[var(--border-subtle)] text-[var(--text-muted)] flex items-center justify-center text-xs hover:text-[var(--text-primary)]"
                     >
                       &times;
                     </button>
-                    {uploadingImage && (
-                      <div className="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center">
-                        <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full" />
+                    {uploadProgress >= 0 && (
+                      <div className="absolute inset-0 bg-black/50 rounded-lg flex flex-col items-center justify-center gap-1">
+                        <span className="text-white text-xs font-medium">{uploadProgress}%</span>
+                        <div className="w-3/4 h-1 bg-white/30 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-white rounded-full transition-all duration-200"
+                            style={{ width: `${uploadProgress}%` }}
+                          />
+                        </div>
                       </div>
                     )}
                   </div>
@@ -763,7 +987,7 @@ export default function MessagesPage() {
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept="image/jpeg,image/png,image/webp"
+                    accept="image/jpeg,image/png,image/webp,image/avif"
                     onChange={handleImageSelect}
                     className="hidden"
                     aria-label="Upload image"
@@ -771,7 +995,7 @@ export default function MessagesPage() {
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    disabled={sending || uploadingImage || !currentUserProfile}
+                    disabled={sending || uploadProgress >= 0 || !currentUserProfile}
                     aria-label="Attach image"
                     className="p-2.5 rounded-full text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] transition-colors-fast disabled:opacity-30"
                   >

@@ -6,11 +6,14 @@ import type { Theme } from './themes';
 const THEME_KEY = 'app_theme';
 const THEME_SOURCE_KEY = 'app_theme_source'; // 'localStorage' | 'database'
 
+const VALID_THEMES: Theme[] = ['light', 'dark', 'system'];
+
 export const getStoredTheme = (): Theme | null => {
   if (typeof window === 'undefined') return null;
   try {
     const stored = localStorage.getItem(THEME_KEY);
-    return stored as Theme | null;
+    if (!stored || !VALID_THEMES.includes(stored as Theme)) return null;
+    return stored as Theme;
   } catch {
     return null;
   }

@@ -58,7 +58,7 @@ export default function RootLayout({
               (function() {
                 try {
                   var stored = localStorage.getItem('app_theme');
-                  var theme = stored || 'system';
+                  var theme = (stored === 'light' || stored === 'dark' || stored === 'system') ? stored : 'system';
                   var isDark;
                   if (theme === 'system') {
                     isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -84,7 +84,7 @@ export default function RootLayout({
               url: BRAND.social.website,
               logo: `${BRAND.social.website}/web-app-manifest-512x512.png`,
               description: BRAND.tagline,
-              sameAs: [],
+              sameAs: [BRAND.social.website],
               contactPoint: {
                 '@type': 'ContactPoint',
                 email: BRAND.social.supportEmail,

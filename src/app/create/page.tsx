@@ -148,7 +148,7 @@ export default function CreatePage() {
                       type="button"
                       onClick={() => removeMedia(index)}
                       aria-label={`Remove image ${index + 1}`}
-                      className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center text-sm hover:bg-black/80"
+                      className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center text-sm hover:bg-black/80"
                     >
                       ×
                     </button>

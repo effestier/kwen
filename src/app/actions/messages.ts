@@ -4,12 +4,51 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
 export interface MediaMetadata {
-  url: string;
-  thumbnailUrl?: string;
+  path: string;
+  thumbnailPath?: string;
   mimeType?: string;
   fileSize?: number;
   width?: number;
   height?: number;
+}
+
+const SIGNED_URL_EXPIRY = 900; // 15 minutes
+
+/**
+ * Generate a signed URL for a message media storage path.
+ * Verifies user is authenticated. Conversation participant check
+ * is done at the message level (getMessages), not per-URL.
+ */
+export async function getSignedUrl(storagePath: string): Promise<{ url?: string; error?: string }> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return { error: 'Not authenticated' }
+    }
+
+    if (!storagePath || typeof storagePath !== 'string') {
+      return { error: 'Invalid path' }
+    }
+
+    // If it's already a full URL (legacy), return as-is
+    if (storagePath.startsWith('http')) {
+      return { url: storagePath }
+    }
+
+    const { data, error } = await supabase.storage
+      .from('messages')
+      .createSignedUrl(storagePath, SIGNED_URL_EXPIRY)
+
+    if (error || !data?.signedUrl) {
+      return { error: error?.message || 'Failed to generate signed URL' }
+    }
+
+    return { url: data.signedUrl }
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Unknown error' }
+  }
 }
 
 export async function sendMessage(conversationId: string, content: string, media?: MediaMetadata) {
@@ -28,7 +67,7 @@ export async function sendMessage(conversationId: string, content: string, media
     const cleanContent = content.trim().slice(0, 5000)
 
     // Must have either content or media
-    if (!cleanContent && !media?.url) {
+    if (!cleanContent && !media?.path) {
       return { error: 'Message cannot be empty' }
     }
 
@@ -45,8 +84,8 @@ export async function sendMessage(conversationId: string, content: string, media
     }
 
     // Determine message type and content
-    const messageType = media?.url ? (cleanContent ? 'mixed' : 'image') : 'text'
-    const messageContent = cleanContent || (media?.url ? 'Photo' : '')
+    const messageType = media?.path ? (cleanContent ? 'mixed' : 'image') : 'text'
+    const messageContent = cleanContent || (media?.path ? 'Photo' : '')
 
     const { data: message, error } = await supabase
       .from('messages')
@@ -55,8 +94,8 @@ export async function sendMessage(conversationId: string, content: string, media
         sender_id: user.id,
         content: messageContent,
         message_type: messageType,
-        media_url: media?.url || null,
-        thumbnail_url: media?.thumbnailUrl || null,
+        media_url: media?.path || null,
+        thumbnail_url: media?.thumbnailPath || null,
         mime_type: media?.mimeType || null,
         file_size: media?.fileSize || null,
         media_width: media?.width || null,
@@ -203,6 +242,30 @@ export async function getMessages(conversationId: string) {
 
     const profileMap = new Map(profiles?.map(p => [p.id, p]) || [])
 
+    // Collect unique storage paths that need signed URLs
+    const pathsToSign = new Set<string>()
+    for (const msg of messages) {
+      if (msg.media_url && !msg.media_url.startsWith('http')) pathsToSign.add(msg.media_url)
+      if (msg.thumbnail_url && !msg.thumbnail_url.startsWith('http')) pathsToSign.add(msg.thumbnail_url)
+    }
+
+    // Batch generate signed URLs
+    const signedUrlMap = new Map<string, string>()
+    await Promise.all(
+      [...pathsToSign].map(async (path) => {
+        const { data } = await supabase.storage
+          .from('messages')
+          .createSignedUrl(path, SIGNED_URL_EXPIRY)
+        if (data?.signedUrl) signedUrlMap.set(path, data.signedUrl)
+      })
+    )
+
+    const resolveUrl = (value: string | null): string | null => {
+      if (!value) return null
+      if (value.startsWith('http')) return value // legacy URL
+      return signedUrlMap.get(value) || null
+    }
+
     const formattedMessages = messages.map(msg => ({
       id: msg.id,
       content: msg.content,
@@ -211,8 +274,10 @@ export async function getMessages(conversationId: string) {
       isMine: msg.sender_id === user.id,
       sender: profileMap.get(msg.sender_id) || null,
       message_type: msg.message_type || 'text',
-      media_url: msg.media_url || null,
-      thumbnail_url: msg.thumbnail_url || null,
+      media_path: msg.media_url || null,
+      media_url: resolveUrl(msg.media_url),
+      thumbnail_path: msg.thumbnail_url || null,
+      thumbnail_url: resolveUrl(msg.thumbnail_url),
       mime_type: msg.mime_type || null,
       file_size: msg.file_size || null,
       media_width: msg.media_width || null,
@@ -263,3 +328,23 @@ export async function getUnreadMessageCount() {
     return 0
   }
 }
+
+// cleanupOrphanedMedia() removed: any authenticated user could trigger mass deletion.
+// Orphan cleanup is handled by the cleanup_message_media() trigger (migration 017).
+// For edge cases (upload-without-message), run this SQL via Supabase Dashboard or cron:
+//
+// WITH orphaned AS (
+//   SELECT o.name
+//   FROM storage.objects o
+//   WHERE o.bucket_id = 'messages'
+//     AND o.name LIKE '%.webp'
+//     AND NOT EXISTS (
+//       SELECT 1 FROM public.messages m
+//       WHERE m.media_url LIKE '%' || o.name
+//          OR m.thumbnail_url LIKE '%' || o.name
+//     )
+//   LIMIT 100
+// )
+// DELETE FROM storage.objects
+// WHERE bucket_id = 'messages'
+//   AND name IN (SELECT name FROM orphaned);

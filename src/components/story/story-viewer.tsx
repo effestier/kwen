@@ -497,7 +497,7 @@ export function StoryViewer({ stories, initialIndex, onClose, isOwner = false }:
             {currentStory.music.cover_url && (
               <img
                 src={currentStory.music.cover_url}
-                alt=""
+                alt={`${currentStory.music.track_name} cover art`}
                 className="w-8 h-8 rounded-full object-cover"
               />
             )}

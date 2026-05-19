@@ -123,16 +123,53 @@ export async function generateThumbnail(file: File): Promise<CompressedImage> {
 }
 
 /**
+ * Verify actual file content via magic bytes.
+ * Catches files with correct extension/MIME but dangerous content (e.g. SVG disguised as JPG).
+ */
+export async function verifyImageContent(file: File): Promise<string | null> {
+  const header = new Uint8Array(await file.slice(0, 1024).arrayBuffer());
+
+  // JPEG: starts with FF D8 FF
+  if (header[0] === 0xFF && header[1] === 0xD8 && header[2] === 0xFF) {
+    return null;
+  }
+
+  // PNG: 89 50 4E 47 0D 0A 1A 0A
+  if (header[0] === 0x89 && header[1] === 0x50 && header[2] === 0x4E && header[3] === 0x47) {
+    return null;
+  }
+
+  // WebP: RIFF....WEBP
+  if (header[0] === 0x52 && header[1] === 0x49 && header[2] === 0x46 && header[3] === 0x46 &&
+      header[8] === 0x57 && header[9] === 0x45 && header[10] === 0x42 && header[11] === 0x50) {
+    return null;
+  }
+
+  // AVIF/HEIF: check for 'ftyp' box at offset 4
+  if (header[4] === 0x66 && header[5] === 0x74 && header[6] === 0x79 && header[7] === 0x70) {
+    return null;
+  }
+
+  // Scan first 1KB as text for SVG content
+  const text = new TextDecoder('ascii', { fatal: false }).decode(header).toLowerCase();
+  if (text.includes('<svg')) {
+    return 'SVG content is not allowed';
+  }
+
+  return 'File content does not match a supported image format';
+}
+
+/**
  * Validate raw file before compression.
  */
 export function validateRawFile(file: File): string | null {
   const MAX_RAW_SIZE = 20 * 1024 * 1024; // 20MB raw input
-  const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+  const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/avif'];
   const BLOCKED_EXTENSIONS = ['svg', 'exe', 'zip', 'pdf', 'bat', 'cmd', 'sh', 'js', 'html'];
 
   if (file.size === 0) return 'Empty file';
   if (file.size > MAX_RAW_SIZE) return 'File too large (max 20MB)';
-  if (!ALLOWED_TYPES.includes(file.type)) return 'Unsupported format. Use JPG, PNG, or WebP';
+  if (!ALLOWED_TYPES.includes(file.type)) return 'Unsupported format. Use JPG, PNG, WebP, or AVIF';
 
   const ext = file.name.split('.').pop()?.toLowerCase() || '';
   if (BLOCKED_EXTENSIONS.includes(ext)) return `.${ext} files are not allowed`;

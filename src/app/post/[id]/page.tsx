@@ -352,12 +352,16 @@ export default function PostDetailPage() {
                         onClick={() => setActiveImage(i)}
                         aria-label={`Image ${i + 1}`}
                         className={cn(
-                          'w-2 h-2 rounded-full transition-all',
-                          i === activeImage
-                            ? 'bg-[var(--accent-primary)] w-4'
-                            : 'bg-white/50 hover:bg-white/80'
+                          'min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full transition-all',
                         )}
-                      />
+                      >
+                        <span className={cn(
+                          'block rounded-full transition-all',
+                          i === activeImage
+                            ? 'w-4 h-4 bg-[var(--accent-primary)]'
+                            : 'w-2 h-2 bg-white/50'
+                        )} />
+                      </button>
                     ))}
                   </div>
                 )}
@@ -369,18 +373,18 @@ export default function PostDetailPage() {
                       <button
                         onClick={() => setActiveImage(prev => prev - 1)}
                         aria-label="Previous image"
-                        className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition-colors"
+                        className="absolute left-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition-colors"
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
                       </button>
                     )}
                     {activeImage < post.images.length - 1 && (
                       <button
                         onClick={() => setActiveImage(prev => prev + 1)}
                         aria-label="Next image"
-                        className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition-colors"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition-colors"
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
                       </button>
                     )}
                   </>

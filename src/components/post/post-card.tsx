@@ -143,7 +143,7 @@ export function PostCard({ post }: PostCardProps) {
             </div>
           </div>
 
-          <button aria-label="More options" className="p-1.5 rounded-full hover:bg-[var(--bg-tertiary)] text-[var(--text-muted)] transition-colors-fast">
+          <button aria-label="More options" className="p-2.5 rounded-full hover:bg-[var(--bg-tertiary)] text-[var(--text-muted)] transition-colors-fast">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" />
             </svg>
@@ -237,7 +237,7 @@ export function PostCard({ post }: PostCardProps) {
 
         {/* Engagement Stats */}
         <div className="flex items-center gap-3 mt-1 text-xs text-[var(--text-muted)]">
-          <span className="font-semibold text-[var(--text-secondary)]">{formatNumber(likeCount)} likes</span>
+          <span className="font-semibold text-[var(--text-secondary)] cursor-default">{formatNumber(likeCount)} likes</span>
           <button onClick={handleOpenComments} className="hover:underline">
             <span className="font-semibold text-[var(--text-secondary)]">{formatNumber(commentCount)}</span> comments
           </button>

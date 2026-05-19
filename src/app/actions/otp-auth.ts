@@ -301,7 +301,6 @@ const RESERVED_USERNAMES = new Set([
 ]);
 
 export async function completeProfile(username: string, displayName: string): Promise<AuthResult> {
-  // Step 1: Create Supabase server client
   let supabase;
   try {
     supabase = await createClient();
@@ -310,7 +309,6 @@ export async function completeProfile(username: string, displayName: string): Pr
     return { error: 'Server error. Please try again.' };
   }
 
-  // Step 2: Get authenticated user
   let user;
   try {
     const { data: { user: u }, error: authError } = await supabase.auth.getUser();
@@ -323,7 +321,6 @@ export async function completeProfile(username: string, displayName: string): Pr
     return { error: 'Auth check failed. Please try again.' };
   }
 
-  // Step 3: Validate inputs
   const cleanUsername = username.trim().toLowerCase();
   const cleanDisplayName = displayName.trim().slice(0, 100);
 
@@ -339,7 +336,7 @@ export async function completeProfile(username: string, displayName: string): Pr
     return { error: 'This username is reserved' };
   }
 
-  // Step 4: Check if username is taken by another user
+  // Check if username is taken by ANOTHER user
   const { data: existing, error: lookupError } = await supabase
     .from('profiles')
     .select('id')
@@ -348,7 +345,7 @@ export async function completeProfile(username: string, displayName: string): Pr
     .maybeSingle();
 
   if (lookupError) {
-    console.error('[completeProfile] Username lookup failed:', lookupError);
+    console.error('[completeProfile] Username lookup error:', lookupError);
     return { error: 'Could not verify username availability. Please try again.' };
   }
 
@@ -356,24 +353,55 @@ export async function completeProfile(username: string, displayName: string): Pr
     return { error: 'Username is already taken' };
   }
 
-  // Step 5: Upsert profile
-  const { error: upsertError } = await supabase
+  // Try UPDATE first (profile likely exists from trigger)
+  const { data: updateData, error: updateError, count } = await supabase
     .from('profiles')
-    .upsert({
-      id: user.id,
+    .update({
       username: cleanUsername,
       display_name: cleanDisplayName,
-    }, { onConflict: 'id' });
+    })
+    .eq('id', user.id)
+    .select();
 
-  if (upsertError) {
-    console.error('[completeProfile] Upsert error:', upsertError);
-    if (upsertError.code === '23505') {
+  if (updateError) {
+    console.error('[completeProfile] UPDATE failed:', JSON.stringify(updateError));
+    if (updateError.code === '23505') {
       return { error: 'Username is already taken' };
     }
     return { error: 'Failed to save profile. Please try again.' };
   }
 
-  // Step 6: Revalidate (non-fatal — profile is already saved)
+  // If UPDATE returned no rows, profile doesn't exist yet — INSERT it
+  if (!updateData || updateData.length === 0) {
+    const { error: insertError } = await supabase
+      .from('profiles')
+      .insert({
+        id: user.id,
+        username: cleanUsername,
+        display_name: cleanDisplayName,
+      });
+
+    if (insertError) {
+      console.error('[completeProfile] INSERT failed:', JSON.stringify(insertError));
+      if (insertError.code === '23505') {
+        // Race condition: trigger created profile between UPDATE and INSERT
+        // Retry the UPDATE
+        const { error: retryError } = await supabase
+          .from('profiles')
+          .update({ username: cleanUsername, display_name: cleanDisplayName })
+          .eq('id', user.id);
+
+        if (retryError) {
+          console.error('[completeProfile] Retry UPDATE failed:', JSON.stringify(retryError));
+          return { error: 'Failed to save profile. Please try again.' };
+        }
+      } else {
+        return { error: 'Failed to save profile. Please try again.' };
+      }
+    }
+  }
+
+  // Revalidate (non-fatal — profile is already saved)
   try {
     revalidatePath('/', 'layout');
   } catch (err) {

@@ -173,7 +173,7 @@ export default function ExplorePage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => searchQuery.trim().length >= 2 && setShowResults(true)}
-              className="w-full pl-11 pr-4 py-2.5 rounded-full bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-white placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-soft)]"
+              className="w-full pl-11 pr-4 py-2.5 rounded-full bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-soft)]"
             />
 
             {/* Search Results Dropdown */}
@@ -196,7 +196,7 @@ export default function ExplorePage() {
                           size="md"
                         />
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium text-white truncate">@{profile.username}</p>
+                          <p className="font-medium text-[var(--text-primary)] truncate">@{profile.username}</p>
                           <p className="text-sm text-[var(--text-muted)] truncate">
                             {profile.display_name}
                             {profile.bio && ` · ${profile.bio}`}
@@ -225,7 +225,7 @@ export default function ExplorePage() {
                 className={cn(
                   'px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors-fast',
                   activeCategory === cat
-                    ? 'bg-white text-black'
+                    ? 'bg-[var(--text-primary)] text-[var(--text-inverse)]'
                     : 'bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]'
                 )}
               >

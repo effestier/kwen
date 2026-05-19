@@ -135,7 +135,8 @@ export function OTPAuthForm({ mode }: { mode: AuthMode }) {
       // Success - redirect to feed
       router.push('/feed');
       router.refresh();
-    } catch {
+    } catch (err) {
+      console.error('[handleProfileSubmit] completeProfile threw:', err);
       setError('Something went wrong. Please try again.');
     } finally {
       setLoading(false);

@@ -285,7 +285,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
             </div>
             {isLoggedIn ? (
               isOwnProfile ? (
-                <Link href="/settings" className="px-4 py-1.5 rounded-full border border-[var(--border-soft)] text-sm font-semibold text-white hover:bg-[var(--bg-secondary)] transition-colors-fast">
+                <Link href="/settings" className="px-4 py-1.5 rounded-full border border-[var(--border-soft)] text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] transition-colors-fast">
                   Edit profile
                 </Link>
               ) : (
@@ -295,7 +295,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
                     className={cn(
                       'px-4 py-1.5 rounded-full text-sm font-semibold transition-colors-fast',
                       isFollowing
-                        ? 'border border-[var(--border-soft)] text-white hover:bg-[var(--bg-secondary)]'
+                        ? 'border border-[var(--border-soft)] text-[var(--text-primary)] hover:bg-[var(--bg-secondary)]'
                         : 'bg-[var(--accent-primary)] text-white hover:opacity-90'
                     )}
                   >
@@ -304,7 +304,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
                   <button
                     onClick={handleMessage}
                     disabled={messaging}
-                    className="px-4 py-1.5 rounded-full border border-[var(--border-soft)] text-sm font-semibold text-white hover:bg-[var(--bg-secondary)] transition-colors-fast disabled:opacity-50"
+                    className="px-4 py-1.5 rounded-full border border-[var(--border-soft)] text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] transition-colors-fast disabled:opacity-50"
                   >
                     {messaging ? '...' : 'Message'}
                   </button>
@@ -315,7 +315,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
 
           <div>
             <div className="flex items-center gap-1.5 mb-1">
-              <h1 className="text-xl font-bold text-white">{profile.display_name}</h1>
+              <h1 className="text-xl font-bold text-[var(--text-primary)]">{profile.display_name}</h1>
               {profile.is_verified && (
                 <svg aria-label="Verified" className="w-5 h-5 text-[var(--accent-blue)]" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143z" clipRule="evenodd" />
@@ -332,21 +332,21 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
           {/* Stats */}
           <div className="flex items-center gap-4 text-sm mb-4">
             <span>
-              <span className="font-bold text-white">{formatNumber(stats.posts)}</span>
+              <span className="font-bold text-[var(--text-primary)]">{formatNumber(stats.posts)}</span>
               <span className="text-[var(--text-muted)]"> posts</span>
             </span>
             <button
               onClick={() => setShowFollowers(true)}
               className="hover:underline"
             >
-              <span className="font-bold text-white">{formatNumber(stats.followers)}</span>
+              <span className="font-bold text-[var(--text-primary)]">{formatNumber(stats.followers)}</span>
               <span className="text-[var(--text-muted)]"> followers</span>
             </button>
             <button
               onClick={() => setShowFollowing(true)}
               className="hover:underline"
             >
-              <span className="font-bold text-white">{formatNumber(stats.following)}</span>
+              <span className="font-bold text-[var(--text-primary)]">{formatNumber(stats.following)}</span>
               <span className="text-[var(--text-muted)]"> following</span>
             </button>
           </div>
@@ -362,12 +362,12 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
               onClick={() => setActiveTab(tab)}
               className={cn(
                 'flex-1 py-3.5 text-sm font-semibold capitalize transition-colors-fast relative',
-                activeTab === tab ? 'text-white' : 'text-[var(--text-muted)]'
+                activeTab === tab ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'
               )}
             >
               {tab}
               {activeTab === tab && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white" />
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--text-primary)]" />
               )}
             </button>
           ))}

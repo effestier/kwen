@@ -34,6 +34,9 @@
   --accent-secondary: #DBEAFE;
   --accent-muted: #BFDBFE;
   --accent-gradient: linear-gradient(45deg, #2563EB, #3B82F6);
+  --accent-red: #DC2626;
+  --accent-blue: #2563EB;
+  --accent-green: #16A34A;
 
   /* Semantic */
   --destructive: #DC2626;
@@ -103,6 +106,9 @@
   --accent-secondary: #1E3A5F;
   --accent-muted: #172554;
   --accent-gradient: linear-gradient(45deg, #3B82F6, #60A5FA);
+  --accent-red: #F87171;
+  --accent-blue: #3B82F6;
+  --accent-green: #34D399;
 
   /* Semantic */
   --destructive: #F87171;

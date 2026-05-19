@@ -158,7 +158,7 @@ export function FileUpload({
                 <button
                   type="button"
                   onClick={() => removePreview(index)}
-                  className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center text-sm hover:bg-black/80"
+                  className="absolute top-2 right-2 w-6 h-6 rounded-full bg-[var(--overlay)] text-white flex items-center justify-center text-sm hover:bg-[var(--bg-overlay)]"
                 >
                   ×
                 </button>
@@ -176,7 +176,7 @@ export function FileUpload({
           )}
 
           {error && (
-            <p className="text-sm text-red-400">{error}</p>
+            <p className="text-sm text-[var(--destructive)]">{error}</p>
           )}
 
           <button

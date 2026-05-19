@@ -120,7 +120,7 @@ export default function SavedPage() {
     <MainLayout>
       <div className="min-h-screen">
         <div className="sticky top-0 z-10 bg-[var(--bg-primary)]/90 backdrop-blur-xl border-b border-[var(--border-subtle)] p-4">
-          <h1 className="text-xl font-bold text-white">Saved</h1>
+          <h1 className="text-xl font-bold text-[var(--text-primary)]">Saved</h1>
         </div>
 
         {loading ? (
@@ -142,7 +142,7 @@ export default function SavedPage() {
                 <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
               </svg>
             </div>
-            <h2 className="text-lg font-semibold text-white mb-2">No saved posts</h2>
+            <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-2">No saved posts</h2>
             <p className="text-sm text-[var(--text-muted)] max-w-xs">
               Bookmark posts to save them here. Your saved items will appear here.
             </p>

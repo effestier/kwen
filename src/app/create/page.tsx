@@ -73,8 +73,8 @@ export default function CreatePage() {
   return (
     <MainLayout>
       <div className="min-h-screen">
-        <div className="sticky top-0 z-10 bg-black/90 backdrop-blur-xl border-b border-[var(--border-subtle)] px-4 py-3 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-white">New post</h1>
+        <div className="sticky top-0 z-10 bg-[var(--bg-primary)]/90 backdrop-blur-xl border-b border-[var(--border-subtle)] px-4 py-3 flex items-center justify-between">
+          <h1 className="text-xl font-bold text-[var(--text-primary)]">New post</h1>
           <button
             onClick={handlePost}
             disabled={(!content.trim() && mediaUrls.length === 0) || saving}
@@ -148,7 +148,7 @@ export default function CreatePage() {
                       type="button"
                       onClick={() => removeMedia(index)}
                       aria-label={`Remove image ${index + 1}`}
-                      className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center text-sm hover:bg-black/80"
+                      className="absolute top-2 right-2 w-8 h-8 rounded-full bg-[var(--bg-overlay)] text-white flex items-center justify-center text-sm hover:bg-[var(--overlay)]"
                     >
                       ×
                     </button>

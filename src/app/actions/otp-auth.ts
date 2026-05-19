@@ -214,17 +214,25 @@ export async function verifyOTP(email: string, token: string): Promise<AuthResul
 
     if (!existingProfile) {
       const displayName = cleanEmail.split('@')[0].slice(0, 50);
-      const tempUsername = `user_${data.user.id.slice(0, 8)}`;
+      const tempUsername = `user_${data.user.id.replace(/-/g, '').slice(0, 8)}`;
 
-      await supabase.from('profiles').upsert({
+      const { error: profileError } = await supabase.from('profiles').upsert({
         id: data.user.id,
         username: tempUsername,
         display_name: displayName,
       }, { onConflict: 'id' });
 
-      await supabase.from('user_settings').upsert({
+      if (profileError) {
+        console.error('[verifyOTP] Profile creation error:', profileError);
+      }
+
+      const { error: settingsError } = await supabase.from('user_settings').upsert({
         user_id: data.user.id,
       }, { onConflict: 'user_id' });
+
+      if (settingsError) {
+        console.error('[verifyOTP] Settings creation error:', settingsError);
+      }
     }
 
     revalidatePath('/', 'layout');
@@ -294,71 +302,84 @@ const RESERVED_USERNAMES = new Set([
 ]);
 
 export async function completeProfile(username: string, displayName: string): Promise<AuthResult> {
+  // Step 1: Create Supabase server client
+  let supabase;
   try {
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    supabase = await createClient();
+  } catch (err) {
+    console.error('[completeProfile] createClient failed:', err);
+    return { error: 'Server error. Please try again.' };
+  }
 
-    if (authError || !user) {
+  // Step 2: Get authenticated user
+  let user;
+  try {
+    const { data: { user: u }, error: authError } = await supabase.auth.getUser();
+    if (authError || !u) {
       return { error: 'Not authenticated. Please log in again.' };
     }
+    user = u;
+  } catch (err) {
+    console.error('[completeProfile] getUser threw:', err);
+    return { error: 'Auth check failed. Please try again.' };
+  }
 
-    const cleanUsername = username.trim().toLowerCase();
-    const cleanDisplayName = displayName.trim().slice(0, 100);
+  // Step 3: Validate inputs
+  const cleanUsername = username.trim().toLowerCase();
+  const cleanDisplayName = displayName.trim().slice(0, 100);
 
-    if (!/^[a-z0-9_]{3,30}$/.test(cleanUsername)) {
-      return { error: 'Username must be 3-30 characters, lowercase letters, numbers, and underscores only' };
-    }
+  if (!/^[a-z0-9_]{3,30}$/.test(cleanUsername)) {
+    return { error: 'Username must be 3-30 characters, lowercase letters, numbers, and underscores only' };
+  }
 
-    if (!cleanDisplayName) {
-      return { error: 'Display name is required' };
-    }
+  if (!cleanDisplayName) {
+    return { error: 'Display name is required' };
+  }
 
-    // Check reserved usernames
-    if (RESERVED_USERNAMES.has(cleanUsername)) {
-      return { error: 'This username is reserved' };
-    }
+  if (RESERVED_USERNAMES.has(cleanUsername)) {
+    return { error: 'This username is reserved' };
+  }
 
-    // Check if username is taken by another user
-    const { data: existing, error: lookupError } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('username', cleanUsername)
-      .neq('id', user.id)
-      .maybeSingle();
+  // Step 4: Check if username is taken by another user
+  const { data: existing, error: lookupError } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('username', cleanUsername)
+    .neq('id', user.id)
+    .maybeSingle();
 
-    if (lookupError) {
-      console.error('Username lookup failed:', lookupError);
-      return { error: 'Could not verify username availability. Please try again.' };
-    }
+  if (lookupError) {
+    console.error('[completeProfile] Username lookup failed:', lookupError);
+    return { error: 'Could not verify username availability. Please try again.' };
+  }
 
-    if (existing) {
+  if (existing) {
+    return { error: 'Username is already taken' };
+  }
+
+  // Step 5: Upsert profile
+  const { error: upsertError } = await supabase
+    .from('profiles')
+    .upsert({
+      id: user.id,
+      username: cleanUsername,
+      display_name: cleanDisplayName,
+    }, { onConflict: 'id' });
+
+  if (upsertError) {
+    console.error('[completeProfile] Upsert error:', upsertError);
+    if (upsertError.code === '23505') {
       return { error: 'Username is already taken' };
     }
-
-    // Upsert instead of update — handles case where profile row doesn't exist yet
-    const { error: upsertError } = await supabase
-      .from('profiles')
-      .upsert({
-        id: user.id,
-        username: cleanUsername,
-        display_name: cleanDisplayName,
-      }, { onConflict: 'id' });
-
-    if (upsertError) {
-      console.error('Profile upsert error:', upsertError);
-
-      // Unique constraint violation = username taken (race condition)
-      if (upsertError.code === '23505') {
-        return { error: 'Username is already taken' };
-      }
-
-      return { error: `Failed to save profile: ${upsertError.message}` };
-    }
-
-    revalidatePath('/', 'layout');
-    return { success: true };
-  } catch (err) {
-    console.error('completeProfile unexpected error:', err);
-    return { error: 'Something went wrong. Please try again.' };
+    return { error: `Failed to save profile: ${upsertError.message}` };
   }
+
+  // Step 6: Revalidate (non-fatal — profile is already saved)
+  try {
+    revalidatePath('/', 'layout');
+  } catch (err) {
+    console.error('[completeProfile] revalidatePath failed (non-fatal):', err);
+  }
+
+  return { success: true };
 }

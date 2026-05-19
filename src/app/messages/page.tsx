@@ -912,10 +912,10 @@ export default function MessagesPage() {
                             {/* Failed message actions */}
                             {msg.status === 'failed' && msg.isMine && (
                               <div className="flex items-center gap-2 mt-1">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400 flex-shrink-0" aria-hidden="true">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--destructive)] flex-shrink-0" aria-hidden="true">
                                   <circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="8" y2="12" /><line x1="12" x2="12.01" y1="16" y2="16" />
                                 </svg>
-                                <span className="text-[11px] text-red-400">Failed to send</span>
+                                <span className="text-[11px] text-[var(--destructive)]">Failed to send</span>
                                 <button
                                   type="button"
                                   onClick={(e) => { e.stopPropagation(); handleRetryMessage(msg.id); }}
@@ -1044,7 +1044,7 @@ export default function MessagesPage() {
         <div
           role="dialog"
           aria-label="Image preview"
-          className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4"
+          className="fixed inset-0 z-[100] bg-[var(--story-overlay)] flex items-center justify-center p-4"
           onClick={() => setEnlargedImage(null)}
         >
           <button

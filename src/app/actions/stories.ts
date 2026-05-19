@@ -3,14 +3,16 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 // Story Reactions
 export async function addStoryReaction(storyId: string, emoji: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user) {
-    return { error: 'Not authenticated' }
-  }
+  if (!user) return { error: 'Not authenticated' }
+  if (!UUID_RE.test(storyId)) return { error: 'Invalid story ID' }
+  if (!emoji || emoji.length > 10) return { error: 'Invalid emoji' }
 
   const { error } = await supabase
     .from('story_reactions')
@@ -22,10 +24,7 @@ export async function addStoryReaction(storyId: string, emoji: string) {
       onConflict: 'story_id,user_id,emoji'
     })
 
-  if (error) {
-    return { error: error.message }
-  }
-
+  if (error) return { error: 'Failed to add reaction' }
   return { success: true }
 }
 
@@ -33,9 +32,8 @@ export async function removeStoryReaction(storyId: string, emoji: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user) {
-    return { error: 'Not authenticated' }
-  }
+  if (!user) return { error: 'Not authenticated' }
+  if (!UUID_RE.test(storyId)) return { error: 'Invalid story ID' }
 
   await supabase
     .from('story_reactions')
@@ -49,6 +47,10 @@ export async function removeStoryReaction(storyId: string, emoji: string) {
 
 export async function getStoryReactions(storyId: string) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) return []
+  if (!UUID_RE.test(storyId)) return []
 
   const { data, error } = await supabase
     .from('story_reactions')
@@ -58,7 +60,6 @@ export async function getStoryReactions(storyId: string) {
 
   if (error) return []
 
-  // Group by emoji and get user info
   const reactionMap = new Map<string, { count: number; users: string[] }>()
 
   for (const r of data) {
@@ -82,13 +83,12 @@ export async function sendStoryReply(storyId: string, message: string, recipient
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user) {
-    return { error: 'Not authenticated' }
-  }
+  if (!user) return { error: 'Not authenticated' }
+  if (!UUID_RE.test(storyId)) return { error: 'Invalid story ID' }
+  if (!UUID_RE.test(recipientId)) return { error: 'Invalid recipient' }
 
-  if (!message.trim()) {
-    return { error: 'Message cannot be empty' }
-  }
+  const cleanMessage = message.trim().slice(0, 1000)
+  if (!cleanMessage) return { error: 'Message cannot be empty' }
 
   const { error } = await supabase
     .from('story_replies')
@@ -96,28 +96,38 @@ export async function sendStoryReply(storyId: string, message: string, recipient
       story_id: storyId,
       sender_id: user.id,
       recipient_id: recipientId,
-      message: message.trim(),
+      message: cleanMessage,
     })
 
-  if (error) {
-    return { error: error.message }
-  }
-
+  if (error) return { error: 'Failed to send reply' }
   return { success: true }
 }
 
 export async function getStoryReplies(storyId: string) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) return []
+  if (!UUID_RE.test(storyId)) return []
+
+  // Only story owner or reply sender can view replies
+  const { data: story } = await supabase
+    .from('stories')
+    .select('user_id')
+    .eq('id', storyId)
+    .single()
+
+  if (!story) return []
 
   const { data: replies, error } = await supabase
     .from('story_replies')
     .select('id, message, created_at, sender_id, recipient_id')
     .eq('story_id', storyId)
+    .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`)
     .order('created_at', { ascending: false })
 
   if (error || !replies) return []
 
-  // Get sender profiles
   const senderIds = [...new Set(replies.map(r => r.sender_id))]
   const { data: profiles } = await supabase
     .from('profiles')
@@ -136,6 +146,10 @@ export async function getStoryReplies(storyId: string) {
 
 export async function getStoryRepliesForUser(userId: string) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) return []
+  if (user.id !== userId) return []
 
   const { data: replies, error } = await supabase
     .from('story_replies')
@@ -146,7 +160,6 @@ export async function getStoryRepliesForUser(userId: string) {
 
   if (error || !replies) return []
 
-  // Get story and sender info
   const senderIds = [...new Set(replies.map(r => r.sender_id))]
   const storyIds = [...new Set(replies.map(r => r.story_id))]
 
@@ -172,9 +185,8 @@ export async function markStoryReplyAsRead(replyId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user) {
-    return { error: 'Not authenticated' }
-  }
+  if (!user) return { error: 'Not authenticated' }
+  if (!UUID_RE.test(replyId)) return { error: 'Invalid reply ID' }
 
   await supabase
     .from('story_replies')
@@ -185,9 +197,22 @@ export async function markStoryReplyAsRead(replyId: string) {
   return { success: true }
 }
 
-// Story Viewers (who has seen the story)
+// Story Viewers (who has seen the story) — only story owner can see
 export async function getStoryViewers(storyId: string) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) return []
+  if (!UUID_RE.test(storyId)) return []
+
+  // Only story owner can see who viewed their story
+  const { data: story } = await supabase
+    .from('stories')
+    .select('user_id')
+    .eq('id', storyId)
+    .single()
+
+  if (!story || story.user_id !== user.id) return []
 
   const { data, error } = await supabase
     .from('story_views')
@@ -213,8 +238,11 @@ export async function getStoryViewers(storyId: string) {
 
 export async function getUserStoryViews(userId: string) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
-  // Get all stories owned by this user
+  if (!user) return []
+  if (user.id !== userId) return []
+
   const { data: stories } = await supabase
     .from('stories')
     .select('id')
@@ -225,7 +253,6 @@ export async function getUserStoryViews(userId: string) {
 
   const storyIds = stories.map(s => s.id)
 
-  // Get all views for these stories
   const { data: views } = await supabase
     .from('story_views')
     .select('story_id, user_id, created_at')
@@ -234,7 +261,6 @@ export async function getUserStoryViews(userId: string) {
 
   if (!views) return []
 
-  // Get viewer profiles
   const viewerIds = [...new Set(views.map(v => v.user_id))]
   const { data: profiles } = await supabase
     .from('profiles')
@@ -243,7 +269,6 @@ export async function getUserStoryViews(userId: string) {
 
   const profileMap = new Map(profiles?.map(p => [p.id, p]) || [])
 
-  // Group by viewer
   const viewerMap = new Map<string, { user: any; stories: string[]; lastViewed: string }>()
 
   for (const v of views) {
@@ -270,6 +295,23 @@ export async function getUserStoryViews(userId: string) {
 // Story Music
 export async function addStoryMusic(storyId: string, trackName: string, artist: string, previewUrl: string, coverUrl: string, startTime = 0, duration = 15) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) return { error: 'Not authenticated' }
+  if (!UUID_RE.test(storyId)) return { error: 'Invalid story ID' }
+  if (!trackName || trackName.length > 200) return { error: 'Invalid track name' }
+  if (!artist || artist.length > 200) return { error: 'Invalid artist' }
+  if (!previewUrl || previewUrl.length > 500) return { error: 'Invalid preview URL' }
+  if (!coverUrl || coverUrl.length > 500) return { error: 'Invalid cover URL' }
+
+  // Verify user owns the story
+  const { data: story } = await supabase
+    .from('stories')
+    .select('user_id')
+    .eq('id', storyId)
+    .single()
+
+  if (!story || story.user_id !== user.id) return { error: 'Unauthorized' }
 
   const { error } = await supabase
     .from('story_music')
@@ -283,15 +325,16 @@ export async function addStoryMusic(storyId: string, trackName: string, artist: 
       duration,
     })
 
-  if (error) {
-    return { error: error.message }
-  }
-
+  if (error) return { error: 'Failed to add music' }
   return { success: true }
 }
 
 export async function getStoryMusic(storyId: string) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) return null
+  if (!UUID_RE.test(storyId)) return null
 
   const { data, error } = await supabase
     .from('story_music')
@@ -300,6 +343,5 @@ export async function getStoryMusic(storyId: string) {
     .single()
 
   if (error || !data) return null
-
   return data
 }

@@ -25,7 +25,7 @@ const securityHeaders = [
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com",
+      "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' blob: data: https://*.supabase.co https://*.supabase.in",
       "media-src 'self' blob: https://*.supabase.co https://*.supabase.in",

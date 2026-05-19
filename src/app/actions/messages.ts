@@ -16,8 +16,8 @@ const SIGNED_URL_EXPIRY = 900; // 15 minutes
 
 /**
  * Generate a signed URL for a message media storage path.
- * Verifies user is authenticated. Conversation participant check
- * is done at the message level (getMessages), not per-URL.
+ * Verifies user is authenticated AND is a participant in a conversation
+ * that contains a message referencing this storage path.
  */
 export async function getSignedUrl(storagePath: string): Promise<{ url?: string; error?: string }> {
   try {
@@ -37,17 +37,40 @@ export async function getSignedUrl(storagePath: string): Promise<{ url?: string;
       return { url: storagePath }
     }
 
+    // Verify user is a participant in a conversation containing this media
+    const { data: mediaMessages } = await supabase
+      .from('messages')
+      .select('conversation_id')
+      .or(`media_url.eq.${storagePath},thumbnail_url.eq.${storagePath}`)
+      .limit(1)
+
+    if (!mediaMessages || mediaMessages.length === 0) {
+      return { error: 'Unauthorized' }
+    }
+
+    const { data: accessible } = await supabase
+      .from('conversation_participants')
+      .select('conversation_id')
+      .eq('user_id', user.id)
+      .eq('conversation_id', mediaMessages[0].conversation_id)
+      .limit(1)
+      .maybeSingle()
+
+    if (!accessible) {
+      return { error: 'Unauthorized' }
+    }
+
     const { data, error } = await supabase.storage
       .from('messages')
       .createSignedUrl(storagePath, SIGNED_URL_EXPIRY)
 
     if (error || !data?.signedUrl) {
-      return { error: error?.message || 'Failed to generate signed URL' }
+      return { error: 'Failed to generate signed URL' }
     }
 
     return { url: data.signedUrl }
-  } catch (err) {
-    return { error: err instanceof Error ? err.message : 'Unknown error' }
+  } catch {
+    return { error: 'Failed to generate signed URL' }
   }
 }
 

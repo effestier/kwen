@@ -53,11 +53,10 @@ function isTokenUsed(token: string): boolean {
 async function verifyTurnstileToken(token: string): Promise<{ valid: boolean; degraded: boolean }> {
   const secretKey = process.env.TURNSTILE_SECRET_KEY;
 
-  // No secret key configured — fail open with degraded flag
-  // This prevents a misconfigured env from locking out all users
+  // No secret key configured — fail closed to prevent abuse
   if (!secretKey) {
-    console.error('TURNSTILE_SECRET_KEY is not set — allowing request without verification');
-    return { valid: true, degraded: true };
+    console.error('TURNSTILE_SECRET_KEY is not set — rejecting request');
+    return { valid: false, degraded: false };
   }
 
   // Reject already-used tokens (replay protection)
@@ -371,7 +370,7 @@ export async function completeProfile(username: string, displayName: string): Pr
     if (upsertError.code === '23505') {
       return { error: 'Username is already taken' };
     }
-    return { error: `Failed to save profile: ${upsertError.message}` };
+    return { error: 'Failed to save profile. Please try again.' };
   }
 
   // Step 6: Revalidate (non-fatal — profile is already saved)

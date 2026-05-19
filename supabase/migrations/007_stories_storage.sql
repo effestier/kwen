@@ -71,6 +71,7 @@ CREATE OR REPLACE FUNCTION get_story_media_url(p_filename text)
 RETURNS text
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_url text;
@@ -88,6 +89,7 @@ CREATE OR REPLACE FUNCTION cleanup_expired_stories()
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 BEGIN
   -- Delete expired stories

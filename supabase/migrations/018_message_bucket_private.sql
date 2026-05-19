@@ -22,12 +22,18 @@ WHERE id = 'messages';
 -- Step 3: Drop the public read policy
 DROP POLICY IF EXISTS "Messages Media Public Access" ON storage.objects;
 
--- Step 4: Add authenticated read policy (for signed URL generation)
--- Users must be authenticated to request signed URLs
+-- Step 4: Restrict read access to conversation participants only
+-- Users can only generate signed URLs for media in conversations they participate in
 DROP POLICY IF EXISTS "Messages Media Authenticated Read" ON storage.objects;
-CREATE POLICY "Messages Media Authenticated Read"
+CREATE POLICY "Messages Media Participant Read"
   ON storage.objects FOR SELECT
   USING (
     bucket_id = 'messages'
     AND auth.uid() IS NOT NULL
+    AND EXISTS (
+      SELECT 1 FROM public.messages m
+      JOIN public.conversation_participants cp ON cp.conversation_id = m.conversation_id
+      WHERE cp.user_id = auth.uid()
+        AND (m.media_url = storage.objects.name OR m.thumbnail_url = storage.objects.name)
+    )
   );

@@ -8,8 +8,10 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { cn } from '@/lib/utils';
 import { formatTimeAgo } from '@/lib/utils';
 import Link from 'next/link';
-import { getMessages, sendMessage, markConversationAsRead, getSignedUrl } from '@/app/actions/messages';
+import { getMessages, sendMessage, markConversationAsRead, getSignedUrl, addReaction, deleteMessage, reportMessage } from '@/app/actions/messages';
 import type { MediaMetadata } from '@/app/actions/messages';
+import { MessageBubble, type MessageBubbleData } from '@/components/messages/message-bubble';
+import { ReplyPreview } from '@/components/messages/reply-preview';
 import { compressForMessage, generateThumbnail, validateRawFile, verifyImageContent } from '@/lib/image-compress';
 import { ListSkeleton, Skeleton } from '@/components/design-system/skeleton';
 
@@ -34,6 +36,16 @@ interface Message {
   file_size?: number | null;
   media_width?: number | null;
   media_height?: number | null;
+  reply_to_message_id?: string | null;
+  reply_to?: {
+    id: string;
+    content: string;
+    senderName: string;
+    messageType: string;
+    media_url: string | null;
+  } | null;
+  reactions?: Record<string, { count: number; userIds: string[] }>;
+  my_reaction?: string | null;
   status?: 'sending' | 'sent' | 'failed';
   file?: File;
 }
@@ -81,6 +93,7 @@ export default function MessagesPage() {
   const [uploadProgress, setUploadProgress] = useState(-1); // -1 = idle, 0-100 = uploading
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
   const [failedMessages, setFailedMessages] = useState<Map<string, FailedMessageData>>(new Map());
+  const [replyTo, setReplyTo] = useState<MessageBubbleData | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // User state
@@ -348,6 +361,44 @@ export default function MessagesPage() {
         });
 
       typingChannelRef.current = typingChannel;
+
+      // Reactions realtime subscription
+      const reactionsChannel = supabase
+        .channel(`reactions-${selectedId}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'message_reactions' }, (payload) => {
+          if (cancelled) return;
+          const event = payload.eventType;
+          const data = payload.new as { message_id: string; user_id: string; emoji: string } | null;
+          const oldData = payload.old as { message_id: string; user_id: string; emoji: string } | null;
+
+          if (event === 'INSERT' && data) {
+            setMessages(prev => prev.map(m => {
+              if (m.id !== data.message_id) return m;
+              const reactions = { ...m.reactions };
+              if (!reactions[data.emoji]) reactions[data.emoji] = { count: 0, userIds: [] };
+              if (!reactions[data.emoji].userIds.includes(data.user_id)) {
+                reactions[data.emoji] = { count: reactions[data.emoji].count + 1, userIds: [...reactions[data.emoji].userIds, data.user_id] };
+              }
+              const myReaction = data.user_id === currentUserIdRef.current ? data.emoji : m.my_reaction;
+              return { ...m, reactions, my_reaction: myReaction };
+            }));
+          } else if (event === 'DELETE' && oldData) {
+            setMessages(prev => prev.map(m => {
+              if (m.id !== oldData.message_id) return m;
+              const reactions = { ...m.reactions };
+              if (reactions[oldData.emoji]) {
+                reactions[oldData.emoji] = {
+                  count: Math.max(0, reactions[oldData.emoji].count - 1),
+                  userIds: reactions[oldData.emoji].userIds.filter(id => id !== oldData.user_id),
+                };
+                if (reactions[oldData.emoji].count <= 0) delete reactions[oldData.emoji];
+              }
+              const myReaction = oldData.user_id === currentUserIdRef.current ? null : m.my_reaction;
+              return { ...m, reactions, my_reaction: myReaction };
+            }));
+          }
+        })
+        .subscribe();
     }
 
     loadMessagesAndSubscribe();
@@ -421,7 +472,7 @@ export default function MessagesPage() {
       return result.url;
     }
 
-    console.error('Failed to get signed URL:', result.error);
+
     return null;
   };
 
@@ -543,6 +594,69 @@ export default function MessagesPage() {
     setFailedMessages(prev => { const next = new Map(prev); next.delete(tempId); return next; });
   };
 
+  // Reaction handler (optimistic)
+  const handleReact = useCallback(async (messageId: string, emoji: string) => {
+    setMessages(prev => prev.map(m => {
+      if (m.id !== messageId) return m;
+      const reactions = { ...m.reactions };
+      const myReaction = m.my_reaction;
+
+      if (myReaction === emoji) {
+        // Remove reaction
+        if (reactions[emoji]) {
+          reactions[emoji] = { count: reactions[emoji].count - 1, userIds: reactions[emoji].userIds.filter(id => id !== currentUserId) };
+          if (reactions[emoji].count <= 0) delete reactions[emoji];
+        }
+        return { ...m, reactions, my_reaction: null };
+      } else {
+        // Remove old reaction if exists
+        if (myReaction && reactions[myReaction]) {
+          reactions[myReaction] = { count: reactions[myReaction].count - 1, userIds: reactions[myReaction].userIds.filter(id => id !== currentUserId) };
+          if (reactions[myReaction].count <= 0) delete reactions[myReaction];
+        }
+        // Add new reaction
+        if (!reactions[emoji]) reactions[emoji] = { count: 0, userIds: [] };
+        reactions[emoji] = { count: reactions[emoji].count + 1, userIds: [...reactions[emoji].userIds, currentUserId!] };
+        return { ...m, reactions, my_reaction: emoji };
+      }
+    }));
+
+    // Fire server action (non-blocking)
+    addReaction(messageId, emoji);
+  }, [currentUserId]);
+
+  const handleReply = useCallback((msg: MessageBubbleData) => {
+    setReplyTo(msg);
+  }, []);
+
+  const handleDelete = useCallback(async (messageId: string, deleteForEveryone: boolean) => {
+    const result = await deleteMessage(messageId, deleteForEveryone);
+    if (result.error) {
+      alert(result.error);
+      return;
+    }
+    if (result.action === 'deleted_for_me') {
+      setMessages(prev => prev.filter(m => m.id !== messageId));
+    } else if (result.action === 'deleted_for_everyone') {
+      setMessages(prev => prev.map(m => m.id === messageId ? { ...m, content: 'This message was deleted', message_type: 'text', media_url: null, thumbnail_url: null } : m));
+    }
+  }, []);
+
+  const handleCopy = useCallback(async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // Silent fail
+    }
+  }, []);
+
+  const handleReport = useCallback(async (messageId: string) => {
+    const result = await reportMessage(messageId);
+    if (result.message) {
+      alert(result.message);
+    }
+  }, []);
+
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     const sid = selectedIdRef.current;
@@ -594,7 +708,6 @@ export default function MessagesPage() {
           height: compressed.height,
         };
       } catch (err) {
-        console.error('Image processing error:', err);
         alert(err instanceof Error ? err.message : 'Failed to process image.');
         setUploadProgress(-1);
         setSending(false);
@@ -635,7 +748,8 @@ export default function MessagesPage() {
     clearImagePreview();
     setNewMessage('');
 
-    const result = await sendMessage(sid, displayContent, media);
+    const result = await sendMessage(sid, displayContent, media, replyTo?.id);
+    setReplyTo(null);
 
     if (result.success && result.message) {
       tid.delete(tempId);
@@ -814,133 +928,46 @@ export default function MessagesPage() {
                 ) : messages.length > 0 ? (
                   <div className="py-2">
                     {messages.map((msg, i) => {
-                      const showTimestamp = hoveredMsgId === msg.id || tappedMsgId === msg.id;
                       const prevMsg = i > 0 ? messages[i - 1] : null;
                       const isConsecutive = prevMsg && prevMsg.senderId === msg.senderId;
 
-                      return (
-                        <div
-                          key={msg.id}
-                          className={cn(
-                            'group relative w-full',
-                            isConsecutive ? 'mt-[2px]' : 'mt-3',
-                            'flex',
-                            msg.isMine ? 'justify-end' : 'justify-start'
-                          )}
-                          onMouseEnter={() => setHoveredMsgId(msg.id)}
-                          onMouseLeave={() => setHoveredMsgId(null)}
-                          onClick={() => handleMessageTap(msg.id)}
-                        >
-                          {/* Avatar column - fixed width, only for first in group from other */}
-                          {!msg.isMine && (
-                            <div className="w-8 flex-shrink-0 mr-2">
-                              {!isConsecutive && (
-                                <Avatar
-                                  src={msg.sender?.avatar_url || null}
-                                  name={msg.sender?.display_name || 'User'}
-                                  size="sm"
-                                  className="mb-1"
-                                />
-                              )}
-                            </div>
-                          )}
-
-                          {/* Bubble column - constrained max width */}
-                          <div className={cn(
-                            'flex flex-col',
-                            msg.isMine ? 'items-end' : 'items-start',
-                            msg.isMine
-                              ? 'max-w-[75%] md:max-w-[65%]'
-                              : 'max-w-[75%] md:max-w-[65%]'
-                          )}>
-                            {/* Message bubble */}
-                            <div className={cn(
-                              'text-sm min-w-0 overflow-hidden',
-                              msg.isMine
-                                ? 'bg-[var(--accent-primary)] text-white rounded-2xl rounded-br-md'
-                                : 'bg-[var(--bg-secondary)] text-[var(--text-primary)] rounded-2xl rounded-bl-md',
-                              msg.media_url ? 'p-1' : 'px-3.5 py-2',
-                              msg.status === 'failed' && 'opacity-70'
-                            )}>
-                              {msg.media_url && (
-                                <button
-                                  type="button"
-                                  onClick={async (e) => {
-                                    e.stopPropagation();
-                                    // Get fresh signed URL for full-res lightbox
-                                    const path = msg.media_path || msg.media_url!;
-                                    const url = await getOrRefreshSignedUrl(path);
-                                    if (url) setEnlargedImage(url);
-                                  }}
-                                  className="block w-full cursor-pointer"
-                                  aria-label="View full image"
-                                >
-                                  <img
-                                    src={msg.thumbnail_url || msg.media_url}
-                                    alt={msg.content !== 'Photo' ? msg.content : 'Sent image'}
-                                    className={cn(
-                                      'max-w-full rounded-[14px] object-cover transition-opacity hover:opacity-90',
-                                      msg.content && msg.content !== 'Photo' ? 'mb-1' : '',
-                                      msg.message_type === 'image' ? 'max-h-[300px] w-full' : 'max-h-[250px]'
-                                    )}
-                                    loading="lazy"
-                                    width={msg.media_width || undefined}
-                                    height={msg.media_height || undefined}
-                                  />
-                                </button>
-                              )}
-                              {msg.content && msg.content !== 'Photo' && (
-                                <p className={cn(
-                                  'whitespace-pre-wrap text-sm',
-                                  msg.media_url ? 'px-2.5 py-1.5' : ''
-                                )} style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{msg.content}</p>
-                              )}
-                            </div>
-
-                            {/* Timestamp - hidden by default, shown on hover/tap */}
-                            <div className={cn(
-                              'text-[10px] mt-0.5 px-1 transition-all duration-200',
-                              msg.isMine ? 'text-right' : 'text-left',
-                              showTimestamp
-                                ? 'opacity-100 translate-y-0'
-                                : 'opacity-0 translate-y-1 pointer-events-none',
-                              'text-[var(--text-muted)]'
-                            )}>
-                              {formatTimeAgo(msg.createdAt)}
-                            </div>
-
-                            {/* Failed message actions */}
-                            {msg.status === 'failed' && msg.isMine && (
-                              <div className="flex items-center gap-2 mt-1">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--destructive)] flex-shrink-0" aria-hidden="true">
-                                  <circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="8" y2="12" /><line x1="12" x2="12.01" y1="16" y2="16" />
-                                </svg>
-                                <span className="text-[11px] text-[var(--destructive)]">Failed to send</span>
-                                <button
-                                  type="button"
-                                  onClick={(e) => { e.stopPropagation(); handleRetryMessage(msg.id); }}
-                                  className="text-[11px] text-[var(--accent-primary)] font-medium hover:underline"
-                                >
-                                  Retry
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={(e) => { e.stopPropagation(); handleDeleteFailedMessage(msg.id); }}
-                                  className="text-[11px] text-[var(--text-muted)] hover:underline"
-                                >
-                                  Delete
-                                </button>
+                      // Failed/sending messages use legacy inline rendering
+                      if (msg.status === 'failed' || msg.status === 'sending') {
+                        return (
+                          <div key={msg.id} className={cn('flex w-full mt-2', msg.isMine ? 'justify-end' : 'justify-start')}>
+                            <div className={cn('max-w-[75%]')}>
+                              <div className={cn('text-sm rounded-2xl px-3.5 py-2', msg.isMine ? 'bg-[var(--accent-primary)] text-white rounded-br-md' : 'bg-[var(--bg-secondary)] text-[var(--text-primary)] rounded-bl-md', msg.status === 'failed' && 'opacity-70')}>
+                                {msg.content && msg.content !== 'Photo' && <p className="whitespace-pre-wrap text-sm">{msg.content}</p>}
                               </div>
-                            )}
-
-                            {/* Sending indicator */}
-                            {msg.status === 'sending' && msg.isMine && (
-                              <div className="flex items-center gap-1 mt-1">
-                                <div className="animate-spin w-3 h-3 border border-[var(--text-muted)] border-t-transparent rounded-full" />
-                                <span className="text-[10px] text-[var(--text-muted)]">Sending...</span>
-                              </div>
-                            )}
+                              {msg.status === 'failed' && msg.isMine && (
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className="text-[11px] text-[var(--destructive)]">Failed to send</span>
+                                  <button type="button" onClick={() => handleRetryMessage(msg.id)} className="text-[11px] text-[var(--accent-primary)] font-medium hover:underline">Retry</button>
+                                  <button type="button" onClick={() => handleDeleteFailedMessage(msg.id)} className="text-[11px] text-[var(--text-muted)] hover:underline">Delete</button>
+                                </div>
+                              )}
+                              {msg.status === 'sending' && msg.isMine && (
+                                <div className="flex items-center gap-1 mt-1">
+                                  <div className="animate-spin w-3 h-3 border border-[var(--text-muted)] border-t-transparent rounded-full" />
+                                  <span className="text-[10px] text-[var(--text-muted)]">Sending...</span>
+                                </div>
+                              )}
+                            </div>
                           </div>
+                        );
+                      }
+
+                      return (
+                        <div key={msg.id} className={cn('px-2', isConsecutive ? 'mt-[2px]' : 'mt-3')}>
+                          <MessageBubble
+                            message={msg as MessageBubbleData}
+                            showAvatar={!isConsecutive && !msg.isMine}
+                            onReact={handleReact}
+                            onReply={handleReply}
+                            onDelete={handleDelete}
+                            onCopy={handleCopy}
+                            onReport={handleReport}
+                          />
                         </div>
                       );
                     })}
@@ -958,6 +985,17 @@ export default function MessagesPage() {
 
               {/* Message Input */}
               <form onSubmit={handleSend} className="p-3 border-t border-[var(--border-subtle)]">
+                {/* Reply preview */}
+                {replyTo && (
+                  <ReplyPreview
+                    senderName={replyTo.sender?.display_name || 'Unknown'}
+                    content={replyTo.content}
+                    messageType={replyTo.message_type}
+                    mediaUrl={replyTo.thumbnail_url || replyTo.media_url}
+                    onCancel={() => setReplyTo(null)}
+                  />
+                )}
+
                 {/* Image preview */}
                 {imagePreview && (
                   <div className="mb-2 relative inline-block">

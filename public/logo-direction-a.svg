@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="120" fill="#0B1120"/>
+  <g transform="translate(196, 96)">
+    <!-- Vertical stem -->
+    <rect x="0" y="0" width="48" height="320" rx="24" fill="#F8FAFC"/>
+    <!-- Upper diagonal -->
+    <rect x="0" y="0" width="48" height="200" rx="24" fill="#F8FAFC"
+      transform="rotate(38, 24, 100)"/>
+    <!-- Lower diagonal -->
+    <rect x="0" y="120" width="48" height="200" rx="24" fill="#F8FAFC"
+      transform="rotate(-38, 24, 220)"/>
+  </g>
+</svg>

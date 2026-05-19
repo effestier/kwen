@@ -14,6 +14,7 @@ export default function ContentPage() {
     autoplay_videos: true,
     reduce_motion: false,
     high_contrast: false,
+    language: 'en',
   });
   const [saving, setSaving] = useState(false);
   const supabase = createClient();
@@ -32,7 +33,7 @@ export default function ContentPage() {
 
       const { data } = await supabase
         .from('user_settings')
-        .select('suggested_posts, autoplay_videos, reduce_motion, high_contrast')
+        .select('suggested_posts, autoplay_videos, reduce_motion, high_contrast, language')
         .eq('user_id', user.id)
         .single();
 
@@ -42,6 +43,7 @@ export default function ContentPage() {
           autoplay_videos: data.autoplay_videos ?? true,
           reduce_motion: data.reduce_motion ?? false,
           high_contrast: data.high_contrast ?? false,
+          language: data.language ?? 'en',
         });
       }
     } catch (err) {
@@ -51,7 +53,7 @@ export default function ContentPage() {
     }
   }
 
-  async function updateSetting(key: string, value: boolean) {
+  async function updateSetting(key: string, value: boolean | string) {
     setSaving(true);
     setSettings(prev => ({ ...prev, [key]: value }));
 
@@ -135,11 +137,17 @@ export default function ContentPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <select className="w-full px-3 py-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--input-bg)] text-[var(--text-primary)]">
-              <option>English (US)</option>
-              <option>English (UK)</option>
-              <option>Spanish</option>
-              <option>French</option>
+            <select
+              value={settings.language}
+              onChange={(e) => updateSetting('language', e.target.value)}
+              disabled={saving}
+              className="w-full px-3 py-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--input-bg)] text-[var(--text-primary)]"
+            >
+              <option value="en">English (US)</option>
+              <option value="en-gb">English (UK)</option>
+              <option value="es">Spanish</option>
+              <option value="fr">French</option>
+              <option value="hi">Hindi</option>
             </select>
           </CardContent>
         </Card>

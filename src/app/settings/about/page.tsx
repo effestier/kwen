@@ -97,7 +97,7 @@ export default function AboutPage() {
         <Card className="bg-[var(--bg-secondary)]">
           <CardContent className="pt-6 text-center">
             <p className="text-sm text-[var(--text-muted)] mb-2">
-              Made with care using modern web technologies
+              Made with love by KARAN-KWEN
             </p>
             <p className="text-xs text-[var(--text-muted)]">
               © 2026 {BRAND.name}. All rights reserved.

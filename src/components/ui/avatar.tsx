@@ -103,7 +103,7 @@ const AvatarFallback = React.forwardRef<
   <AvatarPrimitive.Fallback
     ref={ref}
     className={cn(
-      'flex h-full w-full items-center justify-center rounded-full bg-zinc-800 text-zinc-400 text-sm font-medium',
+      'flex h-full w-full items-center justify-center rounded-full bg-[var(--bg-tertiary)] text-[var(--text-muted)] text-sm font-medium',
       className
     )}
     {...props}
@@ -126,13 +126,13 @@ export function AvatarGroup({ users, max = 4, size = 'sm' }: AvatarGroupProps) {
   return (
     <div className="flex -space-x-2">
       {displayed.map((user, i) => (
-        <div key={i} className="ring-2 ring-black rounded-full">
+        <div key={i} className="ring-2 ring-[var(--bg-primary)] rounded-full">
           <Avatar src={user.avatar} name={user.displayName} size={size} />
         </div>
       ))}
       {remaining > 0 && (
         <div className={cn(
-          'ring-2 ring-black rounded-full flex items-center justify-center',
+          'ring-2 ring-[var(--bg-primary)] rounded-full flex items-center justify-center',
           sizeClasses[size],
           'bg-[var(--bg-tertiary)]'
         )}>

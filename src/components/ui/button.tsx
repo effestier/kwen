@@ -4,16 +4,16 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]',
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-primary)] disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]',
   {
     variants: {
       variant: {
-        default: 'bg-white text-zinc-900 hover:bg-zinc-200',
-        destructive: 'bg-red-600 text-white hover:bg-red-700',
-        outline: 'border border-zinc-700 bg-transparent hover:bg-zinc-800 hover:border-zinc-600',
-        secondary: 'bg-zinc-800 text-zinc-100 hover:bg-zinc-700',
-        ghost: 'hover:bg-zinc-800 hover:text-zinc-100',
-        link: 'text-zinc-400 underline-offset-4 hover:text-white hover:underline',
+        default: 'bg-[var(--accent-primary)] text-white hover:bg-[var(--accent-hover)]',
+        destructive: 'bg-[var(--destructive)] text-white hover:bg-[var(--destructive-hover)]',
+        outline: 'border border-[var(--border-subtle)] bg-transparent hover:bg-[var(--bg-secondary)] hover:border-[var(--border-soft)]',
+        secondary: 'bg-[var(--bg-tertiary)] text-[var(--text-primary)] hover:bg-[var(--bg-secondary)]',
+        ghost: 'hover:bg-[var(--bg-secondary)] hover:text-[var(--text-primary)]',
+        link: 'text-[var(--text-muted)] underline-offset-4 hover:text-[var(--text-primary)] hover:underline',
       },
       size: {
         default: 'h-10 px-4 py-2',

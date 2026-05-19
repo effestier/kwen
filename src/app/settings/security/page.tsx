@@ -129,7 +129,7 @@ export default function SecurityPage() {
                   <p className="text-sm text-[var(--text-muted)]">Use an app like Google Authenticator</p>
                 </div>
               </div>
-              <Button variant="secondary" size="sm">Enable</Button>
+              <span className="text-xs text-[var(--text-muted)] bg-[var(--bg-tertiary)] px-2.5 py-1 rounded-full">Coming Soon</span>
             </div>
           </CardContent>
         </Card>

@@ -9,7 +9,6 @@ export default function AppearancePage() {
 
   return (
     <div className="max-w-2xl">
-      {/* Back Navigation */}
       <button
         onClick={() => router.back()}
         className="flex items-center gap-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] mb-6 transition-colors"
@@ -42,35 +41,11 @@ export default function AppearancePage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Display</CardTitle>
-            <CardDescription>
-              Additional display options coming soon.
-            </CardDescription>
-          </CardHeader>
-          <div className="pt-2 text-sm text-[var(--text-muted)]">
-            <ul className="space-y-2">
-              <li>• Font scaling</li>
-              <li>• Compact mode</li>
-              <li>• Reduced motion</li>
-              <li>• Language</li>
-            </ul>
-          </div>
-        </Card>
-
-        <Card>
-          <CardHeader>
             <CardTitle>Accessibility</CardTitle>
             <CardDescription>
-              Settings for enhanced accessibility.
+              Motion and contrast settings are available in Content settings.
             </CardDescription>
           </CardHeader>
-          <div className="pt-2 text-sm text-[var(--text-muted)]">
-            <ul className="space-y-2">
-              <li>• High contrast mode</li>
-              <li>• Screen reader support</li>
-              <li>• Keyboard navigation</li>
-            </ul>
-          </div>
         </Card>
       </div>
     </div>

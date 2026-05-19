@@ -12,6 +12,7 @@ export default function PrivacyPage() {
   const [settings, setSettings] = useState({
     activity_status: true,
     story_replies: true,
+    audience: 'public' as 'public' | 'followers' | 'private',
   });
   const [saving, setSaving] = useState(false);
   const supabase = createClient();
@@ -30,7 +31,7 @@ export default function PrivacyPage() {
 
       const { data } = await supabase
         .from('user_settings')
-        .select('activity_status, story_replies')
+        .select('activity_status, story_replies, audience')
         .eq('user_id', user.id)
         .single();
 
@@ -38,6 +39,7 @@ export default function PrivacyPage() {
         setSettings({
           activity_status: data.activity_status ?? true,
           story_replies: data.story_replies ?? true,
+          audience: data.audience ?? 'public',
         });
       }
     } catch (err) {
@@ -47,7 +49,7 @@ export default function PrivacyPage() {
     }
   }
 
-  async function updateSetting(key: string, value: boolean) {
+  async function updateSetting(key: string, value: boolean | string) {
     setSaving(true);
     setSettings(prev => ({ ...prev, [key]: value }));
 
@@ -65,7 +67,8 @@ export default function PrivacyPage() {
       if (error) throw error;
     } catch (err) {
       console.error('Error saving setting:', err);
-      setSettings(prev => ({ ...prev, [key]: !value }));
+      // Revert on error
+      loadSettings();
     } finally {
       setSaving(false);
     }
@@ -106,28 +109,35 @@ export default function PrivacyPage() {
               Who can see your posts and profile.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between p-3 rounded-lg bg-[var(--bg-secondary)]">
-              <div>
-                <p className="font-medium text-[var(--text-primary)]">Public</p>
-                <p className="text-sm text-[var(--text-muted)]">Anyone can see your profile and posts</p>
-              </div>
-              <input type="radio" name="audience" defaultChecked className="accent-[var(--accent-primary)]" />
-            </div>
-            <div className="flex items-center justify-between p-3 rounded-lg bg-[var(--bg-secondary)]">
-              <div>
-                <p className="font-medium text-[var(--text-primary)]">Followers Only</p>
-                <p className="text-sm text-[var(--text-muted)]">Only your followers can see your posts</p>
-              </div>
-              <input type="radio" name="audience" className="accent-[var(--accent-primary)]" />
-            </div>
-            <div className="flex items-center justify-between p-3 rounded-lg bg-[var(--bg-secondary)]">
-              <div>
-                <p className="font-medium text-[var(--text-primary)]">Private</p>
-                <p className="text-sm text-[var(--text-muted)]">You must approve follow requests</p>
-              </div>
-              <input type="radio" name="audience" className="accent-[var(--accent-primary)]" />
-            </div>
+          <CardContent className="space-y-3">
+            {[
+              { value: 'public', label: 'Public', desc: 'Anyone can see your profile and posts' },
+              { value: 'followers', label: 'Followers Only', desc: 'Only your followers can see your posts' },
+              { value: 'private', label: 'Private', desc: 'You must approve follow requests' },
+            ].map((option) => (
+              <label
+                key={option.value}
+                className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors ${
+                  settings.audience === option.value
+                    ? 'bg-[var(--accent-secondary)] border border-[var(--accent-primary)]'
+                    : 'bg-[var(--bg-secondary)] border border-transparent hover:bg-[var(--bg-tertiary)]'
+                }`}
+              >
+                <div>
+                  <p className="font-medium text-[var(--text-primary)]">{option.label}</p>
+                  <p className="text-sm text-[var(--text-muted)]">{option.desc}</p>
+                </div>
+                <input
+                  type="radio"
+                  name="audience"
+                  value={option.value}
+                  checked={settings.audience === option.value}
+                  onChange={() => updateSetting('audience', option.value)}
+                  disabled={saving}
+                  className="accent-[var(--accent-primary)]"
+                />
+              </label>
+            ))}
           </CardContent>
         </Card>
 
@@ -164,46 +174,6 @@ export default function PrivacyPage() {
               onChange={(e) => updateSetting('story_replies', e.target.checked)}
               disabled={saving}
             />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Blocked Accounts</CardTitle>
-            <CardDescription>
-              Manage accounts you've blocked.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-[var(--text-muted)] mb-4">You haven't blocked any accounts yet.</p>
-            <button className="text-sm text-[var(--accent-primary)] hover:underline">
-              Manage Blocked Accounts →
-            </button>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Data & Permissions</CardTitle>
-            <CardDescription>
-              Manage your data and connected apps.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-[var(--text-primary)]">Download Your Data</p>
-                <p className="text-sm text-[var(--text-muted)]">Get a copy of your account data</p>
-              </div>
-              <button className="text-sm text-[var(--accent-primary)] hover:underline">Request</button>
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-[var(--text-primary)]">Connected Apps</p>
-                <p className="text-sm text-[var(--text-muted)]">Manage third-party app access</p>
-              </div>
-              <button className="text-sm text-[var(--accent-primary)] hover:underline">Manage</button>
-            </div>
           </CardContent>
         </Card>
       </div>

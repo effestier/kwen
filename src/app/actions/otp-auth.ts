@@ -285,13 +285,21 @@ export async function getUser() {
   }
 }
 
+const RESERVED_USERNAMES = new Set([
+  'admin', 'support', 'help', 'info', 'team', 'staff', 'mod', 'moderator',
+  'system', 'official', 'kwen', 'kwenin', 'root', 'superuser', 'api',
+  'about', 'auth', 'login', 'register', 'feed', 'explore', 'messages',
+  'notifications', 'settings', 'profile', 'search', 'stories', 'reels',
+  'privacy', 'terms', 'legal', 'report', 'safety', 'security',
+]);
+
 export async function completeProfile(username: string, displayName: string): Promise<AuthResult> {
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-    if (!user) {
-      return { error: 'Not authenticated' };
+    if (authError || !user) {
+      return { error: 'Not authenticated. Please log in again.' };
     }
 
     const cleanUsername = username.trim().toLowerCase();
@@ -305,29 +313,52 @@ export async function completeProfile(username: string, displayName: string): Pr
       return { error: 'Display name is required' };
     }
 
-    const { data: existing } = await supabase
+    // Check reserved usernames
+    if (RESERVED_USERNAMES.has(cleanUsername)) {
+      return { error: 'This username is reserved' };
+    }
+
+    // Check if username is taken by another user
+    const { data: existing, error: lookupError } = await supabase
       .from('profiles')
       .select('id')
       .eq('username', cleanUsername)
       .neq('id', user.id)
-      .single();
+      .maybeSingle();
+
+    if (lookupError) {
+      console.error('Username lookup failed:', lookupError);
+      return { error: 'Could not verify username availability. Please try again.' };
+    }
 
     if (existing) {
       return { error: 'Username is already taken' };
     }
 
-    const { error: updateError } = await supabase
+    // Upsert instead of update — handles case where profile row doesn't exist yet
+    const { error: upsertError } = await supabase
       .from('profiles')
-      .update({ username: cleanUsername, display_name: cleanDisplayName })
-      .eq('id', user.id);
+      .upsert({
+        id: user.id,
+        username: cleanUsername,
+        display_name: cleanDisplayName,
+      }, { onConflict: 'id' });
 
-    if (updateError) {
-      return { error: 'Failed to update profile' };
+    if (upsertError) {
+      console.error('Profile upsert error:', upsertError);
+
+      // Unique constraint violation = username taken (race condition)
+      if (upsertError.code === '23505') {
+        return { error: 'Username is already taken' };
+      }
+
+      return { error: `Failed to save profile: ${upsertError.message}` };
     }
 
     revalidatePath('/', 'layout');
     return { success: true };
-  } catch {
-    return { error: 'Failed to update profile' };
+  } catch (err) {
+    console.error('completeProfile unexpected error:', err);
+    return { error: 'Something went wrong. Please try again.' };
   }
 }

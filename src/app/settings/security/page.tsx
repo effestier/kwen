@@ -4,18 +4,35 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/design-system';
 import { Button } from '@/components/design-system';
-import { createClient } from '@/lib/supabase/client';
+import { updatePassword } from '@/app/actions/otp-auth';
 
 export default function SecurityPage() {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const supabase = createClient();
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
-  async function handlePasswordChange(currentPassword: string, newPassword: string) {
-    if (newPassword.length < 6) {
-      setError('Password must be at least 6 characters');
+  async function handlePasswordChange() {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setError('Please fill in all fields');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setError('Password must be at least 8 characters');
+      return;
+    }
+
+    if (!/[a-zA-Z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+      setError('Password must contain at least one letter and one number');
       return;
     }
 
@@ -24,16 +41,20 @@ export default function SecurityPage() {
     setSuccess(false);
 
     try {
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: newPassword,
-      });
+      const result = await updatePassword(currentPassword, newPassword);
 
-      if (updateError) throw updateError;
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
 
       setSuccess(true);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
       setTimeout(() => setSuccess(false), 3000);
-    } catch (err: any) {
-      setError(err.message || 'Failed to update password');
+    } catch {
+      setError('Failed to update password. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -81,27 +102,18 @@ export default function SecurityPage() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium text-[var(--text-primary)]">Current Password</label>
-              <input type="password" id="currentPassword" className="w-full px-3 py-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--input-bg)] text-[var(--text-primary)]" placeholder="Enter current password" />
+              <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--input-bg)] text-[var(--text-primary)]" placeholder="Enter current password" autoComplete="current-password" />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-[var(--text-primary)]">New Password</label>
-              <input type="password" id="newPassword" className="w-full px-3 py-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--input-bg)] text-[var(--text-primary)]" placeholder="Enter new password" />
+              <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--input-bg)] text-[var(--text-primary)]" placeholder="Enter new password (min 8 chars)" autoComplete="new-password" />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-[var(--text-primary)]">Confirm New Password</label>
-              <input type="password" id="confirmPassword" className="w-full px-3 py-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--input-bg)] text-[var(--text-primary)]" placeholder="Confirm new password" />
+              <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--input-bg)] text-[var(--text-primary)]" placeholder="Confirm new password" autoComplete="new-password" />
             </div>
             <Button
-              onClick={() => {
-                const current = (document.getElementById('currentPassword') as HTMLInputElement).value;
-                const newPwd = (document.getElementById('newPassword') as HTMLInputElement).value;
-                const confirm = (document.getElementById('confirmPassword') as HTMLInputElement).value;
-                if (newPwd !== confirm) {
-                  setError('Passwords do not match');
-                  return;
-                }
-                handlePasswordChange(current, newPwd);
-              }}
+              onClick={handlePasswordChange}
               disabled={saving}
             >
               {saving ? 'Updating...' : 'Update Password'}

@@ -93,8 +93,8 @@ async function verifyTurnstileToken(token: string): Promise<{ valid: boolean; de
     }
 
     // Validate action matches what the widget sends
-    if (data.action && data.action !== 'send-otp') {
-      console.error(`Turnstile action mismatch: expected send-otp, got ${data.action}`);
+    if (data.action && data.action !== 'auth') {
+      console.error(`Turnstile action mismatch: expected auth, got ${data.action}`);
       return { valid: false, degraded: false };
     }
 
@@ -115,6 +115,24 @@ const OTP_SEND_LIMIT_DEGRADED: RateLimitConfig = {
   windowMs: 60 * 1000, // 1 minute
   maxAttempts: 1,       // only 1 OTP per minute when degraded
 };
+
+const PASSWORD_LOGIN_LIMIT: RateLimitConfig = {
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  maxAttempts: 5,
+};
+
+const PASSWORD_RESET_LIMIT: RateLimitConfig = {
+  windowMs: 60 * 60 * 1000, // 1 hour
+  maxAttempts: 3,
+};
+
+function isStrongPassword(pw: string): { valid: boolean; error?: string } {
+  if (pw.length < 8) return { valid: false, error: 'Password must be at least 8 characters' };
+  if (pw.length > 128) return { valid: false, error: 'Password is too long' };
+  if (!/[a-zA-Z]/.test(pw)) return { valid: false, error: 'Password must contain at least one letter' };
+  if (!/[0-9]/.test(pw)) return { valid: false, error: 'Password must contain at least one number' };
+  return { valid: true };
+}
 
 export async function sendOTP(email: string, turnstileToken: string): Promise<AuthResult> {
   try {
@@ -409,4 +427,186 @@ export async function completeProfile(username: string, displayName: string): Pr
   }
 
   return { success: true };
+}
+
+// =============================================
+// PASSWORD AUTH
+// =============================================
+
+export async function signInWithPassword(email: string, password: string, turnstileToken: string): Promise<AuthResult> {
+  try {
+    const cleanEmail = sanitizeEmail(email);
+
+    if (!cleanEmail || !isValidEmail(cleanEmail)) {
+      return { error: 'Please enter a valid email address' };
+    }
+
+    if (!password) {
+      return { error: 'Please enter your password' };
+    }
+
+    if (!turnstileToken) {
+      return { error: 'Security check required. Please complete the challenge.' };
+    }
+
+    const turnstileResult = await verifyTurnstileToken(turnstileToken);
+    if (!turnstileResult.valid) {
+      return { error: 'Security check failed. Please try again.' };
+    }
+
+    const limit = checkRateLimit(`password-login:${cleanEmail}`, PASSWORD_LOGIN_LIMIT);
+    if (!limit.allowed) {
+      const minutes = Math.ceil((limit.retryAfterMs || 0) / 60000);
+      return { error: `Too many login attempts. Try again in ${minutes} minute(s).` };
+    }
+
+    const supabase = await createClient();
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email: cleanEmail,
+      password,
+    });
+
+    if (error) {
+      const msg = error.message?.toLowerCase() || '';
+      if (msg.includes('invalid login credentials')) {
+        return { error: 'Incorrect email or password. Please try again.' };
+      }
+      if (msg.includes('email not confirmed')) {
+        return { error: 'Please verify your email address first. Check your inbox or use OTP login.' };
+      }
+      return { error: 'Login failed. Please try again.' };
+    }
+
+    revalidatePath('/', 'layout');
+    return { success: true };
+  } catch {
+    return { error: 'Could not connect. Check your internet and try again.' };
+  }
+}
+
+export async function setPassword(password: string): Promise<AuthResult> {
+  try {
+    const strength = isStrongPassword(password);
+    if (!strength.valid) {
+      return { error: strength.error! };
+    }
+
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return { error: 'Not authenticated. Please log in again.' };
+    }
+
+    const { error } = await supabase.auth.updateUser({ password });
+
+    if (error) {
+      const msg = error.message?.toLowerCase() || '';
+      if (msg.includes('new password should be different')) {
+        return { error: 'Please choose a different password.' };
+      }
+      return { error: 'Failed to set password. Please try again.' };
+    }
+
+    return { success: true };
+  } catch {
+    return { error: 'Failed to set password. Please try again.' };
+  }
+}
+
+export async function sendPasswordReset(email: string, turnstileToken: string): Promise<AuthResult> {
+  try {
+    const cleanEmail = sanitizeEmail(email);
+
+    if (!cleanEmail || !isValidEmail(cleanEmail)) {
+      return { error: 'Please enter a valid email address' };
+    }
+
+    if (!turnstileToken) {
+      return { error: 'Security check required. Please complete the challenge.' };
+    }
+
+    const turnstileResult = await verifyTurnstileToken(turnstileToken);
+    if (!turnstileResult.valid) {
+      return { error: 'Security check failed. Please try again.' };
+    }
+
+    const limit = checkRateLimit(`reset-pw:${cleanEmail}`, PASSWORD_RESET_LIMIT);
+    if (!limit.allowed) {
+      const minutes = Math.ceil((limit.retryAfterMs || 0) / 60000);
+      return { error: `Too many reset requests. Try again in ${minutes} minute(s).` };
+    }
+
+    const supabase = await createClient();
+
+    await supabase.auth.resetPasswordForEmail(cleanEmail, {
+      redirectTo: 'https://kwen.in/auth/reset-password',
+    });
+
+    // Always return success — do not leak whether email exists
+    return { success: true };
+  } catch {
+    // Always return success — do not leak whether email exists
+    return { success: true };
+  }
+}
+
+export async function verifyRecoveryToken(tokenHash: string): Promise<AuthResult> {
+  try {
+    if (!tokenHash || typeof tokenHash !== 'string') {
+      return { error: 'Invalid reset link' };
+    }
+
+    const supabase = await createClient();
+
+    const { error } = await supabase.auth.verifyOtp({
+      type: 'recovery',
+      token_hash: tokenHash,
+    });
+
+    if (error) {
+      return { error: 'Invalid or expired reset link. Please request a new one.' };
+    }
+
+    return { success: true };
+  } catch {
+    return { error: 'Invalid or expired reset link. Please request a new one.' };
+  }
+}
+
+export async function updatePassword(currentPassword: string, newPassword: string): Promise<AuthResult> {
+  try {
+    const strength = isStrongPassword(newPassword);
+    if (!strength.valid) {
+      return { error: strength.error! };
+    }
+
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user || !user.email) {
+      return { error: 'Not authenticated. Please log in again.' };
+    }
+
+    // Re-authenticate with current password
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password: currentPassword,
+    });
+
+    if (signInError) {
+      return { error: 'Current password is incorrect.' };
+    }
+
+    const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
+
+    if (updateError) {
+      return { error: 'Failed to update password. Please try again.' };
+    }
+
+    return { success: true };
+  } catch {
+    return { error: 'Failed to update password. Please try again.' };
+  }
 }

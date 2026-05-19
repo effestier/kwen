@@ -1,5 +1,5 @@
-import { OTPAuthForm } from '@/components/auth/otp-auth-form';
+import { PasswordLoginForm } from '@/components/auth/password-login-form';
 
 export default function LoginPage() {
-  return <OTPAuthForm mode="login" />;
+  return <PasswordLoginForm />;
 }

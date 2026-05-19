@@ -25,7 +25,7 @@ export function TurnstileWidget({ siteKey, onSuccess, onExpire, onError }: Turns
         onError={onError}
         options={{
           theme: resolvedTheme === 'dark' ? 'dark' : 'light',
-          action: 'send-otp',
+          action: 'auth',
           size: 'normal',
         }}
       />

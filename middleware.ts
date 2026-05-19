@@ -66,8 +66,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/auth/login', request.url))
   }
 
-  // Redirect authenticated users away from auth pages
-  if (user && pathname.startsWith('/auth/')) {
+  // Redirect authenticated users away from auth pages (except reset-password)
+  if (user && pathname.startsWith('/auth/') && pathname !== '/auth/reset-password') {
     return NextResponse.redirect(new URL('/feed', request.url))
   }
 

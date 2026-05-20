@@ -279,9 +279,20 @@ export function Sidebar() {
                   : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]'
               )}
             >
-              <span className={cn(pathname?.startsWith('/profile/') && 'text-[var(--accent-primary)]')}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="5" /><path d="M20 21a8 8 0 1 0-16 0" /></svg>
-              </span>
+              {user.avatar_url ? (
+                <img
+                  src={user.avatar_url}
+                  alt={user.display_name}
+                  className={cn('w-[22px] h-[22px] rounded-full object-cover', pathname?.startsWith('/profile/') && 'ring-2 ring-[var(--accent-primary)]')}
+                />
+              ) : (
+                <span className={cn(
+                  'w-[22px] h-[22px] rounded-full flex items-center justify-center text-[10px] font-semibold',
+                  pathname?.startsWith('/profile/') ? 'bg-[var(--accent-primary)] text-white' : 'bg-[var(--bg-tertiary)] text-[var(--text-muted)]'
+                )}>
+                  {user.display_name?.charAt(0).toUpperCase() || 'U'}
+                </span>
+              )}
               <span>Profile</span>
             </Link>
           )}

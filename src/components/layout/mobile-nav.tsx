@@ -157,17 +157,20 @@ export function MobileNav() {
 
         {/* Profile */}
         <Link href={profileHref} className="flex flex-col items-center justify-center gap-0.5 w-full h-full" aria-label="Profile" aria-current={isActive('/profile') ? 'page' : undefined}>
-          {profile?.avatar_url ? (
-            <img
-              src={profile.avatar_url}
-              alt={profile.display_name}
-              className={`w-6 h-6 rounded-full object-cover ${isActive('/profile') ? 'ring-2 ring-[var(--text-primary)]' : ''}`}
-            />
+          {profile ? (
+            profile.avatar_url ? (
+              <img
+                src={profile.avatar_url}
+                alt={profile.display_name}
+                className={`w-7 h-7 rounded-full object-cover ${isActive('/profile') ? 'ring-2 ring-[var(--accent-primary)]' : ''}`}
+              />
+            ) : (
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold ${isActive('/profile') ? 'bg-[var(--accent-primary)] text-white' : 'bg-[var(--bg-tertiary)] text-[var(--text-muted)]'}`}>
+                {profile.display_name?.charAt(0).toUpperCase() || 'U'}
+              </div>
+            )
           ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={isActive('/profile') ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={isActive('/profile') ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}>
-              <circle cx="12" cy="8" r="5" />
-              <path d="M20 21a8 8 0 1 0-16 0" />
-            </svg>
+            <div className="w-7 h-7 rounded-full bg-[var(--bg-tertiary)] animate-pulse" />
           )}
           <span className={`text-[10px] ${isActive('/profile') ? 'font-bold text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}>Profile</span>
         </Link>

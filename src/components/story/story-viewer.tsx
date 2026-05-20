@@ -6,11 +6,13 @@ import { Avatar } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/design-system/skeleton';
 import { addStoryReaction, getStoryReactions, sendStoryReply, getStoryViewers, markStoryReplyAsRead, getStoryMusic } from '@/services/stories';
 import { AddToHighlightModal } from '@/components/highlights/add-to-highlight-modal';
+import { pushOverlay, popOverlay } from '@/lib/overlay-stack';
 import { PollDisplay } from '@/components/stickers/poll-sticker';
 import { QuestionDisplay } from '@/components/stickers/question-sticker';
 import { CountdownDisplay } from '@/components/stickers/countdown-sticker';
 import { getPollByStory, voteOnPoll, getPollResults, getQuestionByStory, respondToQuestion, getQuestionResponses, getCountdownByStory } from '@/services/stickers';
 import type { Poll, PollResults, StoryQuestion, Countdown } from '@/services/stickers';
+import { ShareStoryModal } from '@/components/story/share-story-modal';
 
 interface Story {
   id: string;
@@ -76,6 +78,9 @@ export function StoryViewer({ stories, initialIndex, onClose, isOwner = false }:
   // Highlight modal state
   const [showHighlightModal, setShowHighlightModal] = useState(false);
 
+  // Share state
+  const [showShareModal, setShowShareModal] = useState(false);
+
   // Interactive stickers state
   const [poll, setPoll] = useState<Poll | null>(null);
   const [pollResults, setPollResults] = useState<PollResults | null>(null);
@@ -101,6 +106,12 @@ export function StoryViewer({ stories, initialIndex, onClose, isOwner = false }:
   const supabase = createClient();
   const currentStory = stories[currentIndex];
   const isVideo = currentStory?.media_type === 'video';
+
+  // Register with overlay stack for back button handling
+  useEffect(() => {
+    pushOverlay(onClose);
+    return () => popOverlay();
+  }, [onClose]);
   const duration = isVideo ? 15000 : 5000;
 
   // Load reactions for current story
@@ -746,17 +757,29 @@ export function StoryViewer({ stories, initialIndex, onClose, isOwner = false }:
             </button>
           </div>
 
-          {/* Reply button */}
+          {/* Reply and Share buttons */}
           {!showReplyInput && !replySent && (
-            <button
-              onClick={() => setShowReplyInput(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/20 text-white hover:bg-white/30"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              </svg>
-              <span className="text-sm">Reply</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowShareModal(true)}
+                className="p-2 rounded-full bg-white/20 text-white hover:bg-white/30"
+                title="Share story"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="m22 2-7 20-4-9-9-4Z" />
+                  <path d="M22 2 11 13" />
+                </svg>
+              </button>
+              <button
+                onClick={() => setShowReplyInput(true)}
+                className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/20 text-white hover:bg-white/30"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+                <span className="text-sm">Reply</span>
+              </button>
+            </div>
           )}
         </div>
 
@@ -807,6 +830,16 @@ export function StoryViewer({ stories, initialIndex, onClose, isOwner = false }:
             setShowHighlightModal(false);
             // Could show a success toast here
           }}
+        />
+      )}
+
+      {/* Share story modal */}
+      {showShareModal && (
+        <ShareStoryModal
+          storyId={currentStory.id}
+          storyUrl={currentStory.media_url}
+          storyUsername={currentStory.user.username}
+          onClose={() => setShowShareModal(false)}
         />
       )}
 

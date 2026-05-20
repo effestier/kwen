@@ -12,6 +12,10 @@ import { toggleFollow } from '@/services/follows';
 import { getOrCreateConversation } from '@/services/messages';
 import { useRouter } from 'next/navigation';
 import { FollowersModal } from '@/components/modals/followers-modal';
+import { HighlightsRow } from '@/components/highlights/highlights-row';
+import { HighlightViewer } from '@/components/highlights/highlight-viewer';
+import { getUserHighlights, getHighlightStories } from '@/services/highlights';
+import type { Highlight, HighlightStory } from '@/services/highlights';
 
 const tabs = ['posts', 'reels', 'likes', 'saved'];
 
@@ -43,6 +47,13 @@ export function ProfileClient({ username }: { username: string }) {
   const [messaging, setMessaging] = useState(false);
   const [showFollowers, setShowFollowers] = useState(false);
   const [showFollowing, setShowFollowing] = useState(false);
+
+  // Highlights state
+  const [highlights, setHighlights] = useState<Highlight[]>([]);
+  const [showHighlightViewer, setShowHighlightViewer] = useState(false);
+  const [selectedHighlight, setSelectedHighlight] = useState<Highlight | null>(null);
+  const [highlightStories, setHighlightStories] = useState<HighlightStory[]>([]);
+
   const supabase = createClient();
   const router = useRouter();
 
@@ -133,6 +144,10 @@ export function ProfileClient({ username }: { username: string }) {
         followers: followersCount || 0,
         following: followingCount || 0,
       });
+
+      // Load highlights
+      const userHighlights = await getUserHighlights(targetProfile.id);
+      setHighlights(userHighlights);
 
       const { data: userPosts } = await supabase
         .from('posts')
@@ -342,6 +357,26 @@ export function ProfileClient({ username }: { username: string }) {
           </div>
         </div>
 
+        {/* Highlights section */}
+        {(highlights.length > 0 || isOwnProfile) && (
+          <div className="px-4 py-3 border-b border-[var(--border-subtle)]">
+            <HighlightsRow
+              highlights={highlights}
+              isOwnProfile={isOwnProfile}
+              onHighlightClick={async (highlight) => {
+                setSelectedHighlight(highlight);
+                const stories = await getHighlightStories(highlight.id);
+                setHighlightStories(stories);
+                setShowHighlightViewer(true);
+              }}
+              onCreateHighlight={() => {
+                // TODO: Open create highlight modal
+                router.push('/stories/create');
+              }}
+            />
+          </div>
+        )}
+
         <div role="tablist" aria-label="Profile sections" className="flex border-t border-b border-[var(--border-subtle)]">
           {tabs.map((tab) => (
             <button
@@ -419,6 +454,21 @@ export function ProfileClient({ username }: { username: string }) {
           userId={profile.id}
           type="following"
           onClose={() => setShowFollowing(false)}
+        />
+      )}
+
+      {/* Highlight viewer */}
+      {showHighlightViewer && selectedHighlight && highlightStories.length > 0 && (
+        <HighlightViewer
+          highlightId={selectedHighlight.id}
+          highlightTitle={selectedHighlight.title}
+          stories={highlightStories}
+          onClose={() => {
+            setShowHighlightViewer(false);
+            setSelectedHighlight(null);
+            setHighlightStories([]);
+          }}
+          isOwner={isOwnProfile}
         />
       )}
     </MainLayout>

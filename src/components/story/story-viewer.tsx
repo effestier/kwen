@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { Avatar } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/design-system/skeleton';
 import { addStoryReaction, getStoryReactions, sendStoryReply, getStoryViewers, markStoryReplyAsRead, getStoryMusic } from '@/services/stories';
+import { AddToHighlightModal } from '@/components/highlights/add-to-highlight-modal';
 
 interface Story {
   id: string;
@@ -12,6 +13,7 @@ interface Story {
   media_url: string;
   media_type: string;
   expires_at: string;
+  created_at: string;
   user: {
     id: string;
     username: string;
@@ -66,11 +68,22 @@ export function StoryViewer({ stories, initialIndex, onClose, isOwner = false }:
   const [isPaused, setIsPaused] = useState(false);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
 
+  // Highlight modal state
+  const [showHighlightModal, setShowHighlightModal] = useState(false);
+
   // Video state
   const [videoProgress, setVideoProgress] = useState(0);
   const [isVideoReady, setIsVideoReady] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const videoTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Swipe up state
+  const [swipeUpDistance, setSwipeUpDistance] = useState(0);
+  const touchStartY = useRef<number | null>(null);
+  const isSwipingUp = useRef(false);
+
+  // Transition state
+  const [transitionDirection, setTransitionDirection] = useState<'none' | 'left' | 'right'>('none');
 
   const supabase = createClient();
   const currentStory = stories[currentIndex];
@@ -123,15 +136,20 @@ export function StoryViewer({ stories, initialIndex, onClose, isOwner = false }:
 
   const goToNext = useCallback(() => {
     if (currentIndex < stories.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-      setProgress(0);
-      setIsLoading(true);
-      setImageError(false);
-      setShowReplyInput(false);
-      setReplyMessage('');
-      setReplySent(false);
-      setShowReactionPicker(false);
-      setShowViewers(false);
+      setTransitionDirection('left');
+      setTimeout(() => {
+        setCurrentIndex(currentIndex + 1);
+        setProgress(0);
+        setIsLoading(true);
+        setImageError(false);
+        setShowReplyInput(false);
+        setReplyMessage('');
+        setReplySent(false);
+        setShowReactionPicker(false);
+        setShowViewers(false);
+        setSwipeUpDistance(0);
+        setTransitionDirection('none');
+      }, 150);
     } else {
       onClose();
     }
@@ -139,15 +157,20 @@ export function StoryViewer({ stories, initialIndex, onClose, isOwner = false }:
 
   const goToPrevious = useCallback(() => {
     if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
-      setProgress(0);
-      setIsLoading(true);
-      setImageError(false);
-      setShowReplyInput(false);
-      setReplyMessage('');
-      setReplySent(false);
-      setShowReactionPicker(false);
-      setShowViewers(false);
+      setTransitionDirection('right');
+      setTimeout(() => {
+        setCurrentIndex(currentIndex - 1);
+        setProgress(0);
+        setIsLoading(true);
+        setImageError(false);
+        setShowReplyInput(false);
+        setReplyMessage('');
+        setReplySent(false);
+        setShowReactionPicker(false);
+        setShowViewers(false);
+        setSwipeUpDistance(0);
+        setTransitionDirection('none');
+      }, 150);
     }
   }, [currentIndex]);
 
@@ -157,7 +180,7 @@ export function StoryViewer({ stories, initialIndex, onClose, isOwner = false }:
       clearInterval(progressRef.current);
     }
 
-    if (isPaused) return;
+    if (isPaused || showReplyInput) return;
 
     setProgress(0);
     const interval = 50;
@@ -180,13 +203,12 @@ export function StoryViewer({ stories, initialIndex, onClose, isOwner = false }:
         clearInterval(progressRef.current);
       }
     };
-  }, [currentIndex, duration, goToNext, markAsViewed, isPaused]);
+  }, [currentIndex, duration, goToNext, markAsViewed, isPaused, showReplyInput]);
 
   // Preload next story
   useEffect(() => {
     if (currentIndex < stories.length - 1) {
       const nextStory = stories[currentIndex + 1];
-      // Create a link element to preload
       const link = document.createElement('link');
       link.rel = 'prefetch';
       link.href = nextStory.media_url;
@@ -209,27 +231,47 @@ export function StoryViewer({ stories, initialIndex, onClose, isOwner = false }:
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose, goToNext, goToPrevious]);
 
-  // Touch handling
-  const touchStart = useRef<number | null>(null);
-
+  // Touch handling - swipe up to reply
   const handleTouchStart = (e: React.TouchEvent) => {
-    touchStart.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+    isSwipingUp.current = false;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStartY.current === null) return;
+
+    const currentY = e.touches[0].clientY;
+    const diff = touchStartY.current - currentY;
+
+    // Swipe up detected
+    if (diff > 30) {
+      isSwipingUp.current = true;
+      setSwipeUpDistance(Math.min(diff, 150));
+    }
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStart.current === null) return;
+    if (touchStartY.current === null) return;
 
-    const touchEnd = e.changedTouches[0].clientX;
-    const diff = touchStart.current - touchEnd;
+    const touchEndY = e.changedTouches[0].clientY;
+    const diff = touchStartY.current - touchEndY;
 
-    if (Math.abs(diff) > 50) {
+    // Swipe up to reply (if not owner and distance is enough)
+    if (diff > 80 && !isOwner) {
+      setShowReplyInput(true);
+      setSwipeUpDistance(0);
+    } else if (Math.abs(diff) > 50) {
+      // Horizontal swipe
       if (diff > 0) {
         goToNext();
       } else {
         goToPrevious();
       }
     }
-    touchStart.current = null;
+
+    touchStartY.current = null;
+    isSwipingUp.current = false;
+    setSwipeUpDistance(0);
   };
 
   // Long press handler
@@ -330,17 +372,32 @@ export function StoryViewer({ stories, initialIndex, onClose, isOwner = false }:
         </div>
         <div className="flex-1">
           <p className="text-white font-semibold text-sm">{currentStory.user.display_name}</p>
+          <p className="text-white/60 text-xs">
+            {new Date(currentStory.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </p>
         </div>
         {isOwner && (
-          <button
-            onClick={() => setShowViewers(!showViewers)}
-            className="text-white/70 hover:text-white text-sm"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-              <circle cx="12" cy="12" r="3" />
-            </svg>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowHighlightModal(true)}
+              className="text-white/70 hover:text-white text-sm flex items-center gap-1"
+              title="Save to highlight"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+              </svg>
+            </button>
+            <button
+              onClick={() => setShowViewers(!showViewers)}
+              className="text-white/70 hover:text-white text-sm flex items-center gap-1"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+              <span className="text-xs">{viewers.length}</span>
+            </button>
+          </div>
         )}
       </div>
 
@@ -386,8 +443,12 @@ export function StoryViewer({ stories, initialIndex, onClose, isOwner = false }:
 
       {/* Story content */}
       <div
-        className="absolute inset-0 flex items-center justify-center"
+        className={`absolute inset-0 flex items-center justify-center transition-transform duration-150 ${
+          transitionDirection === 'left' ? '-translate-x-full' :
+          transitionDirection === 'right' ? 'translate-x-full' : ''
+        }`}
         onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onClick={(e) => {
           const rect = e.currentTarget.getBoundingClientRect();
@@ -471,6 +532,19 @@ export function StoryViewer({ stories, initialIndex, onClose, isOwner = false }:
         {imageError && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/50">
             <p className="text-white">Failed to load story</p>
+          </div>
+        )}
+
+        {/* Swipe up indicator */}
+        {!isOwner && !showReplyInput && (
+          <div
+            className="absolute bottom-20 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 transition-transform"
+            style={{ transform: `translateY(-${swipeUpDistance * 0.3}px)` }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-60">
+              <path d="m18 15-6-6-6 6" />
+            </svg>
+            <span className="text-white/60 text-xs">Swipe up to reply</span>
           </div>
         )}
       </div>
@@ -630,6 +704,19 @@ export function StoryViewer({ stories, initialIndex, onClose, isOwner = false }:
             ))}
           </div>
         </div>
+      )}
+
+      {/* Add to highlight modal */}
+      {showHighlightModal && (
+        <AddToHighlightModal
+          storyId={currentStory.id}
+          storyUrl={currentStory.media_url}
+          onClose={() => setShowHighlightModal(false)}
+          onSuccess={() => {
+            setShowHighlightModal(false);
+            // Could show a success toast here
+          }}
+        />
       )}
     </div>
   );

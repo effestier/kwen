@@ -15,10 +15,11 @@ import { GifPicker } from '@/components/story/creator/gif-picker';
 import { StickerPicker } from '@/components/story/creator/sticker-picker';
 import { MusicPicker } from '@/components/story/creator/music-picker';
 import { uploadMedia } from '@/lib/media';
+import { createPoll, createQuestion, createCountdown } from '@/services/stickers';
 
 interface Overlay {
   id: string;
-  type: 'text' | 'sticker' | 'drawing' | 'gif';
+  type: 'text' | 'sticker' | 'drawing' | 'gif' | 'poll' | 'question' | 'countdown';
   x: number;
   y: number;
   scale: number;
@@ -37,6 +38,7 @@ interface Overlay {
     question?: string;
     options?: string[];
     title?: string;
+    endTime?: string;
     // GIF data
     gifUrl?: string;
   };
@@ -245,20 +247,39 @@ export default function CreateStoryPage() {
         return;
       }
 
-      // Save overlays
+      // Save overlays and interactive stickers
       if (overlays.length > 0) {
-        const overlayRecords = overlays.map((o, index) => ({
-          story_id: story.id,
-          overlay_type: o.type,
-          payload: JSON.stringify(o.data),
-          z_index: index,
-        }));
+        const overlayRecords: any[] = [];
+        let zIndex = 0;
 
-        const { error: overlayError } = await supabase
-          .from('story_overlays')
-          .insert(overlayRecords);
+        for (const o of overlays) {
+          // Handle interactive stickers separately
+          if (o.type === 'poll' && o.data.question && o.data.options) {
+            await createPoll(story.id, o.data.question, o.data.options[0], o.data.options[1]);
+          } else if (o.type === 'question' && o.data.question) {
+            await createQuestion(story.id, o.data.question);
+          } else if (o.type === 'countdown' && o.data.title) {
+            // For countdown, we need end_time - default to 24 hours from now if not provided
+            const endTime = o.data.endTime || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+            await createCountdown(story.id, o.data.title, endTime);
+          } else {
+            // Regular overlay
+            overlayRecords.push({
+              story_id: story.id,
+              overlay_type: o.type,
+              payload: JSON.stringify(o.data),
+              z_index: zIndex++,
+            });
+          }
+        }
 
-        if (overlayError) {
+        if (overlayRecords.length > 0) {
+          const { error: overlayError } = await supabase
+            .from('story_overlays')
+            .insert(overlayRecords);
+
+          if (overlayError) {
+          }
         }
       }
 

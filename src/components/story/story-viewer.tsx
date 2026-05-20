@@ -6,6 +6,11 @@ import { Avatar } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/design-system/skeleton';
 import { addStoryReaction, getStoryReactions, sendStoryReply, getStoryViewers, markStoryReplyAsRead, getStoryMusic } from '@/services/stories';
 import { AddToHighlightModal } from '@/components/highlights/add-to-highlight-modal';
+import { PollDisplay } from '@/components/stickers/poll-sticker';
+import { QuestionDisplay } from '@/components/stickers/question-sticker';
+import { CountdownDisplay } from '@/components/stickers/countdown-sticker';
+import { getPollByStory, voteOnPoll, getPollResults, getQuestionByStory, respondToQuestion, getQuestionResponses, getCountdownByStory } from '@/services/stickers';
+import type { Poll, PollResults, StoryQuestion, Countdown } from '@/services/stickers';
 
 interface Story {
   id: string;
@@ -71,6 +76,14 @@ export function StoryViewer({ stories, initialIndex, onClose, isOwner = false }:
   // Highlight modal state
   const [showHighlightModal, setShowHighlightModal] = useState(false);
 
+  // Interactive stickers state
+  const [poll, setPoll] = useState<Poll | null>(null);
+  const [pollResults, setPollResults] = useState<PollResults | null>(null);
+  const [question, setQuestion] = useState<StoryQuestion | null>(null);
+  const [questionResponses, setQuestionResponses] = useState<any[]>([]);
+  const [showResponses, setShowResponses] = useState(false);
+  const [countdown, setCountdown] = useState<Countdown | null>(null);
+
   // Video state
   const [videoProgress, setVideoProgress] = useState(0);
   const [isVideoReady, setIsVideoReady] = useState(false);
@@ -112,6 +125,40 @@ export function StoryViewer({ stories, initialIndex, onClose, isOwner = false }:
       });
     }
   }, [currentStory]);
+
+  // Load interactive stickers for current story
+  useEffect(() => {
+    if (!currentStory) return;
+
+    // Reset state
+    setPoll(null);
+    setPollResults(null);
+    setQuestion(null);
+    setQuestionResponses([]);
+    setShowResponses(false);
+    setCountdown(null);
+
+    // Fetch all sticker types in parallel
+    Promise.all([
+      getPollByStory(currentStory.id),
+      getQuestionByStory(currentStory.id),
+      getCountdownByStory(currentStory.id),
+    ]).then(([pollData, questionData, countdownData]) => {
+      if (pollData) {
+        setPoll(pollData);
+        getPollResults(pollData.id).then(setPollResults);
+      }
+      if (questionData) {
+        setQuestion(questionData);
+        if (isOwner) {
+          getQuestionResponses(questionData.id).then(setQuestionResponses);
+        }
+      }
+      if (countdownData) {
+        setCountdown(countdownData);
+      }
+    });
+  }, [currentStory?.id, isOwner]);
 
   // Load viewers if owner
   useEffect(() => {
@@ -297,6 +344,24 @@ export function StoryViewer({ stories, initialIndex, onClose, isOwner = false }:
     const updatedReactions = await getStoryReactions(currentStory.id);
     setReactions(updatedReactions);
     setShowReactionPicker(false);
+  };
+
+  // Handle poll vote
+  const handlePollVote = async (option: 1 | 2) => {
+    if (!poll) return;
+
+    const result = await voteOnPoll(poll.id, option);
+    if (result.success) {
+      const results = await getPollResults(poll.id);
+      setPollResults(results);
+    }
+  };
+
+  // Handle question response
+  const handleQuestionResponse = async (response: string) => {
+    if (!question) return;
+
+    await respondToQuestion(question.id, response);
   };
 
   // Handle reply send
@@ -535,6 +600,32 @@ export function StoryViewer({ stories, initialIndex, onClose, isOwner = false }:
           </div>
         )}
 
+        {/* Interactive stickers */}
+        <div className="absolute bottom-32 left-1/2 -translate-x-1/2 z-10">
+          {poll && (
+            <PollDisplay
+              poll={poll}
+              userVote={pollResults?.user_vote ?? null}
+              onVote={handlePollVote}
+              showResults={!!pollResults}
+            />
+          )}
+
+          {question && !poll && (
+            <QuestionDisplay
+              question={question}
+              isOwner={isOwner}
+              onSubmitResponse={handleQuestionResponse}
+              onViewResponses={() => setShowResponses(true)}
+              responseCount={questionResponses.length}
+            />
+          )}
+
+          {countdown && !poll && !question && (
+            <CountdownDisplay countdown={countdown} />
+          )}
+        </div>
+
         {/* Swipe up indicator */}
         {!isOwner && !showReplyInput && (
           <div
@@ -717,6 +808,53 @@ export function StoryViewer({ stories, initialIndex, onClose, isOwner = false }:
             // Could show a success toast here
           }}
         />
+      )}
+
+      {/* Question responses modal */}
+      {showResponses && question && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-[var(--bg-secondary)] rounded-2xl w-full max-w-md max-h-[80vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-[var(--border-subtle)]">
+              <h3 className="font-semibold text-white">Responses</h3>
+              <button
+                onClick={() => setShowResponses(false)}
+                className="text-white/70 hover:text-white"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="overflow-y-auto max-h-[60vh]">
+              {questionResponses.length > 0 ? (
+                questionResponses.map((r) => (
+                  <div key={r.id} className="flex items-start gap-3 p-4 border-b border-[var(--border-subtle)]">
+                    <div className="w-8 h-8 rounded-full overflow-hidden bg-[var(--bg-tertiary)]">
+                      {r.user.avatar_url ? (
+                        <img src={r.user.avatar_url} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-white text-xs">
+                          {r.user.username?.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-white text-sm font-medium">{r.user.username}</p>
+                      <p className="text-[var(--text-muted)] text-sm mt-1">{r.response}</p>
+                      <p className="text-[var(--text-muted)] text-xs mt-1">
+                        {new Date(r.created_at).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="p-8 text-center text-[var(--text-muted)]">
+                  No responses yet
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

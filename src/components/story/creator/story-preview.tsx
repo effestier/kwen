@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 
 interface Overlay {
   id: string;
-  type: 'text' | 'sticker' | 'drawing' | 'gif';
+  type: 'text' | 'sticker' | 'drawing' | 'gif' | 'poll' | 'question' | 'countdown';
   x: number;
   y: number;
   scale: number;

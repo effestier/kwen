@@ -6,6 +6,8 @@ import { Stories } from '@/components/story/stories';
 import { PostCard } from '@/components/post/post-card';
 import { Avatar } from '@/components/ui/avatar';
 import { createClient } from '@/lib/supabase/client';
+import { CardSkeleton } from '@/components/design-system/skeleton';
+import { usePullToRefresh, useScrollPreservation } from '@/lib/hooks/use-pull-to-refresh';
 import Link from 'next/link';
 
 interface FeedPost {
@@ -54,6 +56,9 @@ export default function FeedPage() {
   const sentinelRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
 
+  // Scroll preservation
+  useScrollPreservation({ key: 'feed' });
+
   const loadPosts = useCallback(async (userId: string, cursorVal: string | null) => {
     const { data: feedPosts } = await supabase.rpc('get_discovery_feed', {
       p_user_id: userId,
@@ -62,6 +67,20 @@ export default function FeedPage() {
     });
     return feedPosts || [];
   }, [supabase]);
+
+  // Pull-to-refresh
+  const handleRefresh = useCallback(async () => {
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (!authUser) return;
+    const freshPosts = await loadPosts(authUser.id, null);
+    setPosts(freshPosts);
+    if (freshPosts.length > 0) setCursor(freshPosts[freshPosts.length - 1].created_at);
+    setHasMore(freshPosts.length >= 20);
+  }, [loadPosts, supabase]);
+
+  const { pullDistance, isRefreshing, handlers: pullHandlers } = usePullToRefresh({
+    onRefresh: handleRefresh,
+  });
 
   // Initial load
   useEffect(() => {
@@ -174,8 +193,10 @@ export default function FeedPage() {
   if (loading) {
     return (
       <MainLayout>
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-[var(--text-muted)]">Loading...</div>
+        <div className="feed-container py-4 space-y-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <CardSkeleton key={i} />
+          ))}
         </div>
       </MainLayout>
     );
@@ -183,7 +204,13 @@ export default function FeedPage() {
 
   return (
     <MainLayout>
-      <div className="min-h-screen">
+      <div className="min-h-screen" {...pullHandlers} style={{ transform: pullDistance > 0 ? `translateY(${pullDistance}px)` : undefined, transition: pullDistance === 0 ? 'transform 0.3s ease' : undefined }}>
+        {/* Pull-to-refresh indicator */}
+        {pullDistance > 0 && (
+          <div className="flex items-center justify-center py-3 text-sm text-[var(--text-muted)]" style={{ marginTop: -pullDistance }}>
+            {isRefreshing ? 'Refreshing...' : pullDistance > 60 ? 'Release to refresh' : 'Pull to refresh'}
+          </div>
+        )}
         {/* Mobile Header */}
         <div className="lg:hidden sticky top-0 z-20 bg-[var(--bg-primary)]/90 backdrop-blur-xl border-b border-[var(--border-subtle)] px-4 py-3">
           <div className="flex items-center justify-between">

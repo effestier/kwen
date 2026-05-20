@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { MainLayout } from '@/components/layout/main-layout';
 import { Avatar } from '@/components/ui/avatar';
 import { createClient } from '@/lib/supabase/client';
 import { formatNumber } from '@/lib/utils';
 import { cn } from '@/lib/utils';
+import { GridSkeleton } from '@/components/design-system/skeleton';
+import { usePullToRefresh, useScrollPreservation } from '@/lib/hooks/use-pull-to-refresh';
 import Link from 'next/link';
 
 const categories = ['All', 'Photos', 'Videos', 'Reels', 'Text'];
@@ -48,6 +50,34 @@ export default function ExplorePage() {
   const searchRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
+
+  // Scroll preservation
+  useScrollPreservation({ key: 'explore' });
+
+  // Pull-to-refresh
+  const handleRefresh = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: freshPosts } = await supabase.rpc('get_explore_feed', {
+      p_user_id: user?.id ?? null,
+      p_limit: 30,
+      p_cursor: null,
+    });
+    if (freshPosts && freshPosts.length > 0) {
+      const formatted = freshPosts.map((p: any) => ({
+        id: p.id, user_id: p.user_id, content: p.content, created_at: p.created_at,
+        user_username: p.username, user_display_name: p.display_name, user_avatar_url: p.avatar_url,
+        like_count: p.like_count, comment_count: p.comment_count,
+        images: (p.media || []).map((m: any) => m.storage_path),
+      }));
+      setPosts(formatted);
+      if (formatted.length > 0) setCursor(formatted[formatted.length - 1].created_at);
+      setHasMore(formatted.length >= 30);
+    }
+  }, []);
+
+  const { pullDistance, isRefreshing, handlers: pullHandlers } = usePullToRefresh({
+    onRefresh: handleRefresh,
+  });
 
   // Search users
   useEffect(() => {
@@ -169,7 +199,13 @@ export default function ExplorePage() {
 
   return (
     <MainLayout>
-      <div className="min-h-screen">
+      <div className="min-h-screen" {...pullHandlers} style={{ transform: pullDistance > 0 ? `translateY(${pullDistance}px)` : undefined, transition: pullDistance === 0 ? 'transform 0.3s ease' : undefined }}>
+        {/* Pull-to-refresh indicator */}
+        {pullDistance > 0 && (
+          <div className="flex items-center justify-center py-3 text-sm text-[var(--text-muted)]" style={{ marginTop: -pullDistance }}>
+            {isRefreshing ? 'Refreshing...' : pullDistance > 60 ? 'Release to refresh' : 'Pull to refresh'}
+          </div>
+        )}
         {/* Search Header */}
         <div className="sticky top-0 z-10 bg-[var(--bg-primary)]/90 backdrop-blur-xl border-b border-[var(--border-subtle)] p-4">
           <div className="relative max-w-xl mx-auto" ref={searchRef}>
@@ -249,13 +285,13 @@ export default function ExplorePage() {
 
         {/* Discover Grid */}
         {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="text-[var(--text-muted)]">Loading...</div>
+          <div className="p-1">
+            <GridSkeleton columns={5} rows={3} />
           </div>
         ) : posts.length > 0 ? (
           <div className="p-1">
             <h2 className="text-sm font-semibold text-[var(--text-muted)] px-3 py-3">Discover</h2>
-            <div className="grid grid-cols-3 gap-0.5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-0.5">
               {posts.map((post, index) => (
                 <Link
                   key={post.id}

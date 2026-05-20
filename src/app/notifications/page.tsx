@@ -187,7 +187,7 @@ export default function NotificationsPage() {
   return (
     <MainLayout>
       <div className="min-h-screen">
-        <div className="sticky top-0 z-10 bg-[var(--bg-primary)]/90 backdrop-blur-xl border-b border-[var(--border-subtle)] p-4">
+        <div className="sticky top-0 z-10 bg-[var(--bg-primary)]/90 backdrop-blur-xl border-b border-[var(--border-subtle)] px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-4">
           <div className="flex items-center justify-between">
             <h1 className="text-xl font-bold text-[var(--text-primary)]">Notifications</h1>
             {notifications.some(n => !n.is_read) && (

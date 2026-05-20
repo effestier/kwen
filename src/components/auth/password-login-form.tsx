@@ -6,11 +6,13 @@ import { useRouter } from 'next/navigation';
 import { signInWithPassword, sendOTP, verifyOTP } from '@/services/auth';
 import { BRAND } from '@/lib/brand/config';
 import { TurnstileWidget } from '@/components/auth/turnstile-widget';
+import { isNativePlatform } from '@/lib/platform';
 
 type SubStep = 'credentials' | 'otp-email' | 'otp-verify';
 
 export function PasswordLoginForm() {
   const router = useRouter();
+  const isNative = isNativePlatform();
 
   const [subStep, setSubStep] = useState<SubStep>('credentials');
   const [email, setEmail] = useState('');
@@ -20,7 +22,7 @@ export function PasswordLoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(isNative ? 'native-app-bypass' : null);
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const submittingRef = useRef(false);
@@ -44,7 +46,7 @@ export function PasswordLoginForm() {
 
       if (result.error) {
         setError(result.error);
-        setTurnstileToken(null);
+        setTurnstileToken(isNative ? 'native-app-bypass' : null);
         return;
       }
 
@@ -148,7 +150,7 @@ export function PasswordLoginForm() {
   // Shared layout wrapper
   const renderLayout = (children: React.ReactNode, backAction?: () => void) => (
     <div className="min-h-screen flex flex-col bg-[var(--bg-primary)]">
-      <header className="p-6">
+      <header className="p-6 pt-[max(1.5rem,env(safe-area-inset-top))]">
         {backAction ? (
           <button
             onClick={backAction}
@@ -245,15 +247,17 @@ export function PasswordLoginForm() {
               </Link>
             </div>
 
-            <TurnstileWidget
-              siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
-              onSuccess={setTurnstileToken}
-              onExpire={() => setTurnstileToken(null)}
-              onError={() => {
-                setTurnstileToken(null);
-                setError('Security check failed. Please try again.');
-              }}
-            />
+            {!isNative && (
+              <TurnstileWidget
+                siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+                onSuccess={setTurnstileToken}
+                onExpire={() => setTurnstileToken(null)}
+                onError={() => {
+                  setTurnstileToken(isNative ? 'native-app-bypass' : null);
+                  setError('Security check failed. Please try again.');
+                }}
+              />
+            )}
 
             <button
               type="submit"
@@ -266,7 +270,7 @@ export function PasswordLoginForm() {
 
           <div className="mt-4 text-center">
             <button
-              onClick={() => { setSubStep('otp-email'); setError(null); setTurnstileToken(null); setOtpCode(''); }}
+              onClick={() => { setSubStep('otp-email'); setError(null); setTurnstileToken(isNative ? 'native-app-bypass' : null); setOtpCode(''); }}
               className="text-sm text-[var(--accent-primary)] hover:underline"
             >
               Sign in with code instead
@@ -310,15 +314,17 @@ export function PasswordLoginForm() {
             />
           </div>
 
-          <TurnstileWidget
-            siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
-            onSuccess={setTurnstileToken}
-            onExpire={() => setTurnstileToken(null)}
-            onError={() => {
-              setTurnstileToken(null);
-              setError('Security check failed. Please try again.');
-            }}
-          />
+          {!isNative && (
+            <TurnstileWidget
+              siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+              onSuccess={setTurnstileToken}
+              onExpire={() => setTurnstileToken(null)}
+              onError={() => {
+                setTurnstileToken(isNative ? 'native-app-bypass' : null);
+                setError('Security check failed. Please try again.');
+              }}
+            />
+          )}
 
           <button
             type="submit"
@@ -331,7 +337,7 @@ export function PasswordLoginForm() {
 
         <div className="mt-4 text-center">
           <button
-            onClick={() => { setSubStep('credentials'); setError(null); setTurnstileToken(null); }}
+            onClick={() => { setSubStep('credentials'); setError(null); setTurnstileToken(isNative ? 'native-app-bypass' : null); }}
             className="text-sm text-[var(--accent-primary)] hover:underline"
           >
             Use password instead

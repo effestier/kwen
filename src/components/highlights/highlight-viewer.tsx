@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/design-system/skeleton'
+import { pushOverlay, popOverlay } from '@/lib/overlay-stack'
 import type { HighlightStory } from '@/services/highlights'
 
 interface HighlightViewerProps {
@@ -45,6 +46,12 @@ export function HighlightViewer({
   const currentStory = stories[currentIndex]
   const isVideo = currentStory?.media_type === 'video'
   const duration = isVideo ? 15000 : 5000
+
+  // Register with overlay stack for back button handling
+  useEffect(() => {
+    pushOverlay(onClose)
+    return () => popOverlay()
+  }, [onClose])
 
   const goToNext = useCallback(() => {
     if (currentIndex < stories.length - 1) {

@@ -6,11 +6,13 @@ import { useRouter } from 'next/navigation';
 import { sendOTP, verifyOTP, setPassword, completeProfile } from '@/services/auth';
 import { BRAND } from '@/lib/brand/config';
 import { TurnstileWidget } from '@/components/auth/turnstile-widget';
+import { isNativePlatform } from '@/lib/platform';
 
 type Step = 'email' | 'otp' | 'complete';
 
 export function RegisterForm() {
   const router = useRouter();
+  const isNative = isNativePlatform();
 
   const [step, setStep] = useState<Step>('email');
   const [email, setEmail] = useState('');
@@ -23,7 +25,7 @@ export function RegisterForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(isNative ? 'native-app-bypass' : null);
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const submittingRef = useRef(false);
@@ -53,7 +55,7 @@ export function RegisterForm() {
       }
 
       setStep('otp');
-      setTurnstileToken(null);
+      setTurnstileToken(isNative ? 'native-app-bypass' : null);
       setSuccessMessage('Code sent! Check your email.');
       setTimeout(() => setSuccessMessage(null), 3000);
       setTimeout(() => inputRefs.current[0]?.focus(), 100);
@@ -176,7 +178,7 @@ export function RegisterForm() {
   // Shared layout
   const renderLayout = (children: React.ReactNode, backAction?: () => void) => (
     <div className="min-h-screen flex flex-col bg-[var(--bg-primary)]">
-      <header className="p-6">
+      <header className="p-6 pt-[max(1.5rem,env(safe-area-inset-top))]">
         {backAction ? (
           <button
             onClick={backAction}
@@ -241,15 +243,17 @@ export function RegisterForm() {
               />
             </div>
 
-            <TurnstileWidget
-              siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
-              onSuccess={setTurnstileToken}
-              onExpire={() => setTurnstileToken(null)}
-              onError={() => {
-                setTurnstileToken(null);
-                setError('Security check failed. Please try again.');
-              }}
-            />
+            {!isNative && (
+              <TurnstileWidget
+                siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+                onSuccess={setTurnstileToken}
+                onExpire={() => setTurnstileToken(null)}
+                onError={() => {
+                  setTurnstileToken(isNative ? 'native-app-bypass' : null);
+                  setError('Security check failed. Please try again.');
+                }}
+              />
+            )}
 
             <button
               type="submit"
@@ -325,7 +329,7 @@ export function RegisterForm() {
           <p className="text-sm text-[var(--text-muted)]">
             Didn&apos;t receive code?{' '}
             <button
-              onClick={() => { setStep('email'); setError(null); setOtpCode(''); setTurnstileToken(null); }}
+              onClick={() => { setStep('email'); setError(null); setOtpCode(''); setTurnstileToken(isNative ? 'native-app-bypass' : null); }}
               className="text-[var(--accent-primary)] hover:underline"
             >
               Go back and resend
@@ -333,7 +337,7 @@ export function RegisterForm() {
           </p>
         </div>
       </div>,
-      () => { setStep('email'); setError(null); setOtpCode(''); setTurnstileToken(null); }
+      () => { setStep('email'); setError(null); setOtpCode(''); setTurnstileToken(isNative ? 'native-app-bypass' : null); }
     );
   }
 

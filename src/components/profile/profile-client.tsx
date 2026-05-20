@@ -12,6 +12,7 @@ import { toggleFollow } from '@/services/follows';
 import { getOrCreateConversation } from '@/services/messages';
 import { useRouter } from 'next/navigation';
 import { FollowersModal } from '@/components/modals/followers-modal';
+import { hapticMedium } from '@/lib/haptics';
 import { HighlightsRow } from '@/components/highlights/highlights-row';
 import { HighlightViewer } from '@/components/highlights/highlight-viewer';
 import { getUserHighlights, getHighlightStories } from '@/services/highlights';
@@ -208,6 +209,7 @@ export function ProfileClient({ username }: { username: string }) {
   const handleFollow = async () => {
     if (!profile || !currentUser) return;
 
+    if (!isFollowing) hapticMedium();
     setIsFollowing(!isFollowing);
     setStats(prev => ({
       ...prev,

@@ -1,10 +1,11 @@
 /**
  * Media upload pipeline
- * Handles compression + upload to API route
+ * Handles compression + upload (API route on web, direct Supabase on native)
  */
 
 import { compressImage } from './image-compress'
 import { compressVideo, validateVideo, getVideoDuration, type VideoProgress } from './video-compress'
+import { isNativePlatform } from '@/lib/platform'
 
 export interface UploadProgress {
   percent: number
@@ -91,9 +92,112 @@ export async function uploadMedia(
 
   onProgress?.({ percent: 75, stage: 'uploading', message: 'Uploading...' })
 
-  // Upload via API
+  let result: UploadResult
+
+  if (isNativePlatform()) {
+    result = await uploadDirect(compressedFile, thumbnailFile, mediaType, width, height, duration, originalSize)
+  } else {
+    result = await uploadViaApi(compressedFile, thumbnailFile, mediaType, width, height, duration, originalSize)
+  }
+
+  onProgress?.({ percent: 100, stage: 'done', message: 'Done!' })
+
+  return result
+}
+
+async function uploadDirect(
+  file: File,
+  thumbnailFile: File | undefined,
+  mediaType: MediaType,
+  width: number | undefined,
+  height: number | undefined,
+  duration: number | undefined,
+  originalSize: number
+): Promise<UploadResult> {
+  const { createClient } = await import('@/lib/supabase/client')
+  const supabase = createClient()
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) throw new Error('Not authenticated')
+
+  const timestamp = Date.now()
+  const random = Math.random().toString(36).substring(2, 8)
+  const ext = mediaType === 'video' ? 'mp4' : 'webp'
+  const bucket = mediaType === 'video' ? 'videos' : 'images'
+  const storagePath = `${user.id}/${timestamp}-${random}.${ext}`
+
+  const { error: uploadError } = await supabase.storage
+    .from(bucket)
+    .upload(storagePath, file, {
+      cacheControl: '31536000',
+      upsert: false,
+      contentType: file.type,
+    })
+
+  if (uploadError) throw new Error('Upload failed')
+
+  const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(storagePath)
+
+  let thumbnailUrl: string | undefined
+  if (thumbnailFile) {
+    const thumbPath = `${user.id}/${timestamp}-${random}-thumb.webp`
+    const { error: thumbError } = await supabase.storage
+      .from('images')
+      .upload(thumbPath, thumbnailFile, {
+        cacheControl: '31536000',
+        upsert: false,
+        contentType: 'image/webp',
+      })
+    if (!thumbError) {
+      const { data: thumbUrlData } = supabase.storage.from('images').getPublicUrl(thumbPath)
+      thumbnailUrl = thumbUrlData.publicUrl
+    }
+  }
+
+  const { data: mediaRow } = await supabase
+    .from('media')
+    .insert({
+      user_id: user.id,
+      type: mediaType,
+      storage_layer: 'supabase',
+      storage_path: storagePath,
+      url: urlData.publicUrl,
+      thumbnail_url: thumbnailUrl,
+      original_size: originalSize || file.size,
+      compressed_size: file.size,
+      width: width || null,
+      height: height || null,
+      duration: duration || null,
+      format: ext,
+      mime_type: file.type,
+    })
+    .select()
+    .single()
+
+  return {
+    id: mediaRow?.id || '',
+    url: urlData.publicUrl,
+    thumbnailUrl,
+    width,
+    height,
+    duration,
+    format: ext,
+    originalSize: originalSize || file.size,
+    compressedSize: file.size,
+  }
+}
+
+async function uploadViaApi(
+  file: File,
+  thumbnailFile: File | undefined,
+  mediaType: MediaType,
+  width: number | undefined,
+  height: number | undefined,
+  duration: number | undefined,
+  originalSize: number
+): Promise<UploadResult> {
   const formData = new FormData()
-  formData.append('file', compressedFile)
+  formData.append('file', file)
   if (thumbnailFile) formData.append('thumbnail', thumbnailFile)
   formData.append('type', mediaType)
   if (width) formData.append('width', String(width))
@@ -111,11 +215,7 @@ export async function uploadMedia(
     throw new Error(data.error || 'Upload failed')
   }
 
-  const result: UploadResult = await response.json()
-
-  onProgress?.({ percent: 100, stage: 'done', message: 'Done!' })
-
-  return result
+  return response.json()
 }
 
 export async function uploadMultipleMedia(

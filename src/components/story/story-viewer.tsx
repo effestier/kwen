@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/design-system/skeleton';
 import { addStoryReaction, getStoryReactions, sendStoryReply, getStoryViewers, markStoryReplyAsRead, getStoryMusic } from '@/services/stories';
 import { AddToHighlightModal } from '@/components/highlights/add-to-highlight-modal';
 import { pushOverlay, popOverlay } from '@/lib/overlay-stack';
+import { hapticLight } from '@/lib/haptics';
 import { PollDisplay } from '@/components/stickers/poll-sticker';
 import { QuestionDisplay } from '@/components/stickers/question-sticker';
 import { CountdownDisplay } from '@/components/stickers/countdown-sticker';
@@ -351,6 +352,7 @@ export function StoryViewer({ stories, initialIndex, onClose, isOwner = false }:
   const handleReaction = async (emoji: string) => {
     if (!currentStory) return;
 
+    hapticLight();
     await addStoryReaction(currentStory.id, emoji);
     const updatedReactions = await getStoryReactions(currentStory.id);
     setReactions(updatedReactions);

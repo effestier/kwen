@@ -83,7 +83,7 @@ export default function CreatePage() {
   return (
     <MainLayout>
       <div className="min-h-screen">
-        <div className="sticky top-0 z-10 bg-[var(--bg-primary)]/90 backdrop-blur-xl border-b border-[var(--border-subtle)] px-4 py-3 flex items-center justify-between">
+        <div className="sticky top-0 z-10 bg-[var(--bg-primary)]/90 backdrop-blur-xl border-b border-[var(--border-subtle)] px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 flex items-center justify-between">
           <h1 className="text-xl font-bold text-[var(--text-primary)]">New post</h1>
           <button
             onClick={handlePost}

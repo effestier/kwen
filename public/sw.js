@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kwen-v1';
+const CACHE_NAME = 'kwen-v2';
 const SHELL_URLS = ['/', '/feed', '/auth/login'];
 
 self.addEventListener('install', (event) => {
@@ -31,10 +31,15 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network-first for navigation requests, cache-first for static assets
+  // SPA routing: network-first for navigations, fallback to cached shell
+  // This handles Capacitor static export where /profile/karan/index.html doesn't exist
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request).catch(() => caches.match('/'))
+      fetch(request).then((response) => {
+        if (response.ok) return response;
+        // Non-200 (404 etc) — serve the shell for client-side routing
+        return caches.match('/');
+      }).catch(() => caches.match('/'))
     );
   } else {
     event.respondWith(

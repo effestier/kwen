@@ -1,9 +1,29 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { BRAND } from '@/lib/brand/config';
+import { isNativePlatform } from '@/lib/platform';
 
 export default function LandingPage() {
+  const router = useRouter();
+  const [isNative, setIsNative] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const native = isNativePlatform();
+    setIsNative(native);
+    if (native) {
+      router.replace('/auth/login');
+    }
+  }, [router]);
+
+  // On native: render nothing — Capacitor splash covers the screen until redirect
+  // On web but unknown (SSR/hydration): render nothing to avoid flash
+  if (isNative === null || isNative === true) {
+    return null;
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-black">
       {/* Header */}

@@ -4,6 +4,7 @@ import { Avatar } from '@/components/ui/avatar';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { toggleLike as togglePostLike, toggleSave as togglePostSave } from '@/services/posts';
+import { hapticLight } from '@/lib/haptics';
 import { CommentsModal } from '@/components/comments/comments-modal';
 import { getCommentCount } from '@/services/comments';
 import { createClient } from '@/lib/supabase/client';
@@ -61,6 +62,9 @@ export function PostCard({ post }: PostCardProps) {
   const handleLike = async () => {
     if (loading) return;
     setLoading(true);
+
+    // Haptic feedback
+    if (!liked) hapticLight();
 
     // Optimistic update
     setLiked(!liked);

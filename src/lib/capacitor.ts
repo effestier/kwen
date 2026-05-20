@@ -1,27 +1,61 @@
 import { isNativePlatform } from './platform';
+import { hasOverlay, dismissTopOverlay } from './overlay-stack';
+
+let lastBackTime = 0;
 
 export async function initCapacitor() {
   if (!isNativePlatform()) return;
 
   try {
-    const { SplashScreen } = await import('@capacitor/splash-screen');
     const { StatusBar, Style } = await import('@capacitor/status-bar');
-    const { Keyboard } = await import('@capacitor/keyboard');
+    const { Keyboard, KeyboardResize } = await import('@capacitor/keyboard');
     const { App } = await import('@capacitor/app');
+    const { Haptics, ImpactStyle } = await import('@capacitor/haptics');
 
-    // Status bar
+    // Status bar — disable overlay so WebView sits below status bar
     await StatusBar.setStyle({ style: Style.Dark });
     await StatusBar.setBackgroundColor({ color: '#0a0a0b' });
+    await StatusBar.setOverlaysWebView({ overlay: false });
 
-    // Hide splash after app is ready
-    await SplashScreen.hide();
+    // Keyboard
+    await Keyboard.setResizeMode({ mode: KeyboardResize.Ionic });
+
+    // Don't hide splash here — the landing page or auth-guard will hide it
+    // after the redirect completes. This prevents the landing page from flashing.
+
+    // Make haptics available globally
+    (window as any).__haptics = {
+      light: () => Haptics.impact({ style: ImpactStyle.Light }).catch(() => {}),
+      medium: () => Haptics.impact({ style: ImpactStyle.Medium }).catch(() => {}),
+      heavy: () => Haptics.impact({ style: ImpactStyle.Heavy }).catch(() => {}),
+    };
 
     // Android back button
     App.addListener('backButton', ({ canGoBack }) => {
-      if (!canGoBack) {
+      // 1. If an overlay is open (story viewer, modal, etc.), close it
+      if (hasOverlay()) {
+        dismissTopOverlay();
+        return;
+      }
+
+      // 2. If we can go back in history, do so
+      if (canGoBack) {
+        window.history.back();
+        return;
+      }
+
+      // 3. Double-back-to-exit
+      const now = Date.now();
+      if (now - lastBackTime < 2000) {
         App.exitApp();
       } else {
-        window.history.back();
+        lastBackTime = now;
+        // Show toast via a simple DOM element
+        const toast = document.createElement('div');
+        toast.textContent = 'Press back again to exit';
+        toast.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.85);color:#fff;padding:10px 20px;border-radius:24px;font-size:14px;z-index:9999;font-family:system-ui;pointer-events:none;';
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 2000);
       }
     });
   } catch (err) {

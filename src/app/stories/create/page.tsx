@@ -79,6 +79,7 @@ export default function CreateStoryPage() {
   const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [showMusicPicker, setShowMusicPicker] = useState(false);
   const [selectedMusic, setSelectedMusic] = useState<{ name: string; artist: string; previewUrl: string; coverUrl: string } | null>(null);
+  const [showAudienceSelector, setShowAudienceSelector] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mediaRef = useRef<HTMLVideoElement>(null);
@@ -484,6 +485,16 @@ export default function CreateStoryPage() {
 
           <div className="flex items-center gap-2">
             <button
+              onClick={() => setShowAudienceSelector(!showAudienceSelector)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-[var(--text-muted)] hover:text-white rounded-full border border-white/20"
+            >
+              <span>{visibility === 'public' ? '🌍' : visibility === 'followers' ? '👥' : '⭐'}</span>
+              <span>{visibility === 'public' ? 'Public' : visibility === 'followers' ? 'Followers' : 'Close Friends'}</span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </button>
+            <button
               onClick={handleSaveDraft}
               disabled={isSavingDraft}
               className="px-3 py-1.5 text-sm text-[var(--text-muted)] hover:text-white"
@@ -516,28 +527,26 @@ export default function CreateStoryPage() {
 
           {/* Tool panels */}
           {activeTool === 'text' && (
-            <div className="absolute bottom-0 left-0 right-0">
-              <TextTool
-                overlay={overlays.find(o => o.id === selectedOverlayId)}
-                onUpdate={(data) => selectedOverlayId && handleUpdateOverlay(selectedOverlayId, { data })}
-                onDelete={() => selectedOverlayId && handleDeleteOverlay(selectedOverlayId)}
-                onAddNew={handleAddText}
-              />
-            </div>
+            <TextTool
+              overlay={overlays.find(o => o.id === selectedOverlayId)}
+              onUpdate={(data) => selectedOverlayId && handleUpdateOverlay(selectedOverlayId, { data })}
+              onDelete={() => selectedOverlayId && handleDeleteOverlay(selectedOverlayId)}
+              onAddNew={handleAddText}
+              onClose={() => setActiveTool('none')}
+            />
           )}
 
           {activeTool === 'drawing' && (
-            <div className="absolute bottom-0 left-0 right-0">
-              <DrawingTool
-                onSave={handleDrawingSave}
-                onClear={() => setDrawingData(null)}
-              />
-            </div>
+            <DrawingTool
+              onSave={handleDrawingSave}
+              onClear={() => setDrawingData(null)}
+              onClose={() => setActiveTool('none')}
+            />
           )}
 
           {activeTool === 'filters' && (
             <div className="absolute bottom-0 left-0 right-0">
-              <FiltersPanel filters={filters} onChange={setFilters} />
+              <FiltersPanel filters={filters} onChange={setFilters} previewUrl={media.url} />
             </div>
           )}
 
@@ -562,6 +571,19 @@ export default function CreateStoryPage() {
               onSelect={handleMusicSelected}
               onClose={() => setShowMusicPicker(false)}
             />
+          )}
+
+          {/* Audience Selector */}
+          {showAudienceSelector && (
+            <div className="absolute bottom-0 left-0 right-0">
+              <AudienceSelector
+                value={visibility}
+                onChange={(v) => {
+                  setVisibility(v);
+                  setShowAudienceSelector(false);
+                }}
+              />
+            </div>
           )}
         </div>
 

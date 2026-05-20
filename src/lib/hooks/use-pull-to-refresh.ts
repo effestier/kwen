@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { hapticLight } from '@/lib/haptics';
 
 interface UsePullToRefreshOptions {
   onRefresh: () => Promise<void>;
@@ -13,18 +14,25 @@ export function usePullToRefresh({ onRefresh, threshold = 80, enabled = true }: 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const startY = useRef(0);
   const isPulling = useRef(false);
+  const hapticTriggered = useRef(false);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (!enabled || window.scrollY > 0) return;
     startY.current = e.touches[0].clientY;
     isPulling.current = true;
+    hapticTriggered.current = false;
   }, [enabled]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     if (!isPulling.current || isRefreshing) return;
     const diff = e.touches[0].clientY - startY.current;
     if (diff > 0) {
-      setPullDistance(Math.min(diff * 0.5, threshold * 1.5));
+      const distance = Math.min(diff * 0.5, threshold * 1.5);
+      setPullDistance(distance);
+      if (distance >= threshold && !hapticTriggered.current) {
+        hapticTriggered.current = true;
+        hapticLight();
+      }
     }
   }, [isRefreshing, threshold]);
 

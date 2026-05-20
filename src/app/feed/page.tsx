@@ -120,16 +120,46 @@ export default function FeedPage() {
 
       const { data: userStories } = await supabase
         .from('stories')
-        .select('id, user_id, media_url, media_type, expires_at, created_at, user:profiles!inner(id, username, display_name, avatar_url, is_verified)')
+        .select('id, user_id, media_url, media_type, visibility, expires_at, created_at, user:profiles!inner(id, username, display_name, avatar_url, is_verified)')
         .in('user_id', allUserIds)
         .gt('expires_at', new Date().toISOString())
         .order('created_at', { ascending: false })
         .limit(50);
 
+      // Filter by visibility
+      let filteredStories = userStories || [];
+
+      // Get close friends list for current user (to check who added me as close friend)
+      const closeFriendOwnerIds = filteredStories
+        .filter((s: any) => s.visibility === 'close_friends' && s.user_id !== authUser.id)
+        .map((s: any) => s.user_id);
+
+      if (closeFriendOwnerIds.length > 0) {
+        const { data: closeFriendRows } = await supabase
+          .from('close_friends')
+          .select('user_id')
+          .in('user_id', [...new Set(closeFriendOwnerIds)])
+          .eq('friend_id', authUser.id);
+
+        const closeFriendSet = new Set(closeFriendRows?.map(r => r.user_id) || []);
+
+        filteredStories = filteredStories.filter((s: any) => {
+          // Own stories always visible
+          if (s.user_id === authUser.id) return true;
+          // Public stories visible to all
+          if (!s.visibility || s.visibility === 'public') return true;
+          // Followers stories visible to followers (already filtered by followingIds)
+          if (s.visibility === 'followers') return true;
+          // Close friends stories: only if I'm in their close friends list
+          if (s.visibility === 'close_friends') return closeFriendSet.has(s.user_id);
+          return true;
+        });
+      }
+
       const { data: views } = await supabase.from('story_views').select('story_id').eq('user_id', authUser.id);
       const viewedSet = new Set(views?.map(v => v.story_id) || []);
 
-      setStories((userStories || []).map((s: any) => ({
+      setStories(filteredStories.map((s: any) => ({
         id: s.id, user_id: s.user_id, media_url: s.media_url, media_type: s.media_type || 'image',
         expires_at: s.expires_at, created_at: s.created_at, user: s.user, hasViewed: viewedSet.has(s.id),
       })));
@@ -212,7 +242,7 @@ export default function FeedPage() {
           </div>
         )}
         {/* Mobile Header */}
-        <div className="lg:hidden sticky top-0 z-20 bg-[var(--bg-primary)]/90 backdrop-blur-xl border-b border-[var(--border-subtle)] px-4 py-3">
+        <div className="lg:hidden sticky top-0 z-20 bg-[var(--bg-primary)]/90 backdrop-blur-xl border-b border-[var(--border-subtle)] px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
           <div className="flex items-center justify-between">
             <h1 className="text-lg font-bold text-[var(--text-primary)]">KWEN</h1>
             <Link href="/notifications" aria-label="Notifications" className="p-2 rounded-full hover:bg-[var(--bg-secondary)] transition-colors-fast relative">

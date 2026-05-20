@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
+import { pushOverlay, popOverlay } from '@/lib/overlay-stack';
 
 interface ModalProps {
   isOpen: boolean;
@@ -62,6 +63,13 @@ export function Modal({
       document.body.style.overflow = '';
     };
   }, [isOpen]);
+
+  // Register with overlay stack for back button handling
+  useEffect(() => {
+    if (!isOpen) return;
+    pushOverlay(onClose);
+    return () => popOverlay();
+  }, [isOpen, onClose]);
 
   // Focus trap
   useEffect(() => {

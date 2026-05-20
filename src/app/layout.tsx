@@ -61,6 +61,23 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        {/* Hide all content immediately on native — prevents landing page flash */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  if (window.Capacitor) {
+                    var s = document.createElement('style');
+                    s.textContent = 'body { opacity: 0 !important; pointer-events: none !important; }';
+                    document.documentElement.appendChild(s);
+                    window.__capacitorStyle = s;
+                  }
+                } catch(e) {}
+              })();
+            `,
+          }}
+        />
         {/* Inline script to apply theme before paint - prevents FOUC */}
         <script
           dangerouslySetInnerHTML={{

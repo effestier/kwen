@@ -114,7 +114,7 @@ export function MobileNav() {
   const profileHref = profile ? `/profile/${profile.username}` : '/feed';
 
   return (
-    <nav aria-label="Mobile navigation" className="lg:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-[var(--border-subtle)] bg-[var(--bg-primary)]">
+    <nav aria-label="Mobile navigation" className="lg:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-[var(--border-subtle)] bg-[var(--bg-primary)] pb-[env(safe-area-inset-bottom)]">
       <div className="flex items-center justify-around h-16">
         {/* Home */}
         <Link href="/feed" className="flex flex-col items-center justify-center gap-0.5 w-full h-full" aria-label="Home" aria-current={isActive('/feed') ? 'page' : undefined}>

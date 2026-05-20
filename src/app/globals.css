@@ -4,7 +4,7 @@
    DESIGN SYSTEM - EXACT COLOR TOKENS
    =========================================== */
 
-/* Light Theme (Default) */
+/* Light Theme - applied when system prefers light (no JS) or data-theme="light" */
 :root,
 [data-theme="light"] {
   /* Backgrounds */
@@ -75,6 +75,63 @@
   /* Mobile Nav Active */
   --nav-active-bg: rgba(37, 99, 235, 0.12);
   --nav-active-text: #2563EB;
+}
+
+/* Dark Theme - applied when system prefers dark (no JS) or data-theme="dark" */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg-primary: #0B1120;
+    --bg-secondary: #111827;
+    --bg-tertiary: #1F2937;
+    --bg-elevated: #111827;
+    --bg-overlay: rgba(0, 0, 0, 0.6);
+    --text-primary: #F8FAFC;
+    --text-secondary: #94A3B8;
+    --text-muted: #64748B;
+    --text-inverse: #0B1120;
+    --text-link: #3B82F6;
+    --text-link-hover: #60A5FA;
+    --border-subtle: #1F2937;
+    --border-soft: #374151;
+    --border-strong: #94A3B8;
+    --border-focus: #3B82F6;
+    --accent-primary: #3B82F6;
+    --accent-hover: #60A5FA;
+    --accent-secondary: #1E3A5F;
+    --accent-muted: #172554;
+    --accent-gradient: linear-gradient(45deg, #3B82F6, #60A5FA);
+    --accent-red: #F87171;
+    --accent-blue: #3B82F6;
+    --accent-green: #34D399;
+    --destructive: #F87171;
+    --destructive-hover: #EF4444;
+    --success: #34D399;
+    --success-hover: #10B981;
+    --warning: #FBBF24;
+    --warning-hover: #F59E0B;
+    --info: #38BDF8;
+    --overlay: rgba(0, 0, 0, 0.7);
+    --modal-backdrop: rgba(0, 0, 0, 0.8);
+    --modal-bg: #111827;
+    --input-bg: #111827;
+    --input-bg-hover: #1F2937;
+    --input-border: #374151;
+    --card-bg: #111827;
+    --card-border: #1F2937;
+    --tooltip-bg: #374151;
+    --tooltip-text: #F8FAFC;
+    --story-bg: #000000;
+    --story-overlay: rgba(0, 0, 0, 0.9);
+    --gradient-start: #833ab4;
+    --gradient-end: #fd1d1d;
+    --skeleton-bg: #1F2937;
+    --skeleton-shine: #374151;
+    --scrollbar-track: transparent;
+    --scrollbar-thumb: #374151;
+    --scrollbar-thumb-hover: #4B5563;
+    --nav-active-bg: rgba(59, 130, 246, 0.12);
+    --nav-active-text: #3B82F6;
+  }
 }
 
 /* Dark Theme */

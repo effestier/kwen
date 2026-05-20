@@ -79,11 +79,13 @@ export default function ReelsPage() {
         .filter((m: any) => m.post)
         .map((m: any) => {
           const profile = profileMap.get(m.post.user_id);
-          // Resolve storage path to full URL
-          const { data: urlData } = supabase.storage.from('posts').getPublicUrl(m.storage_path);
+          // storage_path may be a full URL or a relative path
+          const videoUrl = m.storage_path.startsWith('http')
+            ? m.storage_path
+            : supabase.storage.from('posts').getPublicUrl(m.storage_path).data.publicUrl;
           return {
             id: m.post.id,
-            video_url: urlData.publicUrl,
+            video_url: videoUrl,
             caption: m.post.content || '',
             user_id: m.post.user_id,
             created_at: m.post.created_at,

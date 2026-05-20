@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { BRAND } from '@/lib/brand/config';
 import { isNativePlatform } from '@/lib/platform';
+import { createClient } from '@/lib/supabase/client';
 
 export default function LandingPage() {
   const router = useRouter();
@@ -15,7 +16,17 @@ export default function LandingPage() {
     setIsNative(native);
     if (native) {
       router.replace('/auth/login');
+      return;
     }
+
+    // If user is already logged in, redirect to feed
+    // This handles SW fallback serving "/" for missing static routes
+    const supabase = createClient();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        router.replace('/feed');
+      }
+    });
   }, [router]);
 
   // On native: render nothing — Capacitor splash covers the screen until redirect

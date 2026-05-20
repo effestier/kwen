@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { MainLayout } from '@/components/layout/main-layout';
 import { Avatar } from '@/components/ui/avatar';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import { formatTimeAgo } from '@/lib/utils';
 import { markAllNotificationsAsRead } from '@/app/actions/notifications';
+import { Skeleton } from '@/components/design-system/skeleton';
 import Link from 'next/link';
 
 interface Notification {
@@ -42,59 +43,126 @@ const contentMap: Record<string, string> = {
   mention: 'mentioned you in a post',
 };
 
+function getNotificationLink(notif: Notification): string {
+  if ((notif.type === 'like' || notif.type === 'comment' || notif.type === 'mention') && notif.post_id) {
+    return `/profile/${notif.actor_username}#post-${notif.post_id}`;
+  }
+  return `/profile/${notif.actor_username}`;
+}
+
+function NotificationSkeleton() {
+  return (
+    <div className="p-4 flex items-start gap-3">
+      <Skeleton variant="circular" width={28} height={28} />
+      <Skeleton variant="circular" width={40} height={40} />
+      <div className="flex-1 space-y-2">
+        <Skeleton variant="text" width="70%" />
+        <Skeleton variant="text" width="30%" />
+      </div>
+    </div>
+  );
+}
+
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const currentUserId = useRef<string | null>(null);
   const supabase = createClient();
 
+  const loadNotifications = useCallback(async (userId: string, offset: number) => {
+    const { data: notifs } = await supabase
+      .from('notifications')
+      .select('id, type, actor_id, post_id, is_read, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + 49);
+
+    if (!notifs || notifs.length === 0) return [];
+
+    const actorIds = [...new Set(notifs.map(n => n.actor_id))];
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, username, display_name, avatar_url')
+      .in('id', actorIds);
+
+    const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+
+    return notifs.map(n => ({
+      id: n.id,
+      type: n.type as Notification['type'],
+      actor_id: n.actor_id,
+      actor_username: profileMap.get(n.actor_id)?.username || 'User',
+      actor_display_name: profileMap.get(n.actor_id)?.display_name || 'User',
+      actor_avatar_url: profileMap.get(n.actor_id)?.avatar_url || null,
+      post_id: n.post_id,
+      is_read: n.is_read,
+      created_at: n.created_at,
+    }));
+  }, [supabase]);
+
+  // Initial load
   useEffect(() => {
-    async function loadNotifications() {
+    async function init() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setLoading(false); return; }
+      currentUserId.current = user.id;
 
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      const notifs = await loadNotifications(user.id, 0);
+      setNotifications(notifs);
+      if (notifs.length < 50) setHasMore(false);
+      setLoading(false);
 
-      if (authError || !user) {
-        setLoading(false);
-        return;
+      // Auto-mark all as read
+      if (notifs.some(n => !n.is_read)) {
+        await markAllNotificationsAsRead();
+        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+        window.dispatchEvent(new CustomEvent('notifications-read'));
       }
+    }
+    init();
+  }, []);
 
-      // First get notifications without join
-      const { data: notifs, error: notifError } = await supabase
-        .from('notifications')
-        .select('id, type, actor_id, post_id, is_read, created_at')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-
-      if (notifError) {
-        setLoading(false);
-        return;
+  // Infinite scroll
+  useEffect(() => {
+    if (!hasMore || loading || !sentinelRef.current) return;
+    const observer = new IntersectionObserver(async (entries) => {
+      if (entries[0].isIntersecting && !loadingMore && currentUserId.current) {
+        setLoadingMore(true);
+        const more = await loadNotifications(currentUserId.current, notifications.length);
+        setNotifications(prev => [...prev, ...more]);
+        if (more.length < 50) setHasMore(false);
+        setLoadingMore(false);
       }
+    }, { rootMargin: '200px' });
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [hasMore, loading, loadingMore, notifications.length]);
 
-      if (!notifs || notifs.length === 0) {
-        setNotifications([]);
-        setLoading(false);
-        return;
-      }
+  // Realtime: new notifications
+  useEffect(() => {
+    if (!currentUserId.current) return;
+    const channel = supabase
+      .channel('notifications-rt')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'notifications',
+        filter: `user_id=eq.${currentUserId.current}`,
+      }, async (payload) => {
+        const n = payload.new as { id: string; type: string; actor_id: string; post_id: string | null; is_read: boolean; created_at: string };
+        // Fetch actor profile
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('id, username, display_name, avatar_url')
+          .eq('id', n.actor_id)
+          .single();
 
-      // Get unique actor IDs
-      const actorIds = [...new Set(notifs.map(n => n.actor_id))];
-
-      // Fetch actor profiles separately
-      const { data: profiles, error: profileError } = await supabase
-        .from('profiles')
-        .select('id, username, display_name, avatar_url')
-        .in('id', actorIds);
-
-
-      const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
-
-      // Map notifications with profile data
-      const mappedNotifications: Notification[] = notifs.map(n => {
-        const profile = profileMap.get(n.actor_id);
-        return {
+        const newNotif: Notification = {
           id: n.id,
-          type: n.type as 'like' | 'comment' | 'follow' | 'mention',
+          type: n.type as Notification['type'],
           actor_id: n.actor_id,
           actor_username: profile?.username || 'User',
           actor_display_name: profile?.display_name || 'User',
@@ -103,27 +171,17 @@ export default function NotificationsPage() {
           is_read: n.is_read,
           created_at: n.created_at,
         };
-      });
+        setNotifications(prev => [newNotif, ...prev]);
+      })
+      .subscribe();
 
-
-      setNotifications(mappedNotifications);
-      setLoading(false);
-
-      // Auto-mark all as read when visiting notifications page
-      if (notifs.some(n => !n.is_read)) {
-        await markAllNotificationsAsRead();
-        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-        // Notify sidebar to reset badge
-        window.dispatchEvent(new CustomEvent('notifications-read'));
-      }
-    }
-
-    loadNotifications();
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const handleMarkAllRead = async () => {
     await markAllNotificationsAsRead();
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    window.dispatchEvent(new CustomEvent('notifications-read'));
   };
 
   return (
@@ -132,25 +190,29 @@ export default function NotificationsPage() {
         <div className="sticky top-0 z-10 bg-[var(--bg-primary)]/90 backdrop-blur-xl border-b border-[var(--border-subtle)] p-4">
           <div className="flex items-center justify-between">
             <h1 className="text-xl font-bold text-[var(--text-primary)]">Notifications</h1>
-            <button
-              onClick={handleMarkAllRead}
-              className="text-sm text-[var(--accent-primary)] hover:underline"
-            >
-              Mark all read
-            </button>
+            {notifications.some(n => !n.is_read) && (
+              <button
+                onClick={handleMarkAllRead}
+                className="text-sm text-[var(--accent-primary)] hover:underline"
+              >
+                Mark all read
+              </button>
+            )}
           </div>
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="text-[var(--text-muted)]">Loading...</div>
+          <div>
+            {Array.from({ length: 8 }).map((_, i) => (
+              <NotificationSkeleton key={i} />
+            ))}
           </div>
         ) : notifications.length > 0 ? (
           <div role="feed" aria-label="Notifications" className="divide-y divide-[var(--border-subtle)]">
             {notifications.map((notif) => (
               <Link
                 key={notif.id}
-                href={`/profile/${notif.actor_username}`}
+                href={getNotificationLink(notif)}
                 className={cn(
                   'block p-4 hover:bg-[var(--bg-secondary)] transition-colors-fast',
                   !notif.is_read && 'bg-[var(--bg-secondary)]/50'
@@ -165,7 +227,7 @@ export default function NotificationsPage() {
                     name={notif.actor_display_name}
                     size="md"
                   />
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <p className="text-sm text-[var(--text-secondary)]">
                       <span className="font-semibold text-[var(--text-primary)]">{notif.actor_display_name}</span>
                       {' '}{contentMap[notif.type]}
@@ -173,11 +235,19 @@ export default function NotificationsPage() {
                     <p className="text-xs text-[var(--text-muted)] mt-0.5">{formatTimeAgo(notif.created_at)}</p>
                   </div>
                   {!notif.is_read && (
-                    <div aria-label="Unread" className="w-2 h-2 rounded-full bg-[var(--accent-primary)]" />
+                    <div aria-label="Unread" className="w-2 h-2 rounded-full bg-[var(--accent-primary)] flex-shrink-0" />
                   )}
                 </div>
               </Link>
             ))}
+            <div ref={sentinelRef} className="h-1" />
+            {loadingMore && (
+              <div className="p-4 space-y-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <NotificationSkeleton key={i} />
+                ))}
+              </div>
+            )}
           </div>
         ) : (
           <div className="text-center py-20">

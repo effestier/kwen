@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { PageSkeleton } from '@/components/design-system';
@@ -14,7 +14,6 @@ async function hideSplashOnce() {
   if (splashHidden || !isNativePlatform()) return;
   splashHidden = true;
   try {
-    // Reveal the body (hidden by inline script in layout.tsx)
     if ((window as any).__capacitorStyle) {
       (window as any).__capacitorStyle.remove();
       document.body.style.opacity = '1';
@@ -30,22 +29,59 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const [hasUser, setHasUser] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
+  const redirectedRef = useRef(false);
 
   useEffect(() => {
     const supabase = createClient();
+    let mounted = true;
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setHasUser(!!session);
+    // Check session — retry once if null (handles race condition after login)
+    async function checkSession(retry = true) {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!mounted) return;
+
+      if (session) {
+        setHasUser(true);
+        setLoading(false);
+        hideSplashOnce();
+        return;
+      }
+
+      if (retry) {
+        // Wait 300ms and retry — session may still be propagating after login
+        await new Promise(r => setTimeout(r, 300));
+        if (!mounted) return;
+        const { data: { session: retrySession } } = await supabase.auth.getSession();
+        if (!mounted) return;
+
+        setHasUser(!!retrySession);
+        setLoading(false);
+        hideSplashOnce();
+        return;
+      }
+
+      setHasUser(false);
       setLoading(false);
-      // Hide splash after auth state is known — prevents landing page flash
       hideSplashOnce();
-    });
+    }
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    checkSession(true);
+
+    // Listen for auth state changes — this is the source of truth
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!mounted) return;
       setHasUser(!!session);
+      // Reset redirect flag on sign-in so navigation works again
+      if (event === 'SIGNED_IN') {
+        redirectedRef.current = false;
+      }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -54,9 +90,14 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     const isPublic = PUBLIC_ROUTES.includes(pathname) || pathname.startsWith('/auth/reset-password');
 
     if (!hasUser && !isPublic) {
-      router.replace('/auth/login');
+      if (!redirectedRef.current) {
+        redirectedRef.current = true;
+        router.replace('/auth/login');
+      }
     } else if (hasUser && pathname.startsWith('/auth/') && pathname !== '/auth/reset-password') {
       router.replace('/feed');
+    } else if (hasUser) {
+      redirectedRef.current = false;
     }
   }, [hasUser, loading, pathname, router]);
 

@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { sendPasswordReset, verifyRecoveryToken, setPassword } from '@/app/actions/otp-auth';
+import { sendPasswordReset, verifyRecoveryToken, setPassword } from '@/services/auth';
 import { BRAND } from '@/lib/brand/config';
 import { TurnstileWidget } from '@/components/auth/turnstile-widget';
 

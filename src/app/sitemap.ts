@@ -1,6 +1,8 @@
 import type { MetadataRoute } from 'next';
 import { BRAND } from '@/lib/brand/config';
 
+export const dynamic = 'force-static';
+
 export default function sitemap(): MetadataRoute.Sitemap {
   const base = BRAND.social.website;
 

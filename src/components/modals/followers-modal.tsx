@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Avatar } from '@/components/ui/avatar';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/design-system/skeleton';
 import Link from 'next/link';
 
 interface FollowUser {
@@ -152,7 +153,17 @@ export function FollowersModal({ userId, type, onClose }: FollowersModalProps) {
 
         <div className="overflow-y-auto max-h-[60vh]">
           {loading ? (
-            <div className="p-8 text-center text-[var(--text-muted)]">Loading...</div>
+            <div className="p-4 space-y-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <Skeleton variant="circular" width={40} height={40} />
+                  <div className="flex-1 space-y-1">
+                    <Skeleton variant="text" width="40%" />
+                    <Skeleton variant="text" width="25%" />
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : users.length > 0 ? (
             <div className="divide-y divide-[var(--border-subtle)]">
               {users.map((u) => (

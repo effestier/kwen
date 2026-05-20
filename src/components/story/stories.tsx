@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Avatar } from '@/components/ui/avatar';
 import { StoryViewer } from './story-viewer';
-import { uploadStory } from '@/app/actions/media';
+import { uploadStory } from '@/services/media';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 

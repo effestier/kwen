@@ -6,7 +6,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import { formatTimeAgo } from '@/lib/utils';
-import { markAllNotificationsAsRead } from '@/app/actions/notifications';
+import { markAllNotificationsAsRead } from '@/services/notifications';
 import { Skeleton } from '@/components/design-system/skeleton';
 import Link from 'next/link';
 

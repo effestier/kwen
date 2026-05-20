@@ -4,9 +4,10 @@ import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Avatar } from '@/components/ui/avatar';
 import { formatTimeAgo } from '@/lib/utils';
-import { getComments, getReplies, addComment, toggleCommentLike, deleteComment, type Comment } from '@/app/actions/comments';
+import { getComments, getReplies, addComment, toggleCommentLike, deleteComment, type Comment } from '@/services/comments';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/design-system/skeleton';
 
 interface CommentsModalProps {
   postId: string;
@@ -391,8 +392,17 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
         {/* Comments List */}
         <div ref={commentsListRef} className="overflow-y-auto max-h-[calc(85vh-140px)] sm:max-h-[calc(80vh-140px)] px-4 py-3">
           {loading ? (
-            <div className="flex items-center justify-center py-10">
-              <div className="animate-spin w-6 h-6 border-2 border-[var(--accent-primary)] border-t-transparent rounded-full" />
+            <div className="space-y-4 py-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex gap-3">
+                  <Skeleton variant="circular" width={32} height={32} />
+                  <div className="flex-1 space-y-1.5">
+                    <Skeleton variant="text" width="25%" />
+                    <Skeleton variant="text" width="80%" />
+                    <Skeleton variant="text" width="15%" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : comments.length === 0 ? (
             <div className="text-center py-10">

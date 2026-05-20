@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+const isCapacitorBuild = process.env.CAPACITOR_BUILD === '1';
+
 const securityHeaders = [
   {
     key: 'X-Frame-Options',
@@ -40,7 +42,9 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  ...(isCapacitorBuild ? { output: 'export' } : {}),
   images: {
+    ...(isCapacitorBuild ? { unoptimized: true } : {}),
     remotePatterns: [
       {
         protocol: 'https',
@@ -49,15 +53,17 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  serverExternalPackages: ['@supabase/supabase-js'],
-  async headers() {
-    return [
-      {
-        source: '/(.*)',
-        headers: securityHeaders,
-      },
-    ];
-  },
+  ...(isCapacitorBuild ? {} : {
+    serverExternalPackages: ['@supabase/supabase-js'],
+    async headers() {
+      return [
+        {
+          source: '/(.*)',
+          headers: securityHeaders,
+        },
+      ];
+    },
+  }),
 };
 
 export default nextConfig;

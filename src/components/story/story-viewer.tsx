@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Avatar } from '@/components/ui/avatar';
-import { addStoryReaction, getStoryReactions, sendStoryReply, getStoryViewers, markStoryReplyAsRead, getStoryMusic } from '@/app/actions/stories';
+import { Skeleton } from '@/components/design-system/skeleton';
+import { addStoryReaction, getStoryReactions, sendStoryReply, getStoryViewers, markStoryReplyAsRead, getStoryMusic } from '@/services/stories';
 
 interface Story {
   id: string;
@@ -351,7 +352,14 @@ export function StoryViewer({ stories, initialIndex, onClose, isOwner = false }:
           </div>
           <div className="overflow-y-auto max-h-64">
             {loadingViewers ? (
-              <div className="p-4 text-center text-[var(--text-muted)]">Loading...</div>
+              <div className="p-4 space-y-3">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <Skeleton variant="circular" width={32} height={32} />
+                    <Skeleton variant="text" width="50%" />
+                  </div>
+                ))}
+              </div>
             ) : viewers.length > 0 ? (
               viewers.map((viewer, idx) => (
                 <div

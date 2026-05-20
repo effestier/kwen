@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/design-system';
 import { Button } from '@/components/design-system';
-import { updatePassword } from '@/app/actions/otp-auth';
+import { updatePassword } from '@/services/auth';
 
 export default function SecurityPage() {
   const router = useRouter();

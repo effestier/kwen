@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import { Avatar } from '@/components/ui/avatar';
 import { createClient } from '@/lib/supabase/client';
 import { BRAND } from '@/lib/brand/config';
-import { signOut } from '@/app/actions/otp-auth';
+import { signOut } from '@/services/auth';
 
 interface Profile {
   id: string;

@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og';
 import { BRAND } from '@/lib/brand/config';
 
-export const runtime = 'edge';
+export const dynamic = 'force-static';
 
 export const alt = `${BRAND.name} — ${BRAND.tagline}`;
 export const size = { width: 1200, height: 630 };

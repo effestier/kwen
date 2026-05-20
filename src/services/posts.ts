@@ -1,0 +1,246 @@
+import { createClient } from '@/lib/supabase/client';
+
+export async function toggleLike(postId: string) {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: 'Not authenticated' };
+    if (!postId || typeof postId !== 'string') return { error: 'Invalid post ID' };
+
+    const { data: existing } = await supabase
+      .from('post_likes')
+      .select('id')
+      .eq('post_id', postId)
+      .eq('user_id', user.id)
+      .single();
+
+    if (existing) {
+      await supabase.from('post_likes').delete().eq('id', existing.id);
+      return { success: true, liked: false };
+    } else {
+      const { error } = await supabase
+        .from('post_likes')
+        .insert({ post_id: postId, user_id: user.id });
+
+      if (error) return { error: 'Failed to like post' };
+      return { success: true, liked: true };
+    }
+  } catch {
+    return { error: 'Failed to process like' };
+  }
+}
+
+export async function toggleSave(postId: string) {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: 'Not authenticated' };
+    if (!postId || typeof postId !== 'string') return { error: 'Invalid post ID' };
+
+    const { data: existing } = await supabase
+      .from('saved_posts')
+      .select('id')
+      .eq('post_id', postId)
+      .eq('user_id', user.id)
+      .single();
+
+    if (existing) {
+      await supabase.from('saved_posts').delete().eq('id', existing.id);
+      return { success: true, saved: false };
+    } else {
+      const { error } = await supabase
+        .from('saved_posts')
+        .insert({ post_id: postId, user_id: user.id });
+
+      if (error) return { error: 'Failed to save post' };
+      return { success: true, saved: true };
+    }
+  } catch {
+    return { error: 'Failed to process save' };
+  }
+}
+
+export async function deletePost(postId: string) {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: 'Not authenticated' };
+    if (!postId || typeof postId !== 'string') return { error: 'Invalid post ID' };
+
+    const { data: post } = await supabase
+      .from('posts')
+      .select('user_id')
+      .eq('id', postId)
+      .single();
+
+    if (!post || post.user_id !== user.id) return { error: 'Unauthorized' };
+
+    const { error } = await supabase.from('posts').delete().eq('id', postId);
+
+    if (error) return { error: 'Failed to delete post' };
+    return { success: true };
+  } catch {
+    return { error: 'Failed to delete post' };
+  }
+}
+
+export async function getPostLikes(postId: string) {
+  try {
+    const supabase = createClient();
+
+    const { count } = await supabase
+      .from('post_likes')
+      .select('*', { count: 'exact', head: true })
+      .eq('post_id', postId);
+
+    return { count: count || 0 };
+  } catch {
+    return { count: 0 };
+  }
+}
+
+export async function getPost(postId: string) {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!postId || typeof postId !== 'string') return { error: 'Invalid post ID' };
+
+    const { data: post, error: postError } = await supabase
+      .from('posts')
+      .select('id, user_id, content, location, created_at')
+      .eq('id', postId)
+      .is('deleted_at', null)
+      .single();
+
+    if (postError || !post) return { error: 'Post not found' };
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id, username, display_name, avatar_url, is_verified')
+      .eq('id', post.user_id)
+      .single();
+
+    const { data: media } = await supabase
+      .from('post_media')
+      .select('id, storage_path, media_type, sort_order')
+      .eq('post_id', postId)
+      .order('sort_order', { ascending: true });
+
+    const { count: likeCount } = await supabase
+      .from('post_likes')
+      .select('*', { count: 'exact', head: true })
+      .eq('post_id', postId);
+
+    const { count: commentCount } = await supabase
+      .from('comments')
+      .select('*', { count: 'exact', head: true })
+      .eq('post_id', postId)
+      .is('deleted_at', null);
+
+    let isLiked = false;
+    let isSaved = false;
+
+    if (user) {
+      const [{ data: likedRow }, { data: savedRow }] = await Promise.all([
+        supabase.from('post_likes').select('id').eq('post_id', postId).eq('user_id', user.id).maybeSingle(),
+        supabase.from('saved_posts').select('id').eq('post_id', postId).eq('user_id', user.id).maybeSingle(),
+      ]);
+      isLiked = !!likedRow;
+      isSaved = !!savedRow;
+    }
+
+    return {
+      post: {
+        id: post.id,
+        content: post.content,
+        location: post.location,
+        createdAt: post.created_at,
+        user: profile ? {
+          id: profile.id,
+          username: profile.username,
+          displayName: profile.display_name,
+          avatar: profile.avatar_url,
+          isVerified: profile.is_verified,
+        } : null,
+        images: (media || []).map(m => m.storage_path),
+        mediaType: (media || []).map(m => m.media_type),
+        likes: likeCount || 0,
+        comments: commentCount || 0,
+        isLiked,
+        isSaved,
+      }
+    };
+  } catch {
+    return { error: 'Failed to load post' };
+  }
+}
+
+export async function blockUser(userId: string) {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: 'Not authenticated' };
+    if (!userId || userId === user.id) return { error: 'Invalid user' };
+
+    const { error } = await supabase
+      .from('blocks')
+      .upsert({ blocker_id: user.id, blocked_id: userId }, { onConflict: 'blocker_id,blocked_id' });
+
+    if (error) return { error: 'Failed to block user' };
+    return { success: true };
+  } catch {
+    return { error: 'Failed to block user' };
+  }
+}
+
+export async function unblockUser(userId: string) {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: 'Not authenticated' };
+
+    await supabase.from('blocks').delete().eq('blocker_id', user.id).eq('blocked_id', userId);
+    return { success: true };
+  } catch {
+    return { error: 'Failed to unblock user' };
+  }
+}
+
+export async function muteUser(userId: string) {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: 'Not authenticated' };
+    if (!userId || userId === user.id) return { error: 'Invalid user' };
+
+    const { error } = await supabase
+      .from('mutes')
+      .upsert({ muter_id: user.id, muted_id: userId }, { onConflict: 'muter_id,muted_id' });
+
+    if (error) return { error: 'Failed to mute user' };
+    return { success: true };
+  } catch {
+    return { error: 'Failed to mute user' };
+  }
+}
+
+export async function unmuteUser(userId: string) {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: 'Not authenticated' };
+
+    await supabase.from('mutes').delete().eq('muter_id', user.id).eq('muted_id', userId);
+    return { success: true };
+  } catch {
+    return { error: 'Failed to unmute user' };
+  }
+}

@@ -1,7 +1,15 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { Providers } from '@/components/providers';
 import { BRAND } from '@/lib/brand/config';
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: 'cover',
+  themeColor: '#0a0a0b',
+};
 
 export const metadata: Metadata = {
   title: {
@@ -72,6 +80,11 @@ export default function RootLayout({
                 } catch(e) {}
               })();
             `,
+          }}
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js'); }`,
           }}
         />
         <script

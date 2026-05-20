@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Avatar } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
-import { signOut } from '@/app/actions/otp-auth';
+import { signOut } from '@/services/auth';
 
 interface SettingsLayoutProps {
   children: React.ReactNode;

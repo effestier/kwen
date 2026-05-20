@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/main-layout';
 import { PostCard } from '@/components/post/post-card';
 import { createClient } from '@/lib/supabase/client';
+import { Skeleton } from '@/components/design-system/skeleton';
 import { Post } from '@/types';
 
 export default function SavedPage() {
@@ -124,8 +125,17 @@ export default function SavedPage() {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="text-[var(--text-muted)]">Loading...</div>
+          <div className="p-4 space-y-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <Skeleton variant="circular" width={40} height={40} />
+                  <Skeleton variant="text" width="30%" />
+                </div>
+                <Skeleton className="rounded-xl h-64" />
+                <Skeleton variant="text" width="50%" />
+              </div>
+            ))}
           </div>
         ) : posts.length > 0 ? (
           <div className="divide-y divide-[var(--border-subtle)]">

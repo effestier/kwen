@@ -6,7 +6,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { FileUpload } from '@/components/ui/file-upload';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
-import { createPostWithMedia } from '@/app/actions/media';
+import { createPostWithMedia } from '@/services/media';
 import { cn } from '@/lib/utils';
 
 interface Profile {

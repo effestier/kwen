@@ -3,9 +3,9 @@ import { cn, formatNumber, formatTimeAgo } from '@/lib/utils';
 import { Avatar } from '@/components/ui/avatar';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { toggleLike as togglePostLike, toggleSave as togglePostSave } from '@/app/actions/posts';
+import { toggleLike as togglePostLike, toggleSave as togglePostSave } from '@/services/posts';
 import { CommentsModal } from '@/components/comments/comments-modal';
-import { getCommentCount } from '@/app/actions/comments';
+import { getCommentCount } from '@/services/comments';
 import { createClient } from '@/lib/supabase/client';
 
 interface PostCardProps {

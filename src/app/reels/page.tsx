@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { MainLayout } from '@/components/layout/main-layout';
 import { Avatar } from '@/components/ui/avatar';
 import { ReelSkeleton } from '@/components/design-system';
+import { toggleLike } from '@/services/posts';
+import Link from 'next/link';
 
 interface Reel {
   id: string;
@@ -12,6 +14,8 @@ interface Reel {
   caption: string;
   user_id: string;
   created_at: string;
+  liked: boolean;
+  like_count: number;
   user: {
     username: string;
     display_name: string;
@@ -23,11 +27,12 @@ export default function ReelsPage() {
   const [reels, setReels] = useState<Reel[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const videoRefs = useRef<Map<string, HTMLVideoElement>>(new Map());
+  const containerRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
 
   useEffect(() => {
     async function loadReels() {
-      // Get posts that have video media from post_media table
       const { data: mediaPosts, error } = await supabase
         .from('post_media')
         .select(`
@@ -50,27 +55,40 @@ export default function ReelsPage() {
         return;
       }
 
-      // Get unique user IDs
       const userIds = [...new Set(mediaPosts.map((m: any) => m.post?.user_id).filter(Boolean))];
 
-      // Fetch profiles
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, username, display_name, avatar_url')
-        .in('id', userIds);
+      const [{ data: profiles }, { data: { user } }] = await Promise.all([
+        supabase.from('profiles').select('id, username, display_name, avatar_url').in('id', userIds),
+        supabase.auth.getUser(),
+      ]);
 
       const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+
+      // Get like counts and user's like status
+      const postIds = mediaPosts.map((m: any) => m.post?.id).filter(Boolean);
+      const [{ data: likes }, { data: userLikes }] = await Promise.all([
+        supabase.from('post_likes').select('post_id').in('post_id', postIds),
+        user ? supabase.from('post_likes').select('post_id').eq('user_id', user.id).in('post_id', postIds) : Promise.resolve({ data: [] }),
+      ]);
+
+      const likeCountMap = new Map<string, number>();
+      likes?.forEach(l => likeCountMap.set(l.post_id, (likeCountMap.get(l.post_id) || 0) + 1));
+      const userLikeSet = new Set(userLikes?.map(l => l.post_id) || []);
 
       const reelsData: Reel[] = mediaPosts
         .filter((m: any) => m.post)
         .map((m: any) => {
           const profile = profileMap.get(m.post.user_id);
+          // Resolve storage path to full URL
+          const { data: urlData } = supabase.storage.from('posts').getPublicUrl(m.storage_path);
           return {
             id: m.post.id,
-            video_url: m.storage_path,
+            video_url: urlData.publicUrl,
             caption: m.post.content || '',
             user_id: m.post.user_id,
             created_at: m.post.created_at,
+            liked: userLikeSet.has(m.post.id),
+            like_count: likeCountMap.get(m.post.id) || 0,
             user: {
               username: profile?.username || 'user',
               display_name: profile?.display_name || 'User',
@@ -86,12 +104,52 @@ export default function ReelsPage() {
     loadReels();
   }, []);
 
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const scrollTop = e.currentTarget.scrollTop;
-    const itemHeight = window.innerHeight - 80;
+  // Autoplay/pause videos based on visibility
+  useEffect(() => {
+    if (reels.length === 0) return;
+    const container = containerRef.current;
+    if (!container) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach(entry => {
+          const video = entry.target as HTMLVideoElement;
+          if (entry.isIntersecting) {
+            video.play().catch(() => {});
+          } else {
+            video.pause();
+          }
+        });
+      },
+      { root: container, threshold: 0.5 }
+    );
+
+    videoRefs.current.forEach(video => observer.observe(video));
+    return () => observer.disconnect();
+  }, [reels]);
+
+  const handleScroll = useCallback(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const scrollTop = container.scrollTop;
+    const itemHeight = window.innerHeight - 60;
     const newIndex = Math.round(scrollTop / itemHeight);
     setCurrentIndex(Math.max(0, Math.min(newIndex, reels.length - 1)));
-  };
+  }, [reels.length]);
+
+  const handleLike = useCallback(async (reelId: string) => {
+    setReels(prev => prev.map(r => r.id === reelId ? { ...r, liked: !r.liked, like_count: r.liked ? r.like_count - 1 : r.like_count + 1 } : r));
+    await toggleLike(reelId);
+  }, []);
+
+  const handleShare = useCallback((reelId: string) => {
+    const url = `${window.location.origin}/post/${reelId}`;
+    if (navigator.share) {
+      navigator.share({ url });
+    } else {
+      navigator.clipboard.writeText(url);
+    }
+  }, []);
 
   if (loading) {
     return (
@@ -117,7 +175,7 @@ export default function ReelsPage() {
 
   return (
     <MainLayout>
-      <div className="fixed inset-0 top-[60px] lg:top-0 lg:left-[72px] xl:left-[245px] bg-black overflow-y-auto snap-y snap-mandatory" onScroll={handleScroll}>
+      <div ref={containerRef} className="fixed inset-0 top-[60px] lg:top-0 lg:left-[72px] xl:left-[245px] bg-black overflow-y-auto snap-y snap-mandatory" onScroll={handleScroll}>
         <div className="h-full">
           {reels.map((reel) => (
             <div
@@ -125,38 +183,35 @@ export default function ReelsPage() {
               className="h-[calc(100vh-60px)] lg:h-screen flex items-center justify-center relative snap-start"
             >
               {/* Video */}
-              <div className="absolute inset-0 bg-[var(--bg-tertiary)] flex items-center justify-center">
+              <div className="absolute inset-0 bg-black flex items-center justify-center">
                 <video
+                  ref={el => { if (el) videoRefs.current.set(reel.id, el); }}
                   src={reel.video_url}
                   className="w-full h-full object-contain"
                   loop
                   muted
                   playsInline
-                  onError={(e) => {
-                    // Fallback for broken videos
-                    const target = e.target as HTMLVideoElement;
-                    target.style.display = 'none';
-                  }}
                 />
               </div>
 
               {/* Side actions */}
               <div className="absolute right-3 bottom-24 flex flex-col items-center gap-5 z-10">
-                <button aria-label="Like" className="flex flex-col items-center gap-1">
+                <button onClick={() => handleLike(reel.id)} aria-label={reel.liked ? 'Unlike' : 'Like'} className="flex flex-col items-center gap-1">
                   <div className="w-10 h-10 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill={reel.liked ? 'white' : 'none'} stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
                     </svg>
                   </div>
+                  <span className="text-white text-xs">{reel.like_count > 0 ? reel.like_count : ''}</span>
                 </button>
-                <button aria-label="Comment" className="flex flex-col items-center gap-1">
+                <Link href={`/post/${reel.id}`} aria-label="Comment" className="flex flex-col items-center gap-1">
                   <div className="w-10 h-10 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center">
                     <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                     </svg>
                   </div>
-                </button>
-                <button aria-label="Share" className="flex flex-col items-center gap-1">
+                </Link>
+                <button onClick={() => handleShare(reel.id)} aria-label="Share" className="flex flex-col items-center gap-1">
                   <div className="w-10 h-10 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center">
                     <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" /><polyline points="16 6 12 2 8 6" /><line x1="12" x2="12" y1="2" y2="15" />
@@ -167,14 +222,14 @@ export default function ReelsPage() {
 
               {/* Bottom info */}
               <div className="absolute bottom-4 left-3 right-16 z-10">
-                <div className="flex items-center gap-2 mb-2">
+                <Link href={`/profile/${reel.user.username}`} className="flex items-center gap-2 mb-2">
                   <Avatar
                     src={reel.user.avatar_url}
                     name={reel.user.display_name}
                     size="sm"
                   />
                   <span className="text-white font-semibold text-sm">@{reel.user.username}</span>
-                </div>
+                </Link>
                 {reel.caption && (
                   <p className="text-white/90 text-sm line-clamp-2">{reel.caption}</p>
                 )}

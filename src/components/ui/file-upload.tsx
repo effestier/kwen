@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 
 interface FileUploadProps {
   type: UploadType
-  onUpload: (urls: string[]) => void
+  onUpload: (urls: string[], types?: string[]) => void
   multiple?: boolean
   maxFiles?: number
   className?: string
@@ -25,6 +25,7 @@ export function FileUpload({
   accept,
 }: FileUploadProps) {
   const [previews, setPreviews] = useState<string[]>([])
+  const [fileTypes, setFileTypes] = useState<string[]>([])
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -73,6 +74,7 @@ export function FileUpload({
       })
     )
     setPreviews(newPreviews)
+    setFileTypes(validFiles.map(f => f.type))
 
     // Upload
     setUploading(true)
@@ -119,7 +121,7 @@ export function FileUpload({
         setUploadProgress(Math.round(((i + 1) / validFiles.length) * 100))
       }
 
-      onUpload(uploadedUrls)
+      onUpload(uploadedUrls, validFiles.map(f => f.type.startsWith('video') ? 'video' : 'image'))
     } catch (err) {
       setError('Upload failed')
     } finally {
@@ -129,6 +131,7 @@ export function FileUpload({
 
   const removePreview = (index: number) => {
     setPreviews(previews.filter((_, i) => i !== index))
+    setFileTypes(fileTypes.filter((_, i) => i !== index))
   }
 
   return (
@@ -150,11 +153,20 @@ export function FileUpload({
           )}>
             {previews.map((preview, index) => (
               <div key={index} className="relative aspect-square rounded-lg overflow-hidden bg-[var(--bg-secondary)]">
-                <img
-                  src={preview}
-                  alt={`Preview ${index + 1}`}
-                  className="w-full h-full object-cover"
-                />
+                {fileTypes[index]?.startsWith('video') ? (
+                  <video
+                    src={preview}
+                    className="w-full h-full object-cover"
+                    muted
+                    playsInline
+                  />
+                ) : (
+                  <img
+                    src={preview}
+                    alt={`Preview ${index + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                )}
                 <button
                   type="button"
                   onClick={() => removePreview(index)}

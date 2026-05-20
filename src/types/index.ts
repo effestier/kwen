@@ -26,6 +26,7 @@ export interface Post {
   user: User;
   content: string;
   images?: string[];
+  mediaTypes?: string[];
   likes: number;
   comments: number;
   shares: number;

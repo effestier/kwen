@@ -50,12 +50,16 @@ export async function uploadPostMedia(postId: string, urls: string[]) {
 
     if (!post || post.user_id !== user.id) return { error: 'Unauthorized' };
 
-    const mediaRecords = urls.map((url, index) => ({
-      post_id: postId,
-      storage_path: url,
-      media_type: 'image',
-      sort_order: index,
-    }));
+    const mediaRecords = urls.map((url, index) => {
+      const ext = url.split('.').pop()?.toLowerCase() || '';
+      const isVideo = ['mp4', 'webm', 'mov', 'avi'].includes(ext);
+      return {
+        post_id: postId,
+        storage_path: url,
+        media_type: isVideo ? 'video' : 'image',
+        sort_order: index,
+      };
+    });
 
     const { error } = await supabase.from('post_media').insert(mediaRecords);
 
@@ -144,12 +148,16 @@ export async function createPostWithMedia(formData: FormData) {
     if (postError) return { error: 'Failed to create post' };
 
     if (urls.length > 0) {
-      const mediaRecords = urls.map((url, index) => ({
-        post_id: post.id,
-        storage_path: url,
-        media_type: 'image',
-        sort_order: index,
-      }));
+      const mediaRecords = urls.map((url, index) => {
+        const ext = url.split('.').pop()?.toLowerCase() || '';
+        const isVideo = ['mp4', 'webm', 'mov', 'avi'].includes(ext);
+        return {
+          post_id: post.id,
+          storage_path: url,
+          media_type: isVideo ? 'video' : 'image',
+          sort_order: index,
+        };
+      });
 
       await supabase.from('post_media').insert(mediaRecords);
     }

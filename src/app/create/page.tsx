@@ -20,8 +20,10 @@ export default function CreatePage() {
   const [content, setContent] = useState('');
   const [location, setLocation] = useState('');
   const [mediaUrls, setMediaUrls] = useState<string[]>([]);
+  const [mediaTypes, setMediaTypes] = useState<string[]>([]);
   const [user, setUser] = useState<Profile | null>(null);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const supabase = createClient();
   const router = useRouter();
 
@@ -59,6 +61,7 @@ export default function CreatePage() {
     const result = await createPostWithMedia(formData);
 
     if (result.error) {
+      setError(result.error);
       setSaving(false);
       return;
     }
@@ -68,6 +71,7 @@ export default function CreatePage() {
 
   const removeMedia = (index: number) => {
     setMediaUrls(mediaUrls.filter((_, i) => i !== index));
+    setMediaTypes(mediaTypes.filter((_, i) => i !== index));
   };
 
   return (
@@ -110,10 +114,13 @@ export default function CreatePage() {
               <div className="flex items-center gap-1">
                 <FileUpload
                   type="post"
-                  onUpload={(urls) => setMediaUrls([...mediaUrls, ...urls])}
+                  onUpload={(urls, types?) => {
+                    setMediaUrls([...mediaUrls, ...urls]);
+                    setMediaTypes([...mediaTypes, ...(types || urls.map(() => 'image'))]);
+                  }}
                   multiple
                   maxFiles={4}
-                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm"
                   className="inline-block"
                 >
                   <div aria-hidden="true" className="flex items-center gap-1 p-2 rounded-full hover:bg-[var(--bg-secondary)] text-[var(--accent-primary)] transition-colors-fast">
@@ -143,11 +150,15 @@ export default function CreatePage() {
               )}>
                 {mediaUrls.map((url, index) => (
                   <div key={index} className="relative aspect-square rounded-lg overflow-hidden bg-[var(--bg-secondary)]">
-                    <img src={url} alt={`Upload ${index + 1}`} className="w-full h-full object-cover" />
+                    {mediaTypes[index] === 'video' ? (
+                      <video src={url} className="w-full h-full object-cover" muted playsInline />
+                    ) : (
+                      <img src={url} alt={`Upload ${index + 1}`} className="w-full h-full object-cover" />
+                    )}
                     <button
                       type="button"
                       onClick={() => removeMedia(index)}
-                      aria-label={`Remove image ${index + 1}`}
+                      aria-label={`Remove media ${index + 1}`}
                       className="absolute top-2 right-2 w-8 h-8 rounded-full bg-[var(--bg-overlay)] text-white flex items-center justify-center text-sm hover:bg-[var(--overlay)]"
                     >
                       ×
@@ -155,6 +166,10 @@ export default function CreatePage() {
                   </div>
                 ))}
               </div>
+            )}
+
+            {error && (
+              <p className="mt-3 text-sm text-[var(--destructive)]">{error}</p>
             )}
           </div>
         )}

@@ -157,28 +157,41 @@ export function PostCard({ post }: PostCardProps) {
           </p>
         </div>
 
-        {/* Images */}
+        {/* Media */}
         {post.images && post.images.length > 0 && (
           <div className="mb-3 rounded-xl overflow-hidden bg-[var(--bg-tertiary)]">
             <div className={cn(
               'grid gap-0.5',
               post.images.length === 1 ? '' : 'grid-cols-2'
             )}>
-              {post.images.slice(0, 4).map((image, i) => (
-                <div
-                  key={i}
-                  className={cn(
-                    'overflow-hidden',
-                    post.images!.length === 1 ? 'aspect-[4/5]' : 'aspect-square'
-                  )}
-                >
-                  <img
-                    src={image}
-                    alt={`Post image ${i + 1} by ${post.user.displayName}`}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              ))}
+              {post.images.slice(0, 4).map((image, i) => {
+                const isVideo = post.mediaTypes?.[i] === 'video';
+                return (
+                  <div
+                    key={i}
+                    className={cn(
+                      'overflow-hidden',
+                      post.images!.length === 1 ? 'aspect-[4/5]' : 'aspect-square'
+                    )}
+                  >
+                    {isVideo ? (
+                      <video
+                        src={image}
+                        className="w-full h-full object-cover"
+                        controls
+                        playsInline
+                        preload="metadata"
+                      />
+                    ) : (
+                      <img
+                        src={image}
+                        alt={`Post image ${i + 1} by ${post.user.displayName}`}
+                        className="w-full h-full object-cover"
+                      />
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -211,6 +224,14 @@ export function PostCard({ post }: PostCardProps) {
           </button>
 
           <button
+            onClick={() => {
+              const url = `${window.location.origin}/post/${post.id}`;
+              if (navigator.share) {
+                navigator.share({ title: `Post by ${post.user.displayName}`, url });
+              } else {
+                navigator.clipboard.writeText(url);
+              }
+            }}
             className="p-2 rounded-full text-[var(--text-muted)] hover:text-[var(--success)] hover:bg-[var(--bg-tertiary)] transition-all duration-200 active:scale-90"
             aria-label="Share"
           >

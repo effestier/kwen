@@ -23,7 +23,7 @@ interface FeedPost {
   display_name: string;
   username: string;
   avatar_url: string | null;
-  media: Array<{ id: string; storage_path: string; sort_order: number }>;
+  media: Array<{ id: string; storage_path: string; media_type: string; sort_order: number }>;
   tier: string;
 }
 
@@ -265,6 +265,7 @@ export default function FeedPage() {
                   user: { id: post.user_id, username: post.username, displayName: post.display_name, avatar: post.avatar_url || '', isVerified: false, bio: '', followers: 0, following: 0, posts: 0 },
                   content: post.content || '',
                   images: post.media?.map(m => m.storage_path) || [],
+                  mediaTypes: post.media?.map(m => m.media_type) || [],
                   likes: post.like_count,
                   comments: post.comment_count,
                   shares: 0,

@@ -34,6 +34,7 @@ interface PostWithDetails {
   like_count: number;
   comment_count: number;
   images: string[];
+  mediaTypes: string[];
 }
 
 export default function ExplorePage() {
@@ -50,6 +51,20 @@ export default function ExplorePage() {
   const searchRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
+
+  // Filter posts by active category
+  const filteredPosts = activeCategory === 'All' ? posts : posts.filter(post => {
+    const hasVideo = post.mediaTypes?.some(t => t === 'video');
+    const hasImage = post.mediaTypes?.some(t => t === 'image');
+    const isText = post.images.length === 0;
+    switch (activeCategory) {
+      case 'Photos': return hasImage && !hasVideo;
+      case 'Videos': return hasVideo;
+      case 'Reels': return hasVideo && post.images.length === 1;
+      case 'Text': return isText;
+      default: return true;
+    }
+  });
 
   // Scroll preservation
   useScrollPreservation({ key: 'explore' });
@@ -68,6 +83,7 @@ export default function ExplorePage() {
         user_username: p.username, user_display_name: p.display_name, user_avatar_url: p.avatar_url,
         like_count: p.like_count, comment_count: p.comment_count,
         images: (p.media || []).map((m: any) => m.storage_path),
+        mediaTypes: (p.media || []).map((m: any) => m.media_type || 'image'),
       }));
       setPosts(formatted);
       if (formatted.length > 0) setCursor(formatted[formatted.length - 1].created_at);
@@ -146,6 +162,7 @@ export default function ExplorePage() {
           like_count: p.like_count,
           comment_count: p.comment_count,
           images: (p.media || []).map((m: any) => m.storage_path),
+          mediaTypes: (p.media || []).map((m: any) => m.media_type || 'image'),
         }));
         setPosts(formatted);
         if (formatted.length > 0) {
@@ -182,6 +199,7 @@ export default function ExplorePage() {
             user_username: p.username, user_display_name: p.display_name, user_avatar_url: p.avatar_url,
             like_count: p.like_count, comment_count: p.comment_count,
             images: (p.media || []).map((m: any) => m.storage_path),
+            mediaTypes: (p.media || []).map((m: any) => m.media_type || 'image'),
           }));
           setPosts(prev => [...prev, ...formatted]);
           if (formatted.length > 0) setCursor(formatted[formatted.length - 1].created_at);
@@ -288,22 +306,38 @@ export default function ExplorePage() {
           <div className="p-1">
             <GridSkeleton columns={5} rows={3} />
           </div>
-        ) : posts.length > 0 ? (
+        ) : filteredPosts.length > 0 ? (
           <div className="p-1">
             <h2 className="text-sm font-semibold text-[var(--text-muted)] px-3 py-3">Discover</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-0.5">
-              {posts.map((post, index) => (
+              {filteredPosts.map((post, index) => (
                 <Link
                   key={post.id}
                   href={`/post/${post.id}`}
                   className="aspect-square bg-[var(--bg-secondary)] relative group block focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)] focus:ring-inset cursor-pointer"
                 >
                   {post.images?.[0] ? (
-                    <img
-                      src={post.images[0]}
-                      alt={`Post by ${post.user_display_name}`}
-                      className="w-full h-full object-cover"
-                    />
+                    post.mediaTypes?.[0] === 'video' ? (
+                      <div className="relative w-full h-full">
+                        <video
+                          src={post.images[0]}
+                          className="w-full h-full object-cover"
+                          muted
+                          playsInline
+                        />
+                        <div className="absolute top-2 right-2">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="white" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polygon points="5 3 19 12 5 21 5 3" />
+                          </svg>
+                        </div>
+                      </div>
+                    ) : (
+                      <img
+                        src={post.images[0]}
+                        alt={`Post by ${post.user_display_name}`}
+                        className="w-full h-full object-cover"
+                      />
+                    )
                   ) : post.content ? (
                     <div className="p-4 bg-[var(--bg-secondary)] rounded-lg" style={{ minHeight: '100px' }}>
                       <p className="text-sm text-[var(--text-secondary)] line-clamp-3">{post.content}</p>

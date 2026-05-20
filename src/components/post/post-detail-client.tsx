@@ -321,11 +321,21 @@ export function PostDetailClient({ postId }: { postId: string }) {
             {post.images.length > 0 ? (
               <div className="relative">
                 <div className="aspect-square lg:aspect-auto lg:max-h-[calc(100vh-56px)] lg:w-full">
-                  <img
-                    src={post.images[activeImage]}
-                    alt={`Post by ${post.user?.displayName || 'user'}`}
-                    className="w-full h-full object-contain lg:object-cover"
-                  />
+                  {post.mediaType[activeImage] === 'video' ? (
+                    <video
+                      src={post.images[activeImage]}
+                      className="w-full h-full object-contain lg:object-cover"
+                      controls
+                      playsInline
+                      autoPlay
+                    />
+                  ) : (
+                    <img
+                      src={post.images[activeImage]}
+                      alt={`Post by ${post.user?.displayName || 'user'}`}
+                      className="w-full h-full object-contain lg:object-cover"
+                    />
+                  )}
                 </div>
 
                 {post.images.length > 1 && (
@@ -535,6 +545,14 @@ export function PostDetailClient({ postId }: { postId: string }) {
                   </svg>
                 </button>
                 <button
+                  onClick={() => {
+                    const url = `${window.location.origin}/post/${post.id}`;
+                    if (navigator.share) {
+                      navigator.share({ title: `Post by ${post.user?.displayName || 'user'}`, url });
+                    } else {
+                      navigator.clipboard.writeText(url);
+                    }
+                  }}
                   aria-label="Share"
                   className="p-2 rounded-full text-[var(--text-muted)] hover:text-[var(--success)] transition-all active:scale-90"
                 >

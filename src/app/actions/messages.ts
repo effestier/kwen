@@ -260,8 +260,9 @@ export async function getMessages(conversationId: string) {
 
     // Filter out messages deleted for this user
     const visibleMessages = messages.filter(msg => {
-      if (!msg.deleted_for || msg.deleted_for.length === 0) return true
-      return !msg.deleted_for.includes(user.id)
+      const deletedFor = msg.deleted_for as string[] | null
+      if (!deletedFor || deletedFor.length === 0) return true
+      return !deletedFor.includes(user.id)
     })
 
     const senderIds = [...new Set(visibleMessages.map(m => m.sender_id))]
@@ -271,7 +272,10 @@ export async function getMessages(conversationId: string) {
 
     const [profilesResult, reactionsResult, replyToResult] = await Promise.all([
       supabase.from('profiles').select('id, username, display_name, avatar_url').in('id', senderIds),
-      supabase.from('message_reactions').select('message_id, user_id, emoji').in('message_id', visibleMessages.map(m => m.id)),
+      supabase.from('message_reactions').select('message_id, user_id, emoji').in('message_id', visibleMessages.map(m => m.id)).then(
+        (r) => r,
+        () => ({ data: [], error: null })
+      ),
       replyToIds.length > 0
         ? supabase.from('messages').select('id, content, sender_id, message_type, media_url, thumbnail_url').in('id', replyToIds)
         : Promise.resolve({ data: [] }),
@@ -336,7 +340,8 @@ export async function getMessages(conversationId: string) {
         reactionCounts[r.emoji].userIds.push(r.userId)
       }
 
-      const replyToData = msg.reply_to_message_id ? replyToMap.get(msg.reply_to_message_id) : null
+      const replyToMsgId = (msg as Record<string, unknown>).reply_to_message_id as string | null
+      const replyToData = replyToMsgId ? replyToMap.get(replyToMsgId) : null
       const replyToProfile = replyToData ? profileMap.get(replyToData.senderId) : null
 
       return {
@@ -355,7 +360,7 @@ export async function getMessages(conversationId: string) {
         file_size: msg.file_size || null,
         media_width: msg.media_width || null,
         media_height: msg.media_height || null,
-        reply_to_message_id: msg.reply_to_message_id || null,
+        reply_to_message_id: replyToMsgId || null,
         reply_to: replyToData ? {
           id: replyToData.id,
           content: replyToData.content,

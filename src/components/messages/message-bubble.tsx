@@ -49,7 +49,7 @@ export function MessageBubble({ message, showAvatar, onReact, onReply, onDelete,
   const bubbleRef = useRef<HTMLDivElement>(null);
 
   const isText = message.message_type === 'text' || message.message_type === 'mixed';
-  const hasReactions = Object.keys(message.reactions).length > 0;
+  const hasReactions = message.reactions ? Object.keys(message.reactions).length > 0 : false;
 
   // Long press handlers (mobile)
   const handleTouchStart = useCallback(() => {

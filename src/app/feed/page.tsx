@@ -277,7 +277,9 @@ export default function FeedPage() {
               {/* Infinite scroll sentinel */}
               <div ref={sentinelRef} className="h-1" />
               {loadingMore && (
-                <div className="py-8 text-center text-[var(--text-muted)] text-sm">Loading more...</div>
+                <div className="py-8 flex justify-center">
+                  <div className="animate-spin h-5 w-5 border-2 border-[var(--accent-primary)] border-t-transparent rounded-full" />
+                </div>
               )}
             </div>
           ) : (

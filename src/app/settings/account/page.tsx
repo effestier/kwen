@@ -5,6 +5,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Button } from '@/components/design-system';
 import { Avatar } from '@/components/ui/avatar';
 import { createClient } from '@/lib/supabase/client';
+import { SettingsSkeleton } from '@/components/design-system';
 
 interface Profile {
   id: string;
@@ -168,11 +169,7 @@ export default function AccountPage() {
   }
 
   if (loading) {
-    return (
-      <div role="status" className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin h-8 w-8 border-2 border-[var(--accent-primary)] border-t-transparent rounded-full" />
-      </div>
-    );
+    return <SettingsSkeleton />;
   }
 
   if (!profile) {

@@ -230,7 +230,7 @@ export function ConfirmationDialog({
                 : 'bg-[var(--accent-primary)] text-white hover:bg-[var(--accent-hover)]'
             )}
           >
-            {isLoading ? 'Loading...' : confirmText}
+            {isLoading ? 'Confirming...' : confirmText}
           </button>
         </div>
       </div>

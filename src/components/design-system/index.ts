@@ -14,5 +14,8 @@ export {
   StorySkeleton,
   GridSkeleton,
   ListSkeleton,
+  ReelSkeleton,
+  SettingsSkeleton,
+  PageSkeleton,
 } from './skeleton';
 export { ThemeToggle } from './theme-toggle';

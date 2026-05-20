@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { MainLayout } from '@/components/layout/main-layout';
 import { Avatar } from '@/components/ui/avatar';
+import { ReelSkeleton } from '@/components/design-system';
 
 interface Reel {
   id: string;
@@ -95,9 +96,7 @@ export default function ReelsPage() {
   if (loading) {
     return (
       <MainLayout>
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="animate-spin h-8 w-8 border-2 border-[var(--accent-primary)] border-t-transparent rounded-full" />
-        </div>
+        <ReelSkeleton />
       </MainLayout>
     );
   }

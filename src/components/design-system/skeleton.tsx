@@ -195,3 +195,91 @@ export function ListSkeleton({
     </div>
   );
 }
+
+export function ReelSkeleton({ className }: { className?: string }) {
+  return (
+    <div className={cn('relative w-full h-screen bg-[var(--bg-secondary)]', className)}>
+      <div className="absolute inset-0 flex items-center justify-center">
+        <Skeleton className="w-full h-full" />
+      </div>
+      <div className="absolute bottom-20 left-4 right-16 space-y-3">
+        <div className="flex items-center gap-2">
+          <AvatarSkeleton size="sm" />
+          <Skeleton variant="text" width={120} />
+        </div>
+        <TextSkeleton lines={2} className="w-3/4" />
+      </div>
+      <div className="absolute right-3 bottom-24 flex flex-col gap-6 items-center">
+        {[1, 2, 3, 4].map((i) => (
+          <Skeleton key={i} variant="circular" width={40} height={40} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function SettingsSkeleton({ className }: { className?: string }) {
+  return (
+    <div className={cn('space-y-6 p-4', className)}>
+      {/* Header */}
+      <div className="space-y-2">
+        <Skeleton variant="text" width={140} height={20} />
+        <Skeleton variant="text" width={200} height={14} />
+      </div>
+
+      {/* Avatar row */}
+      <div className="flex items-center gap-4">
+        <AvatarSkeleton size="xl" />
+        <div className="space-y-2">
+          <Skeleton variant="text" width={100} height={14} />
+          <Skeleton variant="text" width={80} height={12} />
+        </div>
+      </div>
+
+      {/* Form fields */}
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="space-y-2">
+          <Skeleton variant="text" width={80} height={12} />
+          <Skeleton height={40} className="rounded-lg" />
+        </div>
+      ))}
+
+      {/* Toggle rows */}
+      {[1, 2].map((i) => (
+        <div key={i} className="flex items-center justify-between py-3">
+          <div className="space-y-1">
+            <Skeleton variant="text" width={140} height={14} />
+            <Skeleton variant="text" width={200} height={12} />
+          </div>
+          <Skeleton width={44} height={24} className="rounded-full" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function PageSkeleton({ className }: { className?: string }) {
+  return (
+    <div className={cn('flex min-h-screen bg-[var(--bg-primary)]', className)}>
+      {/* Sidebar skeleton */}
+      <div className="hidden md:flex flex-col w-64 p-4 border-r border-[var(--border-subtle)] space-y-4">
+        <Skeleton variant="text" width={100} height={24} />
+        <div className="space-y-2 mt-4">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="flex items-center gap-3 px-3 py-2">
+              <Skeleton variant="rectangular" width={20} height={20} className="rounded" />
+              <Skeleton variant="text" width={80 + Math.random() * 40} />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Content skeleton */}
+      <div className="flex-1 max-w-2xl mx-auto p-4 space-y-4">
+        {[1, 2, 3].map((i) => (
+          <CardSkeleton key={i} />
+        ))}
+      </div>
+    </div>
+  );
+}

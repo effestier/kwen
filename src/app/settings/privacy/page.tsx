@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/design-system';
 import { Switch } from '@/components/design-system';
 import { createClient } from '@/lib/supabase/client';
+import { SettingsSkeleton } from '@/components/design-system';
 
 export default function PrivacyPage() {
   const router = useRouter();
@@ -75,11 +76,7 @@ export default function PrivacyPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin h-8 w-8 border-2 border-[var(--accent-primary)] border-t-transparent rounded-full" />
-      </div>
-    );
+    return <SettingsSkeleton />;
   }
 
   return (

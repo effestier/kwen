@@ -1,49 +1,44 @@
-// In-memory rate limiter for server actions
-// For production at scale, use Redis or Supabase table
+// Serverless-compatible rate limiter using Supabase
+// Replaces the in-memory Map that was bypassable on Vercel
 
-interface RateLimitEntry {
-  count: number;
-  resetAt: number;
-}
-
-const store = new Map<string, RateLimitEntry>();
-
-// Cleanup expired entries every 5 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, entry] of store) {
-    if (now > entry.resetAt) {
-      store.delete(key);
-    }
-  }
-}, 5 * 60 * 1000);
+import { createClient } from '@/lib/supabase/server'
 
 export interface RateLimitConfig {
   windowMs: number;
   maxAttempts: number;
 }
 
-export function checkRateLimit(
+export async function checkRateLimit(
   key: string,
   config: RateLimitConfig
-): { allowed: boolean; retryAfterMs?: number } {
-  const now = Date.now();
-  const entry = store.get(key);
+): Promise<{ allowed: boolean; retryAfterMs?: number }> {
+  try {
+    const supabase = await createClient()
 
-  if (!entry || now > entry.resetAt) {
-    store.set(key, { count: 1, resetAt: now + config.windowMs });
-    return { allowed: true };
-  }
+    const { data, error } = await supabase.rpc('check_rate_limit', {
+      p_key: key,
+      p_window_ms: config.windowMs,
+      p_max_attempts: config.maxAttempts,
+    })
 
-  if (entry.count >= config.maxAttempts) {
+    if (error) {
+      // If the RPC fails (e.g., migration not run), fail open
+      // to avoid locking out all users
+      console.error('[rate-limit] RPC error, failing open:', error.message)
+      return { allowed: true }
+    }
+
+    const result = data as { allowed: boolean; retry_after_ms?: number }
+
     return {
-      allowed: false,
-      retryAfterMs: entry.resetAt - now,
-    };
+      allowed: result.allowed,
+      retryAfterMs: result.retry_after_ms,
+    }
+  } catch (err) {
+    // Network/other error — fail open to avoid total lockout
+    console.error('[rate-limit] Error, failing open:', err)
+    return { allowed: true }
   }
-
-  entry.count++;
-  return { allowed: true };
 }
 
 
@@ -61,4 +56,9 @@ export const OTP_VERIFY_LIMIT: RateLimitConfig = {
 export const AUTH_LIMIT: RateLimitConfig = {
   windowMs: 60 * 1000, // 1 minute
   maxAttempts: 5,       // 5 auth actions per minute
+};
+
+export const UPLOAD_LIMIT: RateLimitConfig = {
+  windowMs: 60 * 1000, // 1 minute
+  maxAttempts: 10,      // 10 uploads per minute
 };

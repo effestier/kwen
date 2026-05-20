@@ -153,7 +153,7 @@ export async function sendOTP(email: string, turnstileToken: string): Promise<Au
 
     // Use stricter rate limit when Turnstile verification is degraded
     const rateConfig = turnstileResult.degraded ? OTP_SEND_LIMIT_DEGRADED : OTP_SEND_LIMIT;
-    const limit = checkRateLimit(`otp-send:${cleanEmail}`, rateConfig);
+    const limit = await checkRateLimit(`otp-send:${cleanEmail}`, rateConfig);
     if (!limit.allowed) {
       const seconds = Math.ceil((limit.retryAfterMs || 0) / 1000);
       return { error: `Too many requests. Try again in ${seconds}s.` };
@@ -197,7 +197,7 @@ export async function verifyOTP(email: string, token: string): Promise<AuthResul
     }
 
     // Rate limit: 10 verification attempts per 15 min per email
-    const limit = checkRateLimit(`otp-verify:${cleanEmail}`, OTP_VERIFY_LIMIT);
+    const limit = await checkRateLimit(`otp-verify:${cleanEmail}`, OTP_VERIFY_LIMIT);
     if (!limit.allowed) {
       const minutes = Math.ceil((limit.retryAfterMs || 0) / 60000);
       return { error: `Too many attempts. Try again in ${minutes} minute(s).` };
@@ -454,7 +454,7 @@ export async function signInWithPassword(email: string, password: string, turnst
       return { error: 'Security check failed. Please try again.' };
     }
 
-    const limit = checkRateLimit(`password-login:${cleanEmail}`, PASSWORD_LOGIN_LIMIT);
+    const limit = await checkRateLimit(`password-login:${cleanEmail}`, PASSWORD_LOGIN_LIMIT);
     if (!limit.allowed) {
       const minutes = Math.ceil((limit.retryAfterMs || 0) / 60000);
       return { error: `Too many login attempts. Try again in ${minutes} minute(s).` };
@@ -532,7 +532,7 @@ export async function sendPasswordReset(email: string, turnstileToken: string): 
       return { error: 'Security check failed. Please try again.' };
     }
 
-    const limit = checkRateLimit(`reset-pw:${cleanEmail}`, PASSWORD_RESET_LIMIT);
+    const limit = await checkRateLimit(`reset-pw:${cleanEmail}`, PASSWORD_RESET_LIMIT);
     if (!limit.allowed) {
       const minutes = Math.ceil((limit.retryAfterMs || 0) / 60000);
       return { error: `Too many reset requests. Try again in ${minutes} minute(s).` };

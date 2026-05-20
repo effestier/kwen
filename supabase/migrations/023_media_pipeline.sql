@@ -32,8 +32,8 @@ CREATE INDEX idx_media_deleted_at ON media(deleted_at) WHERE deleted_at IS NULL;
 -- STORAGE BUCKETS (new ones for pipeline)
 -- =============================================
 INSERT INTO storage.buckets (id, name, public, file_size_limit) VALUES
-  ('images', 'images', true, 5242880),
-  ('videos', 'videos', true, 52428800)
+  ('images', 'images', true, 10485760),
+  ('videos', 'videos', true, 104857600)
 ON CONFLICT (id) DO NOTHING;
 
 -- =============================================

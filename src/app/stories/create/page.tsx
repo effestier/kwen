@@ -14,6 +14,7 @@ import { StoryPreview } from '@/components/story/creator/story-preview';
 import { GifPicker } from '@/components/story/creator/gif-picker';
 import { StickerPicker } from '@/components/story/creator/sticker-picker';
 import { MusicPicker } from '@/components/story/creator/music-picker';
+import { uploadMedia } from '@/lib/media';
 
 interface Overlay {
   id: string;
@@ -190,37 +191,22 @@ export default function CreateStoryPage() {
         return;
       }
 
-      // Upload media to storage
-      const fileExt = mediaFile.name.split('.').pop();
-      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('stories')
-        .upload(fileName, mediaFile);
-
-      if (uploadError) {
-        alert(`Upload failed: ${uploadError.message}`);
-        return;
-      }
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('stories')
-        .getPublicUrl(fileName);
+      // Upload media with compression
+      const uploadResult = await uploadMedia(mediaFile, undefined, 'story');
 
       // Determine media type
-      const mediaType = mediaFile.type.startsWith('video') ? 'video' : 'image';
+      const mediaType = uploadResult.duration ? 'video' : 'image';
 
       // Insert story - build payload dynamically to handle missing columns
       const storyPayload: Record<string, any> = {
         user_id: user.id,
-        media_url: publicUrl,
+        media_url: uploadResult.url,
         media_type: mediaType,
         expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
       };
 
       // Try with visibility first, fallback without if column missing
       let story: { id: string } | null = null;
-      let insertError: any = null;
 
       const { data: insertedStory, error: storyError } = await supabase
         .from('stories')

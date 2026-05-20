@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { createPostWithMedia } from '@/services/media';
 import { cn } from '@/lib/utils';
+import type { UploadResult } from '@/lib/media';
 
 interface Profile {
   id: string;
@@ -21,6 +22,7 @@ export default function CreatePage() {
   const [location, setLocation] = useState('');
   const [mediaUrls, setMediaUrls] = useState<string[]>([]);
   const [mediaTypes, setMediaTypes] = useState<string[]>([]);
+  const [mediaResults, setMediaResults] = useState<UploadResult[]>([]);
   const [user, setUser] = useState<Profile | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +59,9 @@ export default function CreatePage() {
     formData.set('content', content);
     formData.set('location', location);
     formData.set('mediaUrls', JSON.stringify(mediaUrls));
+    if (mediaResults.length > 0) {
+      formData.set('mediaResults', JSON.stringify(mediaResults));
+    }
 
     const result = await createPostWithMedia(formData);
 
@@ -72,6 +77,7 @@ export default function CreatePage() {
   const removeMedia = (index: number) => {
     setMediaUrls(mediaUrls.filter((_, i) => i !== index));
     setMediaTypes(mediaTypes.filter((_, i) => i !== index));
+    setMediaResults(mediaResults.filter((_, i) => i !== index));
   };
 
   return (
@@ -114,9 +120,10 @@ export default function CreatePage() {
               <div className="flex items-center gap-1">
                 <FileUpload
                   type="post"
-                  onUpload={(urls, types?) => {
+                  onUpload={(urls, types?, results?) => {
                     setMediaUrls([...mediaUrls, ...urls]);
                     setMediaTypes([...mediaTypes, ...(types || urls.map(() => 'image'))]);
+                    if (results) setMediaResults([...mediaResults, ...results]);
                   }}
                   multiple
                   maxFiles={4}

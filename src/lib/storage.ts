@@ -21,16 +21,16 @@ export const UPLOAD_CONFIGS: Record<UploadType, UploadConfig> = {
   post: {
     bucket: 'posts',
     folder: 'posts',
-    maxSize: 10 * 1024 * 1024, // 10MB per image
-    allowedTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/webm'],
-    allowedExtensions: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'webm'],
+    maxSize: 100 * 1024 * 1024, // 100MB (videos)
+    allowedTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/webm', 'video/quicktime'],
+    allowedExtensions: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'webm', 'mov'],
   },
   story: {
     bucket: 'stories',
     folder: 'stories',
-    maxSize: 50 * 1024 * 1024, // 50MB for stories
-    allowedTypes: ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/webm'],
-    allowedExtensions: ['jpg', 'jpeg', 'png', 'webp', 'mp4', 'webm'],
+    maxSize: 200 * 1024 * 1024, // 200MB for stories (videos)
+    allowedTypes: ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/webm', 'video/quicktime'],
+    allowedExtensions: ['jpg', 'jpeg', 'png', 'webp', 'mp4', 'webm', 'mov'],
   },
   message: {
     bucket: 'messages',

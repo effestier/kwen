@@ -7,6 +7,7 @@ import { StoryViewer } from './story-viewer';
 import { uploadStory } from '@/services/media';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
+import { uploadMedia } from '@/lib/media';
 
 interface Story {
   id: string;
@@ -103,43 +104,16 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
     setIsUploading(true);
 
     try {
-      // Get auth user
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-
-      if (!authUser) {
-        alert('Please sign in to add a story');
-        return;
-      }
-
-      // Upload to storage
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${authUser.id}/${Date.now()}.${fileExt}`;
-      const mediaType = file.type.startsWith('video') ? 'video' : 'image';
-
-
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('stories')
-        .upload(fileName, file);
-
-
-      if (uploadError) {
-        alert(`Storage error: ${uploadError.message}`);
-        return;
-      }
-
-      const { data: urlData } = supabase.storage
-        .from('stories')
-        .getPublicUrl(fileName);
-
+      // Upload with compression
+      const result = await uploadMedia(file, undefined, 'story');
 
       // Create story record
-      const result = await uploadStory(urlData.publicUrl, mediaType);
+      const mediaType = result.duration ? 'video' : 'image';
+      const storyResult = await uploadStory(result.url, mediaType);
 
-
-      if (result.error) {
-        alert(`Failed to create story: ${result.error}`);
+      if (storyResult.error) {
+        alert(`Failed to create story: ${storyResult.error}`);
       } else {
-
         // Trigger parent refresh - this will update stories prop
         onUploadSuccess?.();
       }

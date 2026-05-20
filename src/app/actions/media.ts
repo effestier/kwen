@@ -172,6 +172,7 @@ export async function createPostWithMedia(formData: FormData) {
     const content = (formData.get('content') as string | null)?.trim().slice(0, 5000) || null
     const location = (formData.get('location') as string | null)?.trim().slice(0, 200) || null
     const mediaUrlsRaw = formData.get('mediaUrls') as string | null
+    const mediaResultsRaw = formData.get('mediaResults') as string | null
 
     if (!content && !mediaUrlsRaw) {
       return { error: 'Post must have content or images' }
@@ -179,6 +180,7 @@ export async function createPostWithMedia(formData: FormData) {
 
     let mediaUrl: string | null = null
     let urls: string[] = []
+    let mediaResults: Array<{ id?: string; url: string; thumbnailUrl?: string; width?: number; height?: number; duration?: number; format?: string; originalSize?: number; compressedSize?: number }> = []
 
     if (mediaUrlsRaw) {
       try {
@@ -200,6 +202,14 @@ export async function createPostWithMedia(formData: FormData) {
       }
     }
 
+    if (mediaResultsRaw) {
+      try {
+        mediaResults = JSON.parse(mediaResultsRaw)
+      } catch {
+        // Ignore if not provided
+      }
+    }
+
     const { data: post, error: postError } = await supabase
       .from('posts')
       .insert({
@@ -218,8 +228,9 @@ export async function createPostWithMedia(formData: FormData) {
     // Add media to post_media table
     if (urls.length > 0) {
       const mediaRecords = urls.map((url, index) => {
-        const ext = url.split('.').pop()?.toLowerCase() || ''
-        const isVideo = ['mp4', 'webm', 'mov', 'avi'].includes(ext)
+        const result = mediaResults[index]
+        const ext = url.split('.').pop()?.toLowerCase() || result?.format || ''
+        const isVideo = ['mp4', 'webm', 'mov', 'avi'].includes(ext) || !!result?.duration
         return {
           post_id: post.id,
           storage_path: url,

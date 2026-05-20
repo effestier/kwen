@@ -3,11 +3,11 @@
 import { useState, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { validateFile, UploadType } from '@/lib/storage'
-import { createClient } from '@/lib/supabase/client'
+import { uploadMedia, type UploadProgress, type UploadResult } from '@/lib/media'
 
 interface FileUploadProps {
   type: UploadType
-  onUpload: (urls: string[], types?: string[]) => void
+  onUpload: (urls: string[], types?: string[], results?: UploadResult[]) => void
   multiple?: boolean
   maxFiles?: number
   className?: string
@@ -29,8 +29,8 @@ export function FileUpload({
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [uploadProgress, setUploadProgress] = useState(0)
+  const [progressMessage, setProgressMessage] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const supabase = createClient()
 
   const handleClick = () => {
     inputRef.current?.click()
@@ -40,6 +40,7 @@ export function FileUpload({
     if (!files || files.length === 0) return
 
     setError(null)
+    setProgressMessage(null)
 
     // Validate all files first
     const validFiles: File[] = []
@@ -76,56 +77,39 @@ export function FileUpload({
     setPreviews(newPreviews)
     setFileTypes(validFiles.map(f => f.type))
 
-    // Upload
+    // Upload with compression
     setUploading(true)
     setUploadProgress(0)
 
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        setError('Not authenticated')
-        setUploading(false)
-        return
-      }
-
       const uploadedUrls: string[] = []
-      const bucket = type === 'avatar' ? 'avatars' : type === 'story' ? 'stories' : type === 'message' ? 'messages' : 'posts'
-      const folder = type
+      const uploadedResults: UploadResult[] = []
+      const mediaTypes: string[] = []
 
       for (let i = 0; i < validFiles.length; i++) {
         const file = validFiles[i]
-        const ext = file.name.split('.').pop() || 'jpg'
-        const timestamp = Date.now()
-        const random = Math.random().toString(36).substring(2, 8)
-        const fileName = `${user.id}/${timestamp}-${i}-${random}.${ext}`
+        const mediaContext = type === 'avatar' ? 'avatar' : type === 'story' ? 'story' : type === 'message' ? 'message' : 'post'
 
-        const { data, error: uploadError } = await supabase.storage
-          .from(bucket)
-          .upload(fileName, file, {
-            cacheControl: '3600',
-            upsert: false,
-            contentType: file.type,
-          })
+        const result = await uploadMedia(file, (progress: UploadProgress) => {
+          // Each file contributes equally to total progress
+          const fileWeight = 1 / validFiles.length
+          const baseProgress = i * fileWeight * 100
+          const fileProgress = progress.percent * fileWeight
+          setUploadProgress(Math.round(baseProgress + fileProgress))
+          setProgressMessage(progress.message || null)
+        }, mediaContext)
 
-        if (uploadError) {
-          setError(uploadError.message)
-          setUploading(false)
-          return
-        }
-
-        const { data: urlData } = supabase.storage
-          .from(bucket)
-          .getPublicUrl(fileName)
-
-        uploadedUrls.push(urlData.publicUrl)
-        setUploadProgress(Math.round(((i + 1) / validFiles.length) * 100))
+        uploadedUrls.push(result.url)
+        uploadedResults.push(result)
+        mediaTypes.push(result.duration ? 'video' : 'image')
       }
 
-      onUpload(uploadedUrls, validFiles.map(f => f.type.startsWith('video') ? 'video' : 'image'))
+      onUpload(uploadedUrls, mediaTypes, uploadedResults)
     } catch (err) {
-      setError('Upload failed')
+      setError(err instanceof Error ? err.message : 'Upload failed')
     } finally {
       setUploading(false)
+      setProgressMessage(null)
     }
   }
 
@@ -179,11 +163,16 @@ export function FileUpload({
           </div>
 
           {uploading && (
-            <div className="w-full bg-[var(--bg-tertiary)] rounded-full h-2">
-              <div
-                className="bg-[var(--accent-primary)] h-2 rounded-full transition-all"
-                style={{ width: `${uploadProgress}%` }}
-              />
+            <div className="space-y-1">
+              <div className="w-full bg-[var(--bg-tertiary)] rounded-full h-2">
+                <div
+                  className="bg-[var(--accent-primary)] h-2 rounded-full transition-all"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+              {progressMessage && (
+                <p className="text-xs text-[var(--text-muted)]">{progressMessage}</p>
+              )}
             </div>
           )}
 
@@ -210,7 +199,7 @@ export function FileUpload({
           {children || (
             <div className="border-2 border-dashed border-[var(--border-soft)] rounded-lg p-6 text-center hover:border-[var(--accent-primary)] transition-colors">
               <p className="text-sm text-[var(--text-muted)]">
-                {uploading ? 'Uploading...' : 'Click to upload'}
+                {uploading ? (progressMessage || 'Processing...') : 'Click to upload'}
               </p>
             </div>
           )}

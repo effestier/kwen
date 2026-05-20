@@ -799,7 +799,7 @@ export default function MessagesPage() {
       {/* Expose unread count for sidebar/mobile nav to read */}
       <div id="messages-unread-count" data-count={totalUnread} className="hidden" />
 
-      <div className="flex h-[calc(100vh-57px)]">
+      <div className="flex h-[calc(100dvh-57px)] lg:h-[calc(100vh-57px)]">
         {/* Conversations List */}
         <div className={cn(
           "w-full md:w-80 border-r border-[var(--border-subtle)] flex flex-col bg-[var(--bg-primary)]",
@@ -808,7 +808,7 @@ export default function MessagesPage() {
           <div className="p-4 border-b border-[var(--border-subtle)]">
             <h1 className="text-xl font-bold text-[var(--text-primary)]">Messages</h1>
           </div>
-          <div role="list" aria-label="Conversations" className="flex-1 overflow-y-auto">
+          <div role="list" aria-label="Conversations" className="flex-1 min-h-0 overflow-y-auto">
             {loading ? (
               <div role="status" className="p-4">
                 <ListSkeleton items={6} />
@@ -913,7 +913,7 @@ export default function MessagesPage() {
               </div>
 
               {/* Messages */}
-              <div role="log" aria-label="Messages" aria-live="polite" className="flex-1 overflow-y-auto px-4 py-2">
+              <div role="log" aria-label="Messages" aria-live="polite" className="flex-1 min-h-0 overflow-y-auto px-4 py-2">
                 {loadingMessages ? (
                   <div role="status" className="py-2 space-y-3">
                     {[40, 60, 50, 55, 35, 50].map((w, i) => (
@@ -984,7 +984,7 @@ export default function MessagesPage() {
               </div>
 
               {/* Message Input */}
-              <form onSubmit={handleSend} className="p-3 border-t border-[var(--border-subtle)]">
+              <form onSubmit={handleSend} className="p-3 border-t border-[var(--border-subtle)] shrink-0">
                 {/* Reply preview */}
                 {replyTo && (
                   <ReplyPreview

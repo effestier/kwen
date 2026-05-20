@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { signInWithPassword, sendOTP, verifyOTP } from '@/services/auth';
+import { signInWithPassword, sendOTP, verifyOTP } from '@/app/actions/otp-auth';
 import { BRAND } from '@/lib/brand/config';
 import { TurnstileWidget } from '@/components/auth/turnstile-widget';
 import { isNativePlatform } from '@/lib/platform';

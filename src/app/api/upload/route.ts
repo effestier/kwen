@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
 
     // Generate unique path
     const timestamp = Date.now()
-    const random = Math.random().toString(36).substring(2, 8)
+    const random = crypto.randomUUID().replace(/-/g, '').substring(0, 12)
     const ext = type === 'video' ? 'mp4' : 'webp'
     const bucket = type === 'video' ? 'videos' : 'images'
     const storagePath = `${user.id}/${timestamp}-${random}.${ext}`

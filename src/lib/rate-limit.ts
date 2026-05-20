@@ -22,10 +22,10 @@ export async function checkRateLimit(
     })
 
     if (error) {
-      // If the RPC fails (e.g., migration not run), fail open
-      // to avoid locking out all users
-      console.error('[rate-limit] RPC error, failing open:', error.message)
-      return { allowed: true }
+      // If the RPC fails, fail CLOSED for auth-related checks
+      // to prevent bypassing rate limits during outages
+      console.error('[rate-limit] RPC error, failing closed:', error.message)
+      return { allowed: false, retryAfterMs: 60000 }
     }
 
     const result = data as { allowed: boolean; retry_after_ms?: number }
@@ -35,9 +35,9 @@ export async function checkRateLimit(
       retryAfterMs: result.retry_after_ms,
     }
   } catch (err) {
-    // Network/other error — fail open to avoid total lockout
-    console.error('[rate-limit] Error, failing open:', err)
-    return { allowed: true }
+    // Network/other error — fail closed to prevent bypass
+    console.error('[rate-limit] Error, failing closed:', err)
+    return { allowed: false, retryAfterMs: 60000 }
   }
 }
 

@@ -303,6 +303,16 @@ export async function addStoryMusic(storyId: string, trackName: string, artist: 
   if (!artist || artist.length > 200) return { error: 'Invalid artist' }
   if (!previewUrl || previewUrl.length > 500) return { error: 'Invalid preview URL' }
   if (!coverUrl || coverUrl.length > 500) return { error: 'Invalid cover URL' }
+  // Validate URLs are safe (https only, no javascript: etc.)
+  try {
+    const pUrl = new URL(previewUrl);
+    const cUrl = new URL(coverUrl);
+    if (pUrl.protocol !== 'https:' || cUrl.protocol !== 'https:') {
+      return { error: 'URLs must use HTTPS' };
+    }
+  } catch {
+    return { error: 'Invalid URL format' };
+  }
 
   // Verify user owns the story
   const { data: story } = await supabase

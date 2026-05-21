@@ -2,12 +2,17 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { Avatar } from '@/components/ui/avatar';
-import { StoryViewer } from './story-viewer';
 import { uploadStory } from '@/services/media';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import { uploadMedia } from '@/lib/media';
+
+const StoryViewer = dynamic(() => import('./story-viewer').then(mod => ({ default: mod.StoryViewer })), {
+  loading: () => null,
+  ssr: false,
+});
 
 interface Story {
   id: string;

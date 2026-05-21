@@ -1,11 +1,16 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import dynamic from 'next/dynamic'
 import { MainLayout } from '@/components/layout/main-layout'
 import { createClient } from '@/lib/supabase/client'
 import { ArchiveGrid } from '@/components/archive/archive-grid'
-import { ArchiveViewer } from '@/components/archive/archive-viewer'
 import type { ArchivedStory } from '@/services/archive'
+
+const ArchiveViewer = dynamic(() => import('@/components/archive/archive-viewer').then(mod => ({ default: mod.ArchiveViewer })), {
+  loading: () => null,
+  ssr: false,
+})
 
 export default function ArchivePage() {
   const [activeTab, setActiveTab] = useState<'stories' | 'posts'>('stories')

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { MainLayout } from '@/components/layout/main-layout';
 import { createClient } from '@/lib/supabase/client';
 import { MediaPicker } from '@/components/story/creator/media-picker';
@@ -10,12 +11,28 @@ import { DrawingTool } from '@/components/story/creator/drawing-tool';
 import { FiltersPanel } from '@/components/story/creator/filters-panel';
 import { CropPanel } from '@/components/story/creator/crop-panel';
 import { AudienceSelector } from '@/components/story/creator/audience-selector';
-import { StoryPreview } from '@/components/story/creator/story-preview';
-import { GifPicker } from '@/components/story/creator/gif-picker';
-import { StickerPicker } from '@/components/story/creator/sticker-picker';
-import { MusicPicker } from '@/components/story/creator/music-picker';
 import { uploadMedia } from '@/lib/media';
 import { createPoll, createQuestion, createCountdown } from '@/services/stickers';
+
+const StoryPreview = dynamic(() => import('@/components/story/creator/story-preview').then(mod => ({ default: mod.StoryPreview })), {
+  loading: () => null,
+  ssr: false,
+});
+
+const GifPicker = dynamic(() => import('@/components/story/creator/gif-picker').then(mod => ({ default: mod.GifPicker })), {
+  loading: () => null,
+  ssr: false,
+});
+
+const StickerPicker = dynamic(() => import('@/components/story/creator/sticker-picker').then(mod => ({ default: mod.StickerPicker })), {
+  loading: () => null,
+  ssr: false,
+});
+
+const MusicPicker = dynamic(() => import('@/components/story/creator/music-picker').then(mod => ({ default: mod.MusicPicker })), {
+  loading: () => null,
+  ssr: false,
+});
 
 interface Overlay {
   id: string;

@@ -111,7 +111,7 @@ export function ArchiveGrid({ onStoryClick }: ArchiveGridProps) {
             {stories.length === 0 && !isLoadingThisMonth ? (
               <button
                 onClick={() => {
-                  const { data: { user } } = supabase.auth.getUser().then(({ data: { user } }) => {
+                  supabase.auth.getUser().then(({ data: { user } }) => {
                     if (user) loadMonthStories(user.id, m.month)
                   })
                 }}

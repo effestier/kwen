@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { MainLayout } from '@/components/layout/main-layout';
 import { Avatar } from '@/components/ui/avatar';
 import { createClient } from '@/lib/supabase/client';
@@ -11,13 +12,25 @@ import Link from 'next/link';
 import { toggleFollow } from '@/services/follows';
 import { getOrCreateConversation } from '@/services/messages';
 import { useRouter } from 'next/navigation';
-import { FollowersModal } from '@/components/modals/followers-modal';
 import { hapticMedium } from '@/lib/haptics';
 import { HighlightsRow } from '@/components/highlights/highlights-row';
-import { HighlightViewer } from '@/components/highlights/highlight-viewer';
-import { CreateHighlightModal } from '@/components/highlights/create-highlight-modal';
 import { getUserHighlights, getHighlightStories } from '@/services/highlights';
 import type { Highlight, HighlightStory } from '@/services/highlights';
+
+const HighlightViewer = dynamic(() => import('@/components/highlights/highlight-viewer').then(mod => ({ default: mod.HighlightViewer })), {
+  loading: () => null,
+  ssr: false,
+});
+
+const CreateHighlightModal = dynamic(() => import('@/components/highlights/create-highlight-modal').then(mod => ({ default: mod.CreateHighlightModal })), {
+  loading: () => null,
+  ssr: false,
+});
+
+const FollowersModal = dynamic(() => import('@/components/modals/followers-modal').then(mod => ({ default: mod.FollowersModal })), {
+  loading: () => null,
+  ssr: false,
+});
 
 const tabs = ['posts', 'reels', 'likes', 'saved'];
 

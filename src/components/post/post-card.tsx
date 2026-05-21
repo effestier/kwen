@@ -3,13 +3,18 @@ import { cn, formatNumber, formatTimeAgo } from '@/lib/utils';
 import { Avatar } from '@/components/ui/avatar';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { toggleLike as togglePostLike, toggleSave as togglePostSave, deletePost, restorePost, blockUser, muteUser, incrementShareCount } from '@/services/posts';
 import { hapticLight } from '@/lib/haptics';
-import { CommentsModal } from '@/components/comments/comments-modal';
 import { getCommentCount } from '@/services/comments';
 import { createClient } from '@/lib/supabase/client';
 import { EditPostModal } from '@/components/post/edit-post-modal';
 import { renderRichText } from '@/lib/text-utils';
+
+const CommentsModal = dynamic(() => import('@/components/comments/comments-modal').then(mod => ({ default: mod.CommentsModal })), {
+  loading: () => null,
+  ssr: false,
+});
 
 interface PostCardProps {
   post: Post;

@@ -10,8 +10,8 @@ export interface AuthResult {
 }
 
 async function verifyTurnstile(token: string): Promise<{ valid: boolean; degraded: boolean }> {
-  // Skip verification for bypass tokens
-  if (token === 'native-app-bypass' || token === 'skip-turnstile' || isNativePlatform()) {
+  // Native app: skip Turnstile entirely (server verifies via User-Agent)
+  if (isNativePlatform()) {
     return { valid: true, degraded: false };
   }
 
@@ -111,8 +111,8 @@ export async function verifyOTP(email: string, token: string): Promise<AuthResul
     if (!cleanEmail || !isValidEmail(cleanEmail)) {
       return { error: 'Invalid email' };
     }
-    if (!cleanToken || cleanToken.length !== 8 || !/^\d{8}$/.test(cleanToken)) {
-      return { error: 'Please enter the 8-digit code' };
+    if (!cleanToken || cleanToken.length !== 6 || !/^\d{6}$/.test(cleanToken)) {
+      return { error: 'Please enter the 6-digit code' };
     }
 
     const supabase = createClient();

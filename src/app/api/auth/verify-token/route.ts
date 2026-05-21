@@ -32,8 +32,14 @@ export async function POST(req: NextRequest) {
     }
 
     // Native app bypass — Capacitor can't run Turnstile
-    // Stricter rate limit: 5/min per IP for bypass tokens
+    // Verify the request actually comes from a native app via User-Agent
     if (token === 'native-app-bypass') {
+      const ua = req.headers.get('user-agent') || '';
+      const isNative = ua.includes('Capacitor') || ua.includes('okhttp');
+      if (!isNative) {
+        return NextResponse.json({ valid: false, error: 'Invalid request' }, { status: 403 });
+      }
+      // Stricter rate limit: 5/min per IP for bypass tokens
       const bypassLimit = checkAuthRateLimit(`verify-bypass:${ip}`, 5, 60 * 1000);
       if (!bypassLimit.allowed) {
         return NextResponse.json(

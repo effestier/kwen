@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { checkRateLimit } from '@/lib/rate-limit';
-import { createClient } from '@/lib/supabase/server';
 
 const TURNSTILE_SECRET = process.env.TURNSTILE_SECRET_KEY || '';
 
@@ -12,24 +10,6 @@ function getClientIP(req: NextRequest): string {
 
 export async function POST(req: NextRequest) {
   const ip = getClientIP(req);
-
-  // Rate limit per IP using Supabase RPC (distributed, not in-memory)
-  const limit = await checkRateLimit(`verify-token:${ip}`, {
-    windowMs: 60 * 1000,
-    maxAttempts: 10,
-  });
-
-  console.log('[verify-token] Rate limit check:', { ip, allowed: limit.allowed, retryAfterMs: limit.retryAfterMs });
-
-  if (!limit.allowed) {
-    return NextResponse.json(
-      { valid: false, error: 'Too many requests' },
-      {
-        status: 429,
-        headers: { 'Retry-After': String(Math.ceil((limit.retryAfterMs || 60000) / 1000)) },
-      }
-    );
-  }
 
   try {
     const body = await req.json();
@@ -55,17 +35,6 @@ export async function POST(req: NextRequest) {
       const isNative = ua.includes('Capacitor') || ua.includes('okhttp');
       if (!isNative) {
         return NextResponse.json({ valid: false, error: 'Invalid request' }, { status: 403 });
-      }
-      // Stricter rate limit: 5/min per IP for bypass tokens
-      const bypassLimit = await checkRateLimit(`verify-bypass:${ip}`, {
-        windowMs: 60 * 1000,
-        maxAttempts: 5,
-      });
-      if (!bypassLimit.allowed) {
-        return NextResponse.json(
-          { valid: false, error: 'Too many requests' },
-          { status: 429, headers: { 'Retry-After': String(Math.ceil((bypassLimit.retryAfterMs || 60000) / 1000)) } }
-        );
       }
       return NextResponse.json({ valid: true, degraded: false });
     }

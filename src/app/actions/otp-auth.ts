@@ -198,8 +198,8 @@ export async function verifyOTP(email: string, token: string): Promise<AuthResul
       return { error: 'Invalid email' };
     }
 
-    if (!cleanToken || cleanToken.length !== 8 || !/^\d{8}$/.test(cleanToken)) {
-      return { error: 'Please enter the 8-digit code' };
+    if (!cleanToken || cleanToken.length !== 6 || !/^\d{6}$/.test(cleanToken)) {
+      return { error: 'Please enter the 6-digit code' };
     }
 
     // Rate limit: 10 verification attempts per 15 min per email

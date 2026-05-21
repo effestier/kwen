@@ -1,4 +1,4 @@
-'use server';
+// Server action converted to client-side for static export
 
 import { createClient } from '@/lib/supabase/client';
 

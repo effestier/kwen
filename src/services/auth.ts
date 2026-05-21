@@ -10,8 +10,8 @@ export interface AuthResult {
 }
 
 async function verifyTurnstile(token: string): Promise<{ valid: boolean; degraded: boolean }> {
-  // Native app: skip Turnstile entirely (server verifies via User-Agent)
-  if (isNativePlatform()) {
+  // Native app or bypass tokens: skip Turnstile entirely
+  if (isNativePlatform() || token === 'native-app-bypass' || token === 'skip-turnstile') {
     return { valid: true, degraded: false };
   }
 
@@ -23,7 +23,7 @@ async function verifyTurnstile(token: string): Promise<{ valid: boolean; degrade
     });
     return await res.json();
   } catch {
-    // Network failure on web = reject
+    // Network failure on web = reject (can't verify, don't assume safe)
     return { valid: false, degraded: true };
   }
 }

@@ -87,14 +87,15 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (loading) return;
 
-    const isPublic = PUBLIC_ROUTES.includes(pathname) || pathname.startsWith('/auth/reset-password');
+    const normalizedPath = pathname.endsWith('/') && pathname !== '/' ? pathname.slice(0, -1) : pathname;
+    const isPublic = PUBLIC_ROUTES.includes(normalizedPath) || normalizedPath.startsWith('/auth/reset-password');
 
     if (!hasUser && !isPublic) {
       if (!redirectedRef.current) {
         redirectedRef.current = true;
         router.replace('/auth/login');
       }
-    } else if (hasUser && pathname.startsWith('/auth/') && pathname !== '/auth/reset-password') {
+    } else if (hasUser && normalizedPath.startsWith('/auth/') && normalizedPath !== '/auth/reset-password') {
       router.replace('/feed');
     } else if (hasUser) {
       redirectedRef.current = false;

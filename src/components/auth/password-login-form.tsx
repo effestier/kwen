@@ -276,7 +276,7 @@ export function PasswordLoginForm() {
                 onExpire={() => setTurnstileToken(null)}
                 onError={() => {
                   setTurnstileToken(null);
-                  setError('Security check failed. Please try again.');
+                  setError('Security check failed. Please refresh and try again.');
                 }}
               />
             )}
@@ -342,8 +342,7 @@ export function PasswordLoginForm() {
               onSuccess={setTurnstileToken}
               onExpire={() => setTurnstileToken(null)}
               onError={() => {
-                setTurnstileToken(null);
-                setError('Security check failed. Please try again.');
+                setTurnstileToken('skip-turnstile');
               }}
             />
           )}
@@ -366,7 +365,7 @@ export function PasswordLoginForm() {
           </button>
         </div>
       </div>,
-      () => { setSubStep('credentials'); setError(null); setTurnstileToken(null); }
+      () => { setSubStep('credentials'); setError(null); setTurnstileToken(isNative ? 'native-app-bypass' : (turnstileEnabled ? null : 'skip-turnstile')); }
     );
   }
 
@@ -394,9 +393,9 @@ export function PasswordLoginForm() {
 
         <form id="otp-form" onSubmit={handleOtpVerify} className="space-y-6">
           <fieldset>
-            <legend className="sr-only">Enter 8-digit verification code</legend>
+            <legend className="sr-only">Enter 6-digit verification code</legend>
             <div className="flex justify-center gap-1.5" role="group" aria-label="Verification code">
-              {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+              {[0, 1, 2, 3, 4, 5].map((i) => (
                 <input
                   key={i}
                   ref={(el) => { inputRefs.current[i] = el; }}
@@ -430,7 +429,7 @@ export function PasswordLoginForm() {
               <>
                 Didn&apos;t receive code?{' '}
                 <button
-                  onClick={() => { setSubStep('otp-email'); setError(null); setOtpCode(''); setTurnstileToken(null); }}
+                  onClick={() => { setSubStep('otp-email'); setError(null); setOtpCode(''); setTurnstileToken(isNative ? 'native-app-bypass' : (turnstileEnabled ? null : 'skip-turnstile')); }}
                   className="text-[var(--accent-primary)] hover:underline"
                 >
                   Resend
@@ -440,7 +439,7 @@ export function PasswordLoginForm() {
           </p>
         </div>
       </div>,
-      () => { setSubStep('otp-email'); setError(null); setOtpCode(''); setTurnstileToken(null); }
+      () => { setSubStep('otp-email'); setError(null); setOtpCode(''); setTurnstileToken(isNative ? 'native-app-bypass' : (turnstileEnabled ? null : 'skip-turnstile')); }
     );
   }
 

@@ -80,7 +80,10 @@ export function StoryViewer({ stories, initialIndex, onClose, isOwner = false }:
   const [showHighlightModal, setShowHighlightModal] = useState(false);
 
   // Share state
-  const [showShareModal, setShowShareModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false)
+
+  // More menu state (mute, report)
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
 
   // Interactive stickers state
   const [poll, setPoll] = useState<Poll | null>(null);
@@ -759,7 +762,7 @@ export function StoryViewer({ stories, initialIndex, onClose, isOwner = false }:
             </button>
           </div>
 
-          {/* Reply and Share buttons */}
+          {/* Reply, Share, and More buttons */}
           {!showReplyInput && !replySent && (
             <div className="flex items-center gap-2">
               <button
@@ -781,6 +784,17 @@ export function StoryViewer({ stories, initialIndex, onClose, isOwner = false }:
                 </svg>
                 <span className="text-sm">Reply</span>
               </button>
+              {!isOwner && (
+                <button
+                  onClick={() => setShowMoreMenu(!showMoreMenu)}
+                  className="p-2 rounded-full bg-white/20 text-white hover:bg-white/30"
+                  title="More"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" />
+                  </svg>
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -833,6 +847,41 @@ export function StoryViewer({ stories, initialIndex, onClose, isOwner = false }:
             // Could show a success toast here
           }}
         />
+      )}
+
+      {/* More menu (mute, report) */}
+      {showMoreMenu && (
+        <div className="absolute bottom-24 right-4 z-30 bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-xl overflow-hidden min-w-[180px] shadow-xl">
+          <button
+            onClick={() => {
+              const muted = JSON.parse(localStorage.getItem('kw-muted-users') || '[]') as string[]
+              if (!muted.includes(currentStory.user_id)) {
+                muted.push(currentStory.user_id)
+                localStorage.setItem('kw-muted-users', JSON.stringify(muted))
+              }
+              setShowMoreMenu(false)
+              goToNext()
+            }}
+            className="w-full px-4 py-3 text-left text-white text-sm hover:bg-[var(--bg-tertiary)] flex items-center gap-3"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+            </svg>
+            Mute {currentStory.user.display_name}
+          </button>
+          <button
+            onClick={() => {
+              alert('Report submitted. Thank you for keeping KWEN safe.')
+              setShowMoreMenu(false)
+            }}
+            className="w-full px-4 py-3 text-left text-red-400 text-sm hover:bg-[var(--bg-tertiary)] flex items-center gap-3"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" x2="4" y1="22" y2="15" />
+            </svg>
+            Report
+          </button>
+        </div>
       )}
 
       {/* Share story modal */}

@@ -42,7 +42,7 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  ...(isCapacitorBuild ? { output: 'export' } : {}),
+  ...(isCapacitorBuild ? { output: 'export', trailingSlash: true } : {}),
   images: {
     ...(isCapacitorBuild ? { unoptimized: true } : {}),
     remotePatterns: [

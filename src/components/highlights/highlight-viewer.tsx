@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/design-system/skeleton'
 import { pushOverlay, popOverlay } from '@/lib/overlay-stack'
+import { updateHighlightTitle, removeStoryFromHighlight, updateHighlightCover } from '@/services/highlights'
 import type { HighlightStory } from '@/services/highlights'
 
 interface HighlightViewerProps {
@@ -14,6 +15,7 @@ interface HighlightViewerProps {
   initialIndex?: number
   onClose: () => void
   isOwner?: boolean
+  onStoriesChanged?: (stories: HighlightStory[]) => void
 }
 
 export function HighlightViewer({
@@ -23,6 +25,7 @@ export function HighlightViewer({
   initialIndex = 0,
   onClose,
   isOwner = false,
+  onStoriesChanged,
 }: HighlightViewerProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex)
   const [progress, setProgress] = useState(0)
@@ -41,6 +44,9 @@ export function HighlightViewer({
 
   // Edit mode (for owner)
   const [showEditMenu, setShowEditMenu] = useState(false)
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [titleValue, setTitleValue] = useState(highlightTitle)
+  const [showCoverPicker, setShowCoverPicker] = useState(false)
 
   const supabase = createClient()
   const currentStory = stories[currentIndex]
@@ -223,7 +229,7 @@ export function HighlightViewer({
         <div className="absolute top-20 right-4 w-48 bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-xl z-20 overflow-hidden">
           <button
             onClick={() => {
-              // TODO: Edit highlight title
+              setEditingTitle(true)
               setShowEditMenu(false)
             }}
             className="w-full px-4 py-3 text-left text-white hover:bg-[var(--bg-tertiary)] flex items-center gap-3"
@@ -236,8 +242,34 @@ export function HighlightViewer({
           </button>
           <button
             onClick={() => {
-              // TODO: Remove current story from highlight
+              setShowCoverPicker(true)
               setShowEditMenu(false)
+            }}
+            className="w-full px-4 py-3 text-left text-white hover:bg-[var(--bg-tertiary)] flex items-center gap-3"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <polyline points="21 15 16 10 5 21" />
+            </svg>
+            Choose cover
+          </button>
+          <button
+            onClick={async () => {
+              if (!currentStory) return
+              setShowEditMenu(false)
+              const result = await removeStoryFromHighlight(highlightId, currentStory.story_id)
+              if (result.success) {
+                const updated = stories.filter((_, i) => i !== currentIndex)
+                if (updated.length === 0) {
+                  onClose()
+                  return
+                }
+                onStoriesChanged?.(updated)
+                if (currentIndex >= updated.length) {
+                  setCurrentIndex(updated.length - 1)
+                }
+              }
             }}
             className="w-full px-4 py-3 text-left text-[var(--destructive)] hover:bg-[var(--bg-tertiary)] flex items-center gap-3"
           >
@@ -345,6 +377,83 @@ export function HighlightViewer({
       {/* Navigation hints */}
       <div className="absolute inset-y-0 left-0 w-1/3 cursor-pointer" onClick={goToPrevious} />
       <div className="absolute inset-y-0 right-0 w-1/3 cursor-pointer" onClick={goToNext} />
+
+      {/* Edit title modal */}
+      {editingTitle && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-sm bg-[var(--bg-primary)] rounded-2xl overflow-hidden">
+            <div className="p-4 border-b border-[var(--border-subtle)]">
+              <h3 className="text-base font-semibold text-[var(--text-primary)]">Edit title</h3>
+            </div>
+            <div className="p-4">
+              <input
+                type="text"
+                value={titleValue}
+                onChange={(e) => setTitleValue(e.target.value)}
+                maxLength={30}
+                autoFocus
+                className="w-full px-3 py-2.5 bg-[var(--bg-secondary)] rounded-lg text-sm text-[var(--text-primary)] outline-none focus:ring-2 focus:ring-[var(--accent-primary)]"
+                onKeyDown={async (e) => {
+                  if (e.key === 'Enter' && titleValue.trim()) {
+                    await updateHighlightTitle(highlightId, titleValue.trim())
+                    setEditingTitle(false)
+                  }
+                }}
+              />
+            </div>
+            <div className="flex border-t border-[var(--border-subtle)]">
+              <button
+                onClick={() => { setEditingTitle(false); setTitleValue(highlightTitle) }}
+                className="flex-1 py-3 text-sm text-[var(--text-muted)] hover:bg-[var(--bg-secondary)]"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (titleValue.trim()) {
+                    await updateHighlightTitle(highlightId, titleValue.trim())
+                    setEditingTitle(false)
+                  }
+                }}
+                className="flex-1 py-3 text-sm font-semibold text-[var(--accent-primary)] hover:bg-[var(--bg-secondary)]"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cover picker modal */}
+      {showCoverPicker && (
+        <div className="absolute inset-0 z-50 flex items-end bg-black/60">
+          <div className="w-full bg-[var(--bg-primary)] rounded-t-2xl max-h-[60vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-[var(--border-subtle)]">
+              <h3 className="text-base font-semibold text-[var(--text-primary)]">Choose cover</h3>
+              <button onClick={() => setShowCoverPicker(false)} className="text-[var(--text-muted)]">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="grid grid-cols-3 gap-1 p-2 overflow-y-auto max-h-[50vh]">
+              {stories.filter(s => s.media_url).map((story, idx) => (
+                <button
+                  key={story.story_id}
+                  onClick={async () => {
+                    await updateHighlightCover(highlightId, story.media_url)
+                    setShowCoverPicker(false)
+                  }}
+                  className="relative aspect-[3/4] rounded-lg overflow-hidden bg-[var(--bg-secondary)]"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={story.media_url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

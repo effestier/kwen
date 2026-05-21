@@ -76,7 +76,7 @@ export function RegisterForm() {
       }
 
       setStep('otp');
-      setTurnstileToken(isNative ? 'native-app-bypass' : null);
+      setTurnstileToken(isNative ? 'native-app-bypass' : (turnstileEnabled ? null : 'skip-turnstile'));
       setResendCooldown(60);
       setSuccessMessage('Code sent! Check your email.');
       setTimeout(() => setSuccessMessage(null), 3000);
@@ -272,7 +272,7 @@ export function RegisterForm() {
                 onExpire={() => setTurnstileToken(null)}
                 onError={() => {
                   setTurnstileToken(null);
-                  setError('Security check failed. Please try again.');
+                  setError('Security check failed. Please refresh and try again.');
                 }}
               />
             )}
@@ -301,7 +301,7 @@ export function RegisterForm() {
       <div className="rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] p-8">
         <h1 className="text-xl font-bold text-[var(--text-primary)] mb-1">Check your email</h1>
         <p className="text-sm text-[var(--text-muted)] mb-6">
-          We sent an 8-digit code to<br />
+          We sent an 6-digit code to<br />
           <span className="text-[var(--text-primary)] font-medium">{email}</span>
         </p>
 
@@ -319,9 +319,9 @@ export function RegisterForm() {
 
         <form id="otp-form" onSubmit={handleOtpSubmit} className="space-y-6">
           <fieldset>
-            <legend className="sr-only">Enter 8-digit verification code</legend>
+            <legend className="sr-only">Enter 6-digit verification code</legend>
             <div className="flex justify-center gap-1.5" role="group" aria-label="Verification code">
-              {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+              {[0, 1, 2, 3, 4, 5].map((i) => (
                 <input
                   key={i}
                   ref={(el) => { inputRefs.current[i] = el; }}
@@ -355,7 +355,7 @@ export function RegisterForm() {
               <>
                 Didn&apos;t receive code?{' '}
                 <button
-                  onClick={() => { setStep('email'); setError(null); setOtpCode(''); setTurnstileToken(isNative ? 'native-app-bypass' : null); }}
+                  onClick={() => { setStep('email'); setError(null); setOtpCode(''); setTurnstileToken(isNative ? 'native-app-bypass' : (turnstileEnabled ? null : 'skip-turnstile')); }}
                   className="text-[var(--accent-primary)] hover:underline"
                 >
                   Resend
@@ -365,7 +365,7 @@ export function RegisterForm() {
           </p>
         </div>
       </div>,
-      () => { setStep('email'); setError(null); setOtpCode(''); setTurnstileToken(isNative ? 'native-app-bypass' : null); }
+      () => { setStep('email'); setError(null); setOtpCode(''); setTurnstileToken(isNative ? 'native-app-bypass' : (turnstileEnabled ? null : 'skip-turnstile')); }
     );
   }
 

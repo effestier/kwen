@@ -198,3 +198,37 @@ export async function saveStoryToHighlight(
 
   return { success: true, highlightId }
 }
+
+// Update highlight cover image
+export async function updateHighlightCover(
+  highlightId: string,
+  coverUrl: string
+): Promise<{ success?: boolean; error?: string }> {
+  const supabase = createClient()
+
+  const { error } = await supabase
+    .rpc('update_highlight_cover', {
+      p_highlight_id: highlightId,
+      p_cover_url: coverUrl,
+    })
+
+  if (error) return { error: 'Failed to update cover' }
+  return { success: true }
+}
+
+// Reorder stories within a highlight
+export async function reorderHighlightStories(
+  highlightId: string,
+  storyIds: string[]
+): Promise<{ success?: boolean; error?: string }> {
+  const supabase = createClient()
+
+  const { error } = await supabase
+    .rpc('reorder_highlight_stories', {
+      p_highlight_id: highlightId,
+      p_story_ids: storyIds,
+    })
+
+  if (error) return { error: 'Failed to reorder' }
+  return { success: true }
+}

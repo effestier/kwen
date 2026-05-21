@@ -179,6 +179,13 @@ export default function FeedPage() {
       const { data: views } = await supabase.from('story_views').select('story_id').eq('user_id', authUser.id);
       const viewedSet = new Set(views?.map(v => v.story_id) || []);
 
+      // Filter out muted users' stories
+      const mutedUsers = JSON.parse(localStorage.getItem('kw-muted-users') || '[]') as string[];
+      if (mutedUsers.length > 0) {
+        const mutedSet = new Set(mutedUsers);
+        filteredStories = filteredStories.filter((s: any) => !mutedSet.has(s.user_id));
+      }
+
       setStories(filteredStories.map((s: any) => ({
         id: s.id, user_id: s.user_id, media_url: s.media_url, media_type: s.media_type || 'image',
         expires_at: s.expires_at, created_at: s.created_at, user: s.user, hasViewed: viewedSet.has(s.id),

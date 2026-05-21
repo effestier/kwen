@@ -1,5 +1,5 @@
 const CACHE_NAME = 'kwen-v2';
-const SHELL_URLS = ['/', '/feed', '/auth/login'];
+const SHELL_URLS = ['/', '/feed/', '/auth/login/'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

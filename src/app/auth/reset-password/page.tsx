@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { sendPasswordReset, verifyRecoveryToken, setPassword } from '@/services/auth';
@@ -40,12 +40,16 @@ function ResetPasswordContent() {
 
 function RequestReset() {
   const isNative = isNativePlatform();
+  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+  const turnstileEnabled = !isNative && !!turnstileSiteKey && turnstileSiteKey !== 'your-site-key-here';
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
-  const [turnstileToken, setTurnstileToken] = useState<string | null>(isNative ? 'native-app-bypass' : null);
-  const submittingRef = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(
+    isNative ? 'native-app-bypass' : (turnstileEnabled ? null : 'skip-turnstile')
+  );
+  const submittingRef = useRef(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,8 +60,8 @@ function RequestReset() {
       return;
     }
 
-    if (submittingRef[0] || loading) return;
-    submittingRef[1](true);
+    if (submittingRef.current || loading) return;
+    submittingRef.current = true;
     setLoading(true);
 
     try {
@@ -74,7 +78,7 @@ function RequestReset() {
       setError('Could not connect. Check your internet and try again.');
     } finally {
       setLoading(false);
-      submittingRef[1](false);
+      submittingRef.current = false;
     }
   };
 
@@ -144,14 +148,14 @@ function RequestReset() {
                     />
                   </div>
 
-                  {!isNative && (
+                  {!isNative && turnstileSiteKey && turnstileSiteKey !== 'your-site-key-here' && (
                     <TurnstileWidget
-                      siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+                      siteKey={turnstileSiteKey}
                       onSuccess={setTurnstileToken}
                       onExpire={() => setTurnstileToken(null)}
                       onError={() => {
                         setTurnstileToken(null);
-                        setError('Security check failed. Please try again.');
+                        setError('Security check failed. Please refresh and try again.');
                       }}
                     />
                   )}

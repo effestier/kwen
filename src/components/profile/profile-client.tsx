@@ -472,6 +472,7 @@ export function ProfileClient({ username }: { username: string }) {
             setHighlightStories([]);
           }}
           isOwner={isOwnProfile}
+          onStoriesChanged={(updated) => setHighlightStories(updated)}
         />
       )}
 

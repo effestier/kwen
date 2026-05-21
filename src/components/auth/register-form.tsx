@@ -13,6 +13,8 @@ type Step = 'email' | 'otp' | 'complete';
 export function RegisterForm() {
   const router = useRouter();
   const isNative = isNativePlatform();
+  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+  const turnstileEnabled = !isNative && !!turnstileSiteKey && turnstileSiteKey !== 'your-site-key-here';
 
   const [step, setStep] = useState<Step>('email');
   const [email, setEmail] = useState('');
@@ -25,7 +27,9 @@ export function RegisterForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [turnstileToken, setTurnstileToken] = useState<string | null>(isNative ? 'native-app-bypass' : null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(
+    isNative ? 'native-app-bypass' : (turnstileEnabled ? null : 'skip-turnstile')
+  );
   const [resendCooldown, setResendCooldown] = useState(0);
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -261,13 +265,13 @@ export function RegisterForm() {
               />
             </div>
 
-            {!isNative && (
+            {turnstileEnabled && (
               <TurnstileWidget
-                siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+                siteKey={turnstileSiteKey!}
                 onSuccess={setTurnstileToken}
                 onExpire={() => setTurnstileToken(null)}
                 onError={() => {
-                  setTurnstileToken(isNative ? 'native-app-bypass' : null);
+                  setTurnstileToken(null);
                   setError('Security check failed. Please try again.');
                 }}
               />

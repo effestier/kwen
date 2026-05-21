@@ -148,8 +148,8 @@ export function MessageBubble({ message, showAvatar, onReact, onReply, onDelete,
               : 'bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-[var(--text-primary)] rounded-bl-md'
           }`}
         >
-          {/* Image */}
-          {message.message_type === 'image' && message.media_url && (
+          {/* Image (image-only or mixed text+image) */}
+          {(message.message_type === 'image' || message.message_type === 'mixed') && message.media_url && (
             <div className="rounded-lg overflow-hidden mb-1 max-w-[280px]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img

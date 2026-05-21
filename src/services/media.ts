@@ -168,7 +168,11 @@ export async function createPostWithMedia(formData: FormData) {
   }
 }
 
-export async function uploadStory(mediaUrl: string, mediaType: string = 'image') {
+export async function uploadStory(
+  mediaUrl: string,
+  mediaType: string = 'image',
+  visibility: 'public' | 'followers' | 'close_friends' = 'public'
+) {
   try {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -182,30 +186,36 @@ export async function uploadStory(mediaUrl: string, mediaType: string = 'image')
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 24);
 
+    const insertData: any = {
+      user_id: user.id,
+      media_url: mediaUrl,
+      media_type: cleanType,
+      expires_at: expiresAt.toISOString(),
+    };
+
+    // Try to include visibility (column may not exist in all environments)
+    insertData.visibility = visibility;
+
     const { data, error } = await supabase
       .from('stories')
-      .insert({
-        user_id: user.id,
-        media_url: mediaUrl,
-        media_type: cleanType,
-        expires_at: expiresAt.toISOString(),
-      })
+      .insert(insertData)
       .select()
       .single();
 
     if (error) {
-      const { data: retryData, error: retryError } = await supabase
-        .from('stories')
-        .insert({
-          user_id: user.id,
-          media_url: mediaUrl,
-          expires_at: expiresAt.toISOString(),
-        })
-        .select()
-        .single();
+      // If visibility column doesn't exist, retry without it
+      if (error.code === '42703') {
+        const { user_id, ...insertWithoutVisibility } = insertData;
+        const { data: retryData, error: retryError } = await supabase
+          .from('stories')
+          .insert({ user_id: user.id, media_url: mediaUrl, media_type: cleanType, expires_at: expiresAt.toISOString() })
+          .select()
+          .single();
 
-      if (retryError) return { error: 'Failed to upload story' };
-      return { success: true, storyId: retryData?.id };
+        if (retryError) return { error: 'Failed to upload story' };
+        return { success: true, storyId: retryData?.id };
+      }
+      return { error: 'Failed to upload story' };
     }
 
     return { success: true, storyId: data?.id };

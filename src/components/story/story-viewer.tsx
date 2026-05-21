@@ -666,7 +666,17 @@ export function StoryViewer({ stories, initialIndex, onClose, isOwner = false }:
         {currentStory?.music && (
           <div className="flex items-center gap-3 mb-3 bg-white/10 rounded-full px-4 py-2">
             <button
-              onClick={() => setIsMusicPlaying(!isMusicPlaying)}
+              onClick={() => {
+                const audio = musicRef.current;
+                if (audio) {
+                  if (isMusicPlaying) {
+                    audio.pause();
+                  } else {
+                    audio.play().catch(() => {});
+                  }
+                  setIsMusicPlaying(!isMusicPlaying);
+                }
+              }}
               className="w-8 h-8 rounded-full bg-[var(--accent-primary)] flex items-center justify-center"
             >
               {isMusicPlaying ? (
@@ -691,6 +701,16 @@ export function StoryViewer({ stories, initialIndex, onClose, isOwner = false }:
               />
             )}
           </div>
+        )}
+
+        {/* Audio element for music playback */}
+        {currentStory?.music?.preview_url && (
+          <audio
+            ref={musicRef}
+            src={currentStory.music.preview_url}
+            preload="auto"
+            onEnded={() => setIsMusicPlaying(false)}
+          />
         )}
 
         {/* Reply input */}

@@ -24,6 +24,8 @@ export interface MessageBubbleData {
   reactions: Record<string, { count: number; userIds: string[] }>;
   my_reaction: string | null;
   status?: string;
+  delivered_at?: string | null;
+  seen_at?: string | null;
 }
 
 interface MessageBubbleProps {
@@ -166,10 +168,23 @@ export function MessageBubble({ message, showAvatar, onReact, onReply, onDelete,
             <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
           )}
 
-          {/* Timestamp */}
-          <p className={`text-[10px] mt-1 ${message.isMine ? 'text-white/60' : 'text-[var(--text-muted)]'}`}>
-            {formatTime(message.createdAt)}
-          </p>
+          {/* Timestamp + Read receipt */}
+          <div className={`flex items-center gap-1 mt-1 ${message.isMine ? 'justify-end' : 'justify-start'}`}>
+            <p className={`text-[10px] ${message.isMine ? 'text-white/60' : 'text-[var(--text-muted)]'}`}>
+              {formatTime(message.createdAt)}
+            </p>
+            {message.isMine && (
+              <span className="text-[10px]" title={message.seen_at ? `Seen at ${new Date(message.seen_at).toLocaleTimeString()}` : message.delivered_at ? 'Delivered' : 'Sent'}>
+                {message.seen_at ? (
+                  <span className="text-blue-400">✓✓</span>
+                ) : message.delivered_at ? (
+                  <span className="text-white/60">✓✓</span>
+                ) : (
+                  <span className="text-white/40">✓</span>
+                )}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Reactions pill */}

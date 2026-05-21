@@ -10,11 +10,8 @@ export interface AuthResult {
 }
 
 async function verifyTurnstile(token: string): Promise<{ valid: boolean; degraded: boolean }> {
-  // Native app or bypass tokens: skip Turnstile entirely
-  if (isNativePlatform() || token === 'native-app-bypass' || token === 'skip-turnstile') {
-    return { valid: true, degraded: false };
-  }
-
+  // ALWAYS verify server-side — never trust client-side bypass
+  // Server checks User-Agent for native-app-bypass and Turnstile config for skip-turnstile
   try {
     const res = await fetch('/api/auth/verify-token', {
       method: 'POST',
@@ -23,7 +20,7 @@ async function verifyTurnstile(token: string): Promise<{ valid: boolean; degrade
     });
     return await res.json();
   } catch {
-    // Network failure on web = reject (can't verify, don't assume safe)
+    // Network failure on web = reject
     return { valid: false, degraded: true };
   }
 }
@@ -73,7 +70,7 @@ export async function sendOTP(email: string, turnstileToken: string): Promise<Au
     // Server-side rate limiting via Supabase RPC (3 per 5 min per email)
     const { data: rateLimitResult } = await supabase.rpc('check_rate_limit', {
       p_key: `otp-send:${cleanEmail}`,
-      p_max_requests: 3,
+      p_max_attempts: 3,
       p_window_ms: 5 * 60 * 1000,
     });
 
@@ -116,6 +113,17 @@ export async function verifyOTP(email: string, token: string): Promise<AuthResul
     }
 
     const supabase = createClient();
+
+    // Rate limit: 10 verification attempts per 15 minutes per email
+    const { data: rateLimitResult } = await supabase.rpc('check_rate_limit', {
+      p_key: `otp-verify:${cleanEmail}`,
+      p_max_attempts: 10,
+      p_window_ms: 15 * 60 * 1000,
+    });
+
+    if (rateLimitResult && !(rateLimitResult as { allowed: boolean }).allowed) {
+      return { error: 'Too many verification attempts. Please wait and try again.' };
+    }
     const { data, error } = await supabase.auth.verifyOtp({
       email: cleanEmail,
       token: cleanToken,
@@ -193,7 +201,7 @@ export async function signInWithPassword(email: string, password: string, turnst
     // Server-side rate limiting via Supabase RPC (5 attempts per 15 min per email)
     const { data: rateLimitResult } = await supabase.rpc('check_rate_limit', {
       p_key: `password-login:${cleanEmail}`,
-      p_max_requests: 5,
+      p_max_attempts: 5,
       p_window_ms: 15 * 60 * 1000,
     });
 
@@ -348,7 +356,7 @@ export async function sendPasswordReset(email: string, turnstileToken: string): 
     // Server-side rate limiting via Supabase RPC (3 per 15 min per email)
     const { data: rateLimitResult } = await supabase.rpc('check_rate_limit', {
       p_key: `password-reset:${cleanEmail}`,
-      p_max_requests: 3,
+      p_max_attempts: 3,
       p_window_ms: 15 * 60 * 1000,
     });
 

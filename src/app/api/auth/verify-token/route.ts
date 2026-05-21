@@ -1,20 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { checkAuthRateLimit, VERIFY_TOKEN_LIMIT, getClientIP } from '@/lib/auth-rate-limit';
+import { checkRateLimit } from '@/lib/rate-limit';
+import { createClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-static';
 
 const TURNSTILE_SECRET = process.env.TURNSTILE_SECRET_KEY || '';
 
+function getClientIP(req: NextRequest): string {
+  return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    req.headers.get('x-real-ip') ||
+    'unknown';
+}
+
 export async function POST(req: NextRequest) {
-  // Rate limit per IP
   const ip = getClientIP(req);
-  const limit = checkAuthRateLimit(`verify-token:${ip}`, VERIFY_TOKEN_LIMIT.maxRequests, VERIFY_TOKEN_LIMIT.windowMs);
+
+  // Rate limit per IP using Supabase RPC (distributed, not in-memory)
+  const limit = await checkRateLimit(`verify-token:${ip}`, {
+    windowMs: 60 * 1000,
+    maxAttempts: 10,
+  });
   if (!limit.allowed) {
     return NextResponse.json(
       { valid: false, error: 'Too many requests' },
       {
         status: 429,
-        headers: { 'Retry-After': String(Math.ceil(limit.retryAfterMs / 1000)) },
+        headers: { 'Retry-After': String(Math.ceil((limit.retryAfterMs || 60000) / 1000)) },
       }
     );
   }
@@ -40,11 +51,14 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ valid: false, error: 'Invalid request' }, { status: 403 });
       }
       // Stricter rate limit: 5/min per IP for bypass tokens
-      const bypassLimit = checkAuthRateLimit(`verify-bypass:${ip}`, 5, 60 * 1000);
+      const bypassLimit = await checkRateLimit(`verify-bypass:${ip}`, {
+        windowMs: 60 * 1000,
+        maxAttempts: 5,
+      });
       if (!bypassLimit.allowed) {
         return NextResponse.json(
           { valid: false, error: 'Too many requests' },
-          { status: 429, headers: { 'Retry-After': String(Math.ceil(bypassLimit.retryAfterMs / 1000)) } }
+          { status: 429, headers: { 'Retry-After': String(Math.ceil((bypassLimit.retryAfterMs || 60000) / 1000)) } }
         );
       }
       return NextResponse.json({ valid: true, degraded: false });

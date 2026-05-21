@@ -155,10 +155,12 @@ export default function MessagesPage() {
 
       const { data: participants } = await supabase
         .from('conversation_participants')
-        .select('conversation_id, unread_count, last_read_at')
+        .select('conversation_id, unread_count, last_read_at, conversations!inner(updated_at)')
         .eq('user_id', user.id)
-        .order('last_read_at', { ascending: false })
+        .order('conversations(updated_at)', { ascending: false })
         .limit(20);
+
+      if (!participants || participants.length === 0) { setLoading(false); return; }
 
       if (!participants || participants.length === 0) { setLoading(false); return; }
 
@@ -414,14 +416,36 @@ export default function MessagesPage() {
   // Scroll to bottom when messages change
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages.length]);
 
-  // Track typing
+  // Track typing with debounce
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const typingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isTypingRef = useRef(false);
+
   const handleTyping = useCallback(async () => {
     const sid = selectedIdRef.current;
     const uid = currentUserIdRef.current;
     const tc = typingChannelRef.current;
     if (!sid || !uid || !tc) return;
-    await tc.track({ user_id: uid, display_name: 'Me', typing_at: Date.now() });
-  }, []);
+
+    // Debounce: only fire every 400ms
+    if (typingDebounceRef.current) return;
+    typingDebounceRef.current = setTimeout(() => {
+      typingDebounceRef.current = null;
+    }, 400);
+
+    // Send typing event
+    if (!isTypingRef.current) {
+      isTypingRef.current = true;
+      await tc.track({ user_id: uid, display_name: currentUserProfile?.display_name || 'User', typing_at: Date.now() });
+    }
+
+    // Auto-stop after 2s inactivity
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => {
+      isTypingRef.current = false;
+      tc?.untrack();
+    }, 2000);
+  }, [currentUserProfile?.display_name]);
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

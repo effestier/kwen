@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { createClient } from '@/lib/supabase/server';
 
-export const dynamic = 'force-dynamic';
-
 const TURNSTILE_SECRET = process.env.TURNSTILE_SECRET_KEY || '';
 
 function getClientIP(req: NextRequest): string {

@@ -30,6 +30,7 @@ export function RegisterForm() {
   const [turnstileToken, setTurnstileToken] = useState<string | null>(
     isNative ? 'native-app-bypass' : (turnstileEnabled ? null : 'skip-turnstile')
   );
+  const [turnstileError, setTurnstileError] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -265,16 +266,33 @@ export function RegisterForm() {
               />
             </div>
 
-            {turnstileEnabled && (
+            {turnstileEnabled && !turnstileError && (
               <TurnstileWidget
                 key={`register-email-${step}`}
                 siteKey={turnstileSiteKey!}
-                onSuccess={setTurnstileToken}
+                onSuccess={(token) => {
+                  setTurnstileToken(token);
+                  setTurnstileError(false);
+                }}
                 onExpire={() => setTurnstileToken(null)}
                 onError={() => {
+                  setTurnstileError(true);
                   setTurnstileToken(null);
                 }}
               />
+            )}
+
+            {turnstileError && (
+              <div className="text-center py-3">
+                <p className="text-xs text-[var(--text-muted)]">Security check unavailable. Refresh to retry.</p>
+                <button
+                  type="button"
+                  onClick={() => { setTurnstileError(false); setTurnstileToken(null); }}
+                  className="text-xs text-[var(--accent-primary)] mt-1 underline"
+                >
+                  Retry
+                </button>
+              </div>
             )}
 
             <button

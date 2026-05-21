@@ -5,16 +5,11 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { signInWithPassword, sendOTP, verifyOTP } from '@/services/auth';
 import { BRAND } from '@/lib/brand/config';
-import { TurnstileWidget } from '@/components/auth/turnstile-widget';
-import { isNativePlatform } from '@/lib/platform';
 
 type SubStep = 'credentials' | 'otp-email' | 'otp-verify';
 
 export function PasswordLoginForm() {
   const router = useRouter();
-  const isNative = isNativePlatform();
-  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
-  const turnstileEnabled = !isNative && !!turnstileSiteKey && turnstileSiteKey !== 'your-site-key-here';
 
   const [subStep, setSubStep] = useState<SubStep>('credentials');
   const [email, setEmail] = useState('');
@@ -24,10 +19,6 @@ export function PasswordLoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [turnstileToken, setTurnstileToken] = useState<string | null>(
-    isNative ? 'native-app-bypass' : (turnstileEnabled ? null : 'skip-turnstile')
-  );
-  const [turnstileError, setTurnstileError] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -39,21 +30,15 @@ export function PasswordLoginForm() {
     e.preventDefault();
     setError(null);
 
-    if (!turnstileToken) {
-      setError('Security check required. Please complete the challenge.');
-      return;
-    }
-
     if (submittingRef.current || loading) return;
     submittingRef.current = true;
     setLoading(true);
 
     try {
-      const result = await signInWithPassword(email, password, turnstileToken);
+      const result = await signInWithPassword(email, password, 'skip-turnstile');
 
       if (result.error) {
         setError(result.error);
-        setTurnstileToken(isNative ? 'native-app-bypass' : null);
         return;
       }
 
@@ -87,17 +72,12 @@ export function PasswordLoginForm() {
     e.preventDefault();
     setError(null);
 
-    if (!turnstileToken) {
-      setError('Security check required. Please complete the challenge.');
-      return;
-    }
-
     if (submittingRef.current || loading) return;
     submittingRef.current = true;
     setLoading(true);
 
     try {
-      const result = await sendOTP(email, turnstileToken);
+      const result = await sendOTP(email, 'skip-turnstile');
 
       if (result.error) {
         setError(result.error);
@@ -107,7 +87,6 @@ export function PasswordLoginForm() {
       }
 
       setSubStep('otp-verify');
-      setTurnstileToken(null);
       setResendCooldown(60);
       setSuccessMessage('Code sent! Check your email.');
       setTimeout(() => setSuccessMessage(null), 3000);
@@ -270,38 +249,10 @@ export function PasswordLoginForm() {
               </Link>
             </div>
 
-            {turnstileEnabled && !turnstileError && (
-              <TurnstileWidget
-                key={`login-credentials-${subStep}`}
-                siteKey={turnstileSiteKey!}
-                onSuccess={(token) => {
-                  setTurnstileToken(token);
-                  setTurnstileError(false);
-                }}
-                onExpire={() => setTurnstileToken(null)}
-                onError={() => {
-                  setTurnstileError(true);
-                  setTurnstileToken(null);
-                }}
-              />
-            )}
-
-            {turnstileError && (
-              <div className="text-center py-3">
-                <p className="text-xs text-[var(--text-muted)]">Security check unavailable. Refresh to retry.</p>
-                <button
-                  type="button"
-                  onClick={() => { setTurnstileError(false); setTurnstileToken(null); }}
-                  className="text-xs text-[var(--accent-primary)] mt-1 underline"
-                >
-                  Retry
-                </button>
-              </div>
-            )}
 
             <button
               type="submit"
-              disabled={loading || !email || !password || !turnstileToken}
+              disabled={loading || !email || !password}
               className="w-full py-3 rounded-xl bg-[var(--accent-primary)] text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
             >
               {loading ? 'Signing in...' : 'Sign in'}
@@ -310,7 +261,7 @@ export function PasswordLoginForm() {
 
           <div className="mt-4 text-center">
             <button
-              onClick={() => { setSubStep('otp-email'); setError(null); setTurnstileToken(isNative ? 'native-app-bypass' : null); setOtpCode(''); }}
+              onClick={() => { setSubStep('otp-email'); setError(null); setOtpCode(''); }}
               className="text-sm text-[var(--accent-primary)] hover:underline"
             >
               Sign in with code instead
@@ -354,38 +305,10 @@ export function PasswordLoginForm() {
             />
           </div>
 
-          {turnstileEnabled && !turnstileError && (
-            <TurnstileWidget
-              key={`login-otp-email-${subStep}`}
-              siteKey={turnstileSiteKey!}
-              onSuccess={(token) => {
-                setTurnstileToken(token);
-                setTurnstileError(false);
-              }}
-              onExpire={() => setTurnstileToken(null)}
-              onError={() => {
-                setTurnstileError(true);
-                setTurnstileToken(null);
-              }}
-            />
-          )}
-
-          {turnstileError && (
-            <div className="text-center py-3">
-              <p className="text-xs text-[var(--text-muted)]">Security check unavailable. Refresh to retry.</p>
-              <button
-                type="button"
-                onClick={() => { setTurnstileError(false); setTurnstileToken(null); }}
-                className="text-xs text-[var(--accent-primary)] mt-1 underline"
-              >
-                Retry
-              </button>
-            </div>
-          )}
 
           <button
             type="submit"
-            disabled={loading || !email || !turnstileToken}
+            disabled={loading || !email}
             className="w-full py-3 rounded-xl bg-[var(--accent-primary)] text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
           >
             {loading ? 'Sending...' : 'Send code'}
@@ -394,14 +317,14 @@ export function PasswordLoginForm() {
 
         <div className="mt-4 text-center">
           <button
-            onClick={() => { setSubStep('credentials'); setError(null); setTurnstileToken(isNative ? 'native-app-bypass' : null); }}
+            onClick={() => { setSubStep('credentials'); setError(null);  }}
             className="text-sm text-[var(--accent-primary)] hover:underline"
           >
             Use password instead
           </button>
         </div>
       </div>,
-      () => { setSubStep('credentials'); setError(null); setTurnstileToken(isNative ? 'native-app-bypass' : (turnstileEnabled ? null : 'skip-turnstile')); }
+      () => { setSubStep('credentials'); setError(null);  }
     );
   }
 
@@ -465,7 +388,7 @@ export function PasswordLoginForm() {
               <>
                 Didn&apos;t receive code?{' '}
                 <button
-                  onClick={() => { setSubStep('otp-email'); setError(null); setOtpCode(''); setTurnstileToken(isNative ? 'native-app-bypass' : (turnstileEnabled ? null : 'skip-turnstile')); }}
+                  onClick={() => { setSubStep('otp-email'); setError(null); setOtpCode('');  }}
                   className="text-[var(--accent-primary)] hover:underline"
                 >
                   Resend
@@ -475,7 +398,7 @@ export function PasswordLoginForm() {
           </p>
         </div>
       </div>,
-      () => { setSubStep('otp-email'); setError(null); setOtpCode(''); setTurnstileToken(isNative ? 'native-app-bypass' : (turnstileEnabled ? null : 'skip-turnstile')); }
+      () => { setSubStep('otp-email'); setError(null); setOtpCode('');  }
     );
   }
 

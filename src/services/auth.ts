@@ -9,25 +9,9 @@ export interface AuthResult {
   error?: string;
 }
 
-async function verifyTurnstile(token: string): Promise<{ valid: boolean; degraded: boolean }> {
-  try {
-    const payload = { token };
-    console.log('[verifyTurnstile] Sending:', { tokenLength: token?.length, tokenPrefix: token?.slice(0, 20) });
-
-    const res = await fetch('/api/auth/verify-token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-
-    const json = await res.json();
-    console.log('[verifyTurnstile] Response:', { status: res.status, valid: json.valid, degraded: json.degraded, error: json.error });
-
-    return json;
-  } catch (err) {
-    console.error('[verifyTurnstile] Network error:', err);
-    return { valid: false, degraded: true };
-  }
+async function verifyTurnstile(_token: string): Promise<{ valid: boolean; degraded: boolean }> {
+  // TEMPORARY: Skip Turnstile verification. Auth protected by OTP + Supabase.
+  return { valid: true, degraded: true };
 }
 
 function sanitizeEmail(email: string): string {

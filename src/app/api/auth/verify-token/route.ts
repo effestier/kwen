@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { createClient } from '@/lib/supabase/server';
 
-export const dynamic = 'force-static';
+export const dynamic = 'force-dynamic';
 
 const TURNSTILE_SECRET = process.env.TURNSTILE_SECRET_KEY || '';
 
@@ -64,15 +64,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ valid: true, degraded: false });
     }
 
-    if (!TURNSTILE_SECRET) {
-      // No secret configured — allow but mark as degraded
-      // Rate limiting still protects against abuse
+    // Reject placeholder/invalid secrets
+    if (!TURNSTILE_SECRET || TURNSTILE_SECRET === 'your-secret-key-here' || TURNSTILE_SECRET.length < 20) {
+      console.error('[verify-token] TURNSTILE_SECRET_KEY not configured or is placeholder');
       return NextResponse.json({ valid: true, degraded: true });
     }
 
     const formData = new URLSearchParams();
     formData.append('secret', TURNSTILE_SECRET);
     formData.append('response', token);
+    formData.append('remoteip', ip);
 
     const res = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
       method: 'POST',
@@ -80,6 +81,20 @@ export async function POST(req: NextRequest) {
     });
 
     const data = await res.json();
+
+    // Debug logging for production troubleshooting
+    if (!data.success) {
+      console.error('[verify-token] Cloudflare verification failed:', {
+        success: data.success,
+        errorCodes: data['error-codes'],
+        hostname: data.hostname,
+        action: data.action,
+        tokenPresent: !!token,
+        tokenLength: token.length,
+        secretPresent: true,
+        secretLength: TURNSTILE_SECRET.length,
+      });
+    }
 
     if (data.success) {
       return NextResponse.json({ valid: true, degraded: false });

@@ -15,6 +15,7 @@ import { FollowersModal } from '@/components/modals/followers-modal';
 import { hapticMedium } from '@/lib/haptics';
 import { HighlightsRow } from '@/components/highlights/highlights-row';
 import { HighlightViewer } from '@/components/highlights/highlight-viewer';
+import { CreateHighlightModal } from '@/components/highlights/create-highlight-modal';
 import { getUserHighlights, getHighlightStories } from '@/services/highlights';
 import type { Highlight, HighlightStory } from '@/services/highlights';
 
@@ -54,6 +55,7 @@ export function ProfileClient({ username }: { username: string }) {
   const [showHighlightViewer, setShowHighlightViewer] = useState(false);
   const [selectedHighlight, setSelectedHighlight] = useState<Highlight | null>(null);
   const [highlightStories, setHighlightStories] = useState<HighlightStory[]>([]);
+  const [showCreateHighlight, setShowCreateHighlight] = useState(false);
 
   const supabase = createClient();
   const router = useRouter();
@@ -372,8 +374,7 @@ export function ProfileClient({ username }: { username: string }) {
                 setShowHighlightViewer(true);
               }}
               onCreateHighlight={() => {
-                // TODO: Open create highlight modal
-                router.push('/stories/create');
+                setShowCreateHighlight(true);
               }}
             />
           </div>
@@ -471,6 +472,22 @@ export function ProfileClient({ username }: { username: string }) {
             setHighlightStories([]);
           }}
           isOwner={isOwnProfile}
+        />
+      )}
+
+      {/* Create highlight modal */}
+      {showCreateHighlight && (
+        <CreateHighlightModal
+          onClose={() => setShowCreateHighlight(false)}
+          onSuccess={async (highlightId) => {
+            setShowCreateHighlight(false);
+            // Refresh highlights list
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+              const updated = await getUserHighlights(user.id);
+              setHighlights(updated);
+            }
+          }}
         />
       )}
     </MainLayout>

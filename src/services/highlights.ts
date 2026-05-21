@@ -59,12 +59,14 @@ export async function getHighlightStories(highlightId: string): Promise<Highligh
     return []
   }
 
-  return (data || []).map((s: { story_id: string; story_media_url: string; story_media_type: string; story_created_at: string }) => ({
-    story_id: s.story_id,
-    media_url: s.story_media_url,
-    media_type: s.story_media_type,
-    created_at: s.story_created_at,
-  }))
+  return (data || [])
+    .filter((s: { story_id: string | null }) => s.story_id != null)
+    .map((s: { story_id: string; story_media_url: string | null; story_media_type: string | null; story_created_at: string }) => ({
+      story_id: s.story_id,
+      media_url: s.story_media_url || '',
+      media_type: s.story_media_type || 'image',
+      created_at: s.story_created_at,
+    }))
 }
 
 // Create a new highlight

@@ -14,6 +14,7 @@ interface MediaPreviewProps {
 export function MediaPreview({ items, onReorder, onRemove, currentIndex, onIndexChange }: MediaPreviewProps) {
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+  const touchStartX = useRef<number | null>(null)
 
   const handleDragStart = (idx: number) => {
     setDragIndex(idx)
@@ -40,12 +41,33 @@ export function MediaPreview({ items, onReorder, onRemove, currentIndex, onIndex
     setDragOverIndex(null)
   }
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX
+  }
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return
+    const diff = touchStartX.current - e.changedTouches[0].clientX
+    if (Math.abs(diff) > 50) {
+      if (diff > 0 && currentIndex < items.length - 1) {
+        onIndexChange(currentIndex + 1)
+      } else if (diff < 0 && currentIndex > 0) {
+        onIndexChange(currentIndex - 1)
+      }
+    }
+    touchStartX.current = null
+  }
+
   if (items.length === 0) return null
 
   return (
     <div className="flex-1 flex flex-col">
       {/* Main preview */}
-      <div className="flex-1 relative flex items-center justify-center bg-black/5 rounded-lg overflow-hidden mx-4 mt-4">
+      <div
+        className="flex-1 relative flex items-center justify-center bg-black/5 rounded-lg overflow-hidden mx-4 mt-4"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
         {items[currentIndex]?.type === 'video' ? (
           <video
             src={items[currentIndex].url}

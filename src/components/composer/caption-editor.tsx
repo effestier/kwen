@@ -45,7 +45,7 @@ export function CaptionEditor({
     }
 
     const search = async () => {
-      if (mentionQuery.length < 1) {
+      if (mentionQuery.length < 2) {
         setShowMentions(false)
         return
       }

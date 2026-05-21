@@ -257,6 +257,7 @@ export class PostRepository {
       .from('comments')
       .select('post_id')
       .in('post_id', postIds)
+      .is('deleted_at', null)
     const commentCounts = new Map<string, number>()
     allCommentCounts?.forEach(c => {
       commentCounts.set(c.post_id, (commentCounts.get(c.post_id) || 0) + 1)

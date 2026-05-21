@@ -107,21 +107,8 @@ export async function deletePost(postId: string) {
       return { error: 'Invalid post ID' }
     }
 
-    // Verify ownership
-    const { data: post } = await supabase
-      .from('posts')
-      .select('user_id')
-      .eq('id', postId)
-      .single()
-
-    if (!post || post.user_id !== user.id) {
-      return { error: 'Unauthorized' }
-    }
-
-    const { error } = await supabase
-      .from('posts')
-      .delete()
-      .eq('id', postId)
+    // Soft-delete via RPC (ownership check is in the function)
+    const { error } = await supabase.rpc('soft_delete_post', { p_post_id: postId })
 
     if (error) {
       return { error: 'Failed to delete post' }

@@ -369,7 +369,7 @@ export default function CreatePage() {
 
         {/* Bottom action bar (select step) */}
         {step === 'select' && mediaItems.length > 0 && (
-          <div className="sticky bottom-0 bg-[var(--bg-primary)] border-t border-[var(--border-subtle)] p-4">
+          <div className="sticky bottom-0 bg-[var(--bg-primary)] border-t border-[var(--border-subtle)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
             <button
               onClick={() => setStep('preview')}
               className="w-full py-3 bg-[var(--accent-primary)] text-white rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity"

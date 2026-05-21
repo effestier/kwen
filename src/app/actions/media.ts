@@ -137,8 +137,18 @@ export async function deletePostMedia(mediaId: string) {
       return { error: 'Unauthorized' }
     }
 
-    // Delete from storage (non-blocking)
-    await supabase.storage.from('posts').remove([media.storage_path])
+    // Delete from storage — extract bucket and path from URL
+    try {
+      const url = new URL(media.storage_path)
+      const pathParts = url.pathname.split('/storage/v1/object/public/')
+      if (pathParts.length === 2) {
+        const [bucket, ...pathSegments] = pathParts[1].split('/')
+        const storagePath = pathSegments.join('/')
+        await supabase.storage.from(bucket).remove([storagePath])
+      }
+    } catch {
+      // Non-blocking: storage cleanup is best-effort
+    }
 
     // Delete from database
     const { error } = await supabase

@@ -31,42 +31,10 @@ export function PostCard({ post, isOwnPost = false, onDelete }: PostCardProps) {
   const [editedAt, setEditedAt] = useState<string | null>(null);
   const supabase = createClient();
 
-  // Load comment count on mount
+  // Use comment count from feed RPC (no per-card subscription needed)
   useEffect(() => {
-    async function loadCommentCount() {
-      try {
-        const count = await getCommentCount(post.id);
-        setCommentCount(count);
-      } catch (error) {
-      }
-    }
-    loadCommentCount();
-
-    // Subscribe to realtime comment updates (insert + delete for accurate counts)
-    const channel = supabase
-      .channel(`post-${post.id}-comments`)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'comments',
-        filter: `post_id=eq.${post.id}`
-      }, () => {
-        setCommentCount(prev => prev + 1);
-      })
-      .on('postgres_changes', {
-        event: 'DELETE',
-        schema: 'public',
-        table: 'comments',
-        filter: `post_id=eq.${post.id}`
-      }, () => {
-        setCommentCount(prev => Math.max(0, prev - 1));
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [post.id]);
+    setCommentCount(post.comments);
+  }, [post.comments]);
 
   const handleLike = async () => {
     if (loading) return;

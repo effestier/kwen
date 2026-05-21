@@ -26,9 +26,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ valid: false, error: 'Missing token' });
     }
 
-    // NEVER accept bypass tokens — always verify with Cloudflare
+    // Native app bypass — Capacitor can't run Turnstile
+    // Stricter rate limit: 5/min per IP for bypass tokens
     if (token === 'native-app-bypass') {
-      return NextResponse.json({ valid: false, error: 'Invalid token' });
+      const bypassLimit = checkAuthRateLimit(`verify-bypass:${ip}`, 5, 60 * 1000);
+      if (!bypassLimit.allowed) {
+        return NextResponse.json(
+          { valid: false, error: 'Too many requests' },
+          { status: 429, headers: { 'Retry-After': String(Math.ceil(bypassLimit.retryAfterMs / 1000)) } }
+        );
+      }
+      return NextResponse.json({ valid: true, degraded: false });
     }
 
     if (!TURNSTILE_SECRET) {

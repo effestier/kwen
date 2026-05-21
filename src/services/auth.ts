@@ -10,17 +10,22 @@ export interface AuthResult {
 }
 
 async function verifyTurnstile(token: string): Promise<{ valid: boolean; degraded: boolean }> {
-  // ALWAYS verify server-side — never trust client-side bypass
-  // Server checks User-Agent for native-app-bypass and Turnstile config for skip-turnstile
   try {
+    const payload = { token };
+    console.log('[verifyTurnstile] Sending:', { tokenLength: token?.length, tokenPrefix: token?.slice(0, 20) });
+
     const res = await fetch('/api/auth/verify-token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token }),
+      body: JSON.stringify(payload),
     });
-    return await res.json();
-  } catch {
-    // Network failure on web = reject
+
+    const json = await res.json();
+    console.log('[verifyTurnstile] Response:', { status: res.status, valid: json.valid, degraded: json.degraded, error: json.error });
+
+    return json;
+  } catch (err) {
+    console.error('[verifyTurnstile] Network error:', err);
     return { valid: false, degraded: true };
   }
 }

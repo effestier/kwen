@@ -20,6 +20,9 @@ export async function POST(req: NextRequest) {
     windowMs: 60 * 1000,
     maxAttempts: 10,
   });
+
+  console.log('[verify-token] Rate limit check:', { ip, allowed: limit.allowed, retryAfterMs: limit.retryAfterMs });
+
   if (!limit.allowed) {
     return NextResponse.json(
       { valid: false, error: 'Too many requests' },
@@ -31,14 +34,24 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { token } = await req.json();
+    const body = await req.json();
+    const { token } = body;
+
+    console.log('[verify-token] Request:', {
+      tokenPresent: !!token,
+      tokenType: typeof token,
+      tokenLength: typeof token === 'string' ? token.length : 0,
+      tokenPrefix: typeof token === 'string' ? token.slice(0, 30) : null,
+      ip,
+      secretConfigured: !!TURNSTILE_SECRET,
+      secretLength: TURNSTILE_SECRET.length,
+    });
 
     if (!token || typeof token !== 'string') {
       return NextResponse.json({ valid: false, error: 'Missing token' });
     }
 
     // Native app bypass — Capacitor can't run Turnstile
-    // Verify the request actually comes from a native app via User-Agent
     if (token === 'native-app-bypass') {
       const ua = req.headers.get('user-agent') || '';
       const isNative = ua.includes('Capacitor') || ua.includes('okhttp');
@@ -68,7 +81,12 @@ export async function POST(req: NextRequest) {
     const formData = new URLSearchParams();
     formData.append('secret', TURNSTILE_SECRET);
     formData.append('response', token);
-    formData.append('remoteip', ip);
+
+    console.log('[verify-token] Sending to Cloudflare:', {
+      secretPrefix: TURNSTILE_SECRET.slice(0, 6) + '...',
+      responsePrefix: token.slice(0, 30) + '...',
+      bodyString: formData.toString().slice(0, 100) + '...',
+    });
 
     const res = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
       method: 'POST',
@@ -77,19 +95,13 @@ export async function POST(req: NextRequest) {
 
     const data = await res.json();
 
-    // Debug logging for production troubleshooting
-    if (!data.success) {
-      console.error('[verify-token] Cloudflare verification failed:', {
-        success: data.success,
-        errorCodes: data['error-codes'],
-        hostname: data.hostname,
-        action: data.action,
-        tokenPresent: !!token,
-        tokenLength: token.length,
-        secretPresent: true,
-        secretLength: TURNSTILE_SECRET.length,
-      });
-    }
+    console.log('[verify-token] Cloudflare response:', {
+      success: data.success,
+      'error-codes': data['error-codes'],
+      hostname: data.hostname,
+      action: data.action,
+      challenge_ts: data.challenge_ts,
+    });
 
     if (data.success) {
       return NextResponse.json({ valid: true, degraded: false });

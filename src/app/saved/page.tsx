@@ -35,10 +35,10 @@ export default function SavedPage() {
 
       const postIds = saved.map(s => s.post_id);
 
-      // Get posts
+      // Get posts with media
       const { data: dbPosts } = await supabase
         .from('posts')
-        .select('id, user_id, content, location, created_at')
+        .select('id, user_id, content, location, created_at, post_media(id, storage_path, media_type, sort_order)')
         .in('id', postIds)
         .is('deleted_at', null);
 
@@ -86,6 +86,7 @@ export default function SavedPage() {
 
       setPosts(dbPosts.map(p => {
         const profile = profileMap.get(p.user_id);
+        const media = ((p as any).post_media || []).sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0));
         return {
           id: p.id,
           user: {
@@ -100,7 +101,8 @@ export default function SavedPage() {
             posts: 0,
           },
           content: p.content || '',
-          images: [],
+          images: media.map((m: any) => m.storage_path),
+          mediaTypes: media.map((m: any) => m.media_type),
           likes: likeCountMap.get(p.id) || 0,
           comments: commentCounts.get(p.id) || 0,
           shares: 0,

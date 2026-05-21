@@ -53,7 +53,10 @@ export default function FeedPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [cursor, setCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
+  const [verifiedMap, setVerifiedMap] = useState<Map<string, boolean>>(new Map());
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const postsRef = useRef<FeedPost[]>([]);
+  const userRef = useRef<Profile | null>(null);
   const supabase = createClient();
 
   // Scroll preservation
@@ -74,6 +77,7 @@ export default function FeedPage() {
     if (!authUser) return;
     const freshPosts = await loadPosts(authUser.id, null);
     setPosts(freshPosts);
+    postsRef.current = freshPosts;
     if (freshPosts.length > 0) setCursor(freshPosts[freshPosts.length - 1].created_at);
     setHasMore(freshPosts.length >= 20);
   }, [loadPosts, supabase]);
@@ -105,13 +109,29 @@ export default function FeedPage() {
       }
 
       setUser(profile);
+      userRef.current = profile;
 
       const feedPosts = await loadPosts(authUser.id, null);
       setPosts(feedPosts);
+      postsRef.current = feedPosts;
       if (feedPosts.length > 0) {
         setCursor(feedPosts[feedPosts.length - 1].created_at);
       }
       if (feedPosts.length < 20) setHasMore(false);
+
+      // Fetch is_verified for post authors
+      const authorIds = [...new Set(feedPosts.map((p: any) => p.user_id))];
+      if (authorIds.length > 0) {
+        const { data: authorProfiles } = await supabase
+          .from('profiles')
+          .select('id, is_verified')
+          .in('id', authorIds);
+        if (authorProfiles) {
+          const vMap = new Map<string, boolean>();
+          authorProfiles.forEach((p: any) => vMap.set(p.id, !!p.is_verified));
+          setVerifiedMap(vMap);
+        }
+      }
 
       // Stories
       const { data: following } = await supabase.from('follows').select('following_id').eq('follower_id', authUser.id);
@@ -201,24 +221,26 @@ export default function FeedPage() {
       .channel('feed-updates')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, async (payload) => {
         const newPost = payload.new as { id: string; user_id: string; content: string; created_at: string };
-        if (!user) return;
+        const currentUser = userRef.current;
+        if (!currentUser) return;
         // Don't duplicate
-        if (posts.some(p => p.id === newPost.id)) return;
+        if (postsRef.current.some(p => p.id === newPost.id)) return;
         // Fetch full post data
         const { data: fullPost } = await supabase.rpc('get_discovery_feed', {
-          p_user_id: user.id,
+          p_user_id: currentUser.id,
           p_limit: 1,
           p_cursor: null,
         });
         // Only insert if it's from a followed user or high engagement
         if (fullPost && fullPost.length > 0) {
           setPosts(prev => [fullPost[0], ...prev]);
+          postsRef.current = [fullPost[0], ...postsRef.current];
         }
       })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [user, posts]);
+  }, []);
 
   if (loading) {
     return (
@@ -292,7 +314,7 @@ export default function FeedPage() {
               {posts.map((post) => (
                 <PostCard key={post.id} post={{
                   id: post.id,
-                  user: { id: post.user_id, username: post.username, displayName: post.display_name, avatar: post.avatar_url || '', isVerified: false, bio: '', followers: 0, following: 0, posts: 0 },
+                  user: { id: post.user_id, username: post.username, displayName: post.display_name, avatar: post.avatar_url || '', isVerified: verifiedMap.get(post.user_id) || false, bio: '', followers: 0, following: 0, posts: 0 },
                   content: post.content || '',
                   images: post.media?.map(m => m.storage_path) || [],
                   mediaTypes: post.media?.map(m => m.media_type) || [],

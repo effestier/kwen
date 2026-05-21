@@ -64,6 +64,11 @@ async function verifyTurnstileToken(token: string): Promise<{ valid: boolean; de
     return { valid: false, degraded: false };
   }
 
+  // Native app bypass — skip Cloudflare verification
+  if (token === 'native-app-bypass') {
+    return { valid: true, degraded: false };
+  }
+
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000); // 5s timeout

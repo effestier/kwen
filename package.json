@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "build:static": "CAPACITOR_BUILD=1 next build",
+    "build:static": "cross-env CAPACITOR_BUILD=1 next build",
     "cap:sync": "npx cap sync android",
     "cap:open": "npx cap open android",
     "cap:build": "npm run build:static && npm run cap:sync"
@@ -48,6 +48,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "cross-env": "^10.1.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4",

@@ -1,8 +1,25 @@
+// Client-side auth functions for both web and native (Capacitor) builds
+// Uses browser Supabase client — no server actions, no cookies(), no server-only deps
+// Turnstile tokens are verified server-side via /api/auth/verify-token
+
 import { createClient } from '@/lib/supabase/client';
 
 export interface AuthResult {
   success?: boolean;
   error?: string;
+}
+
+async function verifyTurnstile(token: string): Promise<{ valid: boolean; degraded: boolean }> {
+  try {
+    const res = await fetch('/api/auth/verify-token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    });
+    return await res.json();
+  } catch {
+    return { valid: true, degraded: true };
+  }
 }
 
 function sanitizeEmail(email: string): string {
@@ -32,7 +49,6 @@ const RESERVED_USERNAMES = new Set([
 export async function sendOTP(email: string, turnstileToken: string): Promise<AuthResult> {
   try {
     const cleanEmail = sanitizeEmail(email);
-
     if (!cleanEmail || !isValidEmail(cleanEmail)) {
       return { error: 'Please enter a valid email address' };
     }
@@ -41,8 +57,12 @@ export async function sendOTP(email: string, turnstileToken: string): Promise<Au
       return { error: 'Security check required. Please complete the challenge.' };
     }
 
-    const supabase = createClient();
+    const ts = await verifyTurnstile(turnstileToken);
+    if (!ts.valid) {
+      return { error: 'Security check failed. Please try again.' };
+    }
 
+    const supabase = createClient();
     const { error } = await supabase.auth.signInWithOtp({
       email: cleanEmail,
       options: {
@@ -72,13 +92,11 @@ export async function verifyOTP(email: string, token: string): Promise<AuthResul
     if (!cleanEmail || !isValidEmail(cleanEmail)) {
       return { error: 'Invalid email' };
     }
-
     if (!cleanToken || cleanToken.length !== 6 || !/^\d{6}$/.test(cleanToken)) {
       return { error: 'Please enter the 6-digit code' };
     }
 
     const supabase = createClient();
-
     const { data, error } = await supabase.auth.verifyOtp({
       email: cleanEmail,
       token: cleanToken,
@@ -132,145 +150,12 @@ export async function verifyOTP(email: string, token: string): Promise<AuthResul
   }
 }
 
-export async function checkUserExists(_email: string): Promise<{ exists: boolean; isNewUser: boolean }> {
-  return { exists: true, isNewUser: false };
-}
-
-export async function signOut() {
-  try {
-    const supabase = createClient();
-    const { error } = await supabase.auth.signOut();
-
-    if (error) {
-      return { error: 'Sign out failed' };
-    }
-
-    return { success: true };
-  } catch {
-    return { error: 'Sign out failed' };
-  }
-}
-
-export async function getSession() {
-  try {
-    const supabase = createClient();
-    const { data, error } = await supabase.auth.getSession();
-
-    if (error) {
-      return { session: null, error: 'Session unavailable' };
-    }
-
-    return { session: data.session, error: null };
-  } catch {
-    return { session: null, error: 'Session unavailable' };
-  }
-}
-
-export async function getUser() {
-  try {
-    const supabase = createClient();
-    const { data: { user }, error } = await supabase.auth.getUser();
-
-    if (error) {
-      return { user: null, error: 'Authentication failed' };
-    }
-
-    return { user, error: null };
-  } catch {
-    return { user: null, error: 'Authentication failed' };
-  }
-}
-
-export async function completeProfile(username: string, displayName: string): Promise<AuthResult> {
-  const supabase = createClient();
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return { error: 'Not authenticated. Please log in again.' };
-  }
-
-  const cleanUsername = username.trim().toLowerCase();
-  const cleanDisplayName = displayName.trim().slice(0, 100);
-
-  if (!/^[a-z0-9_]{3,30}$/.test(cleanUsername)) {
-    return { error: 'Username must be 3-30 characters, lowercase letters, numbers, and underscores only' };
-  }
-
-  if (!cleanDisplayName) {
-    return { error: 'Display name is required' };
-  }
-
-  if (RESERVED_USERNAMES.has(cleanUsername)) {
-    return { error: 'This username is reserved' };
-  }
-
-  const { data: existing, error: lookupError } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('username', cleanUsername)
-    .neq('id', user.id)
-    .maybeSingle();
-
-  if (lookupError) {
-    return { error: 'Could not verify username availability. Please try again.' };
-  }
-
-  if (existing) {
-    return { error: 'Username is already taken' };
-  }
-
-  const { data: updateData, error: updateError } = await supabase
-    .from('profiles')
-    .update({
-      username: cleanUsername,
-      display_name: cleanDisplayName,
-    })
-    .eq('id', user.id)
-    .select();
-
-  if (updateError) {
-    if (updateError.code === '23505') {
-      return { error: 'Username is already taken' };
-    }
-    return { error: 'Failed to save profile. Please try again.' };
-  }
-
-  if (!updateData || updateData.length === 0) {
-    const { error: insertError } = await supabase
-      .from('profiles')
-      .insert({
-        id: user.id,
-        username: cleanUsername,
-        display_name: cleanDisplayName,
-      });
-
-    if (insertError) {
-      if (insertError.code === '23505') {
-        const { error: retryError } = await supabase
-          .from('profiles')
-          .update({ username: cleanUsername, display_name: cleanDisplayName })
-          .eq('id', user.id);
-
-        if (retryError) {
-          return { error: 'Failed to save profile. Please try again.' };
-        }
-      } else {
-        return { error: 'Failed to save profile. Please try again.' };
-      }
-    }
-  }
-
-  return { success: true };
-}
-
 export async function signInWithPassword(email: string, password: string, turnstileToken: string): Promise<AuthResult> {
   try {
     const cleanEmail = sanitizeEmail(email);
-
     if (!cleanEmail || !isValidEmail(cleanEmail)) {
       return { error: 'Please enter a valid email address' };
     }
-
     if (!password) {
       return { error: 'Please enter your password' };
     }
@@ -279,8 +164,12 @@ export async function signInWithPassword(email: string, password: string, turnst
       return { error: 'Security check required. Please complete the challenge.' };
     }
 
-    const supabase = createClient();
+    const ts = await verifyTurnstile(turnstileToken);
+    if (!ts.valid) {
+      return { error: 'Security check failed. Please try again.' };
+    }
 
+    const supabase = createClient();
     const { error } = await supabase.auth.signInWithPassword({
       email: cleanEmail,
       password,
@@ -333,10 +222,88 @@ export async function setPassword(password: string): Promise<AuthResult> {
   }
 }
 
+export async function completeProfile(username: string, displayName: string): Promise<AuthResult> {
+  try {
+    const supabase = createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return { error: 'Not authenticated. Please log in again.' };
+    }
+
+    const cleanUsername = username.trim().toLowerCase();
+    const cleanDisplayName = displayName.trim().slice(0, 100);
+
+    if (!/^[a-z0-9_]{3,30}$/.test(cleanUsername)) {
+      return { error: 'Username must be 3-30 characters, lowercase letters, numbers, and underscores only' };
+    }
+    if (!cleanDisplayName) {
+      return { error: 'Display name is required' };
+    }
+    if (RESERVED_USERNAMES.has(cleanUsername)) {
+      return { error: 'This username is reserved' };
+    }
+
+    // Check if username is taken by ANOTHER user
+    const { data: existing, error: lookupError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('username', cleanUsername)
+      .neq('id', user.id)
+      .maybeSingle();
+
+    if (lookupError) {
+      return { error: 'Could not verify username availability. Please try again.' };
+    }
+    if (existing) {
+      return { error: 'Username is already taken' };
+    }
+
+    // Try UPDATE first (profile likely exists from trigger)
+    const { data: updateData, error: updateError } = await supabase
+      .from('profiles')
+      .update({ username: cleanUsername, display_name: cleanDisplayName })
+      .eq('id', user.id)
+      .select();
+
+    if (updateError) {
+      if (updateError.code === '23505') {
+        return { error: 'Username is already taken' };
+      }
+      return { error: 'Failed to save profile. Please try again.' };
+    }
+
+    // If UPDATE returned no rows, profile doesn't exist yet — INSERT it
+    if (!updateData || updateData.length === 0) {
+      const { error: insertError } = await supabase
+        .from('profiles')
+        .insert({ id: user.id, username: cleanUsername, display_name: cleanDisplayName });
+
+      if (insertError) {
+        if (insertError.code === '23505') {
+          // Race condition: retry UPDATE
+          const { error: retryError } = await supabase
+            .from('profiles')
+            .update({ username: cleanUsername, display_name: cleanDisplayName })
+            .eq('id', user.id);
+          if (retryError) {
+            return { error: 'Failed to save profile. Please try again.' };
+          }
+        } else {
+          return { error: 'Failed to save profile. Please try again.' };
+        }
+      }
+    }
+
+    return { success: true };
+  } catch {
+    return { error: 'Failed to save profile. Please try again.' };
+  }
+}
+
 export async function sendPasswordReset(email: string, turnstileToken: string): Promise<AuthResult> {
   try {
     const cleanEmail = sanitizeEmail(email);
-
     if (!cleanEmail || !isValidEmail(cleanEmail)) {
       return { error: 'Please enter a valid email address' };
     }
@@ -345,38 +312,20 @@ export async function sendPasswordReset(email: string, turnstileToken: string): 
       return { error: 'Security check required. Please complete the challenge.' };
     }
 
-    const supabase = createClient();
+    const ts = await verifyTurnstile(turnstileToken);
+    if (!ts.valid) {
+      return { error: 'Security check failed. Please try again.' };
+    }
 
+    const supabase = createClient();
     await supabase.auth.resetPasswordForEmail(cleanEmail, {
       redirectTo: 'https://kwen.in/auth/reset-password',
     });
 
+    // Always return success — do not leak whether email exists
     return { success: true };
   } catch {
     return { success: true };
-  }
-}
-
-export async function verifyRecoveryToken(tokenHash: string): Promise<AuthResult> {
-  try {
-    if (!tokenHash || typeof tokenHash !== 'string') {
-      return { error: 'Invalid reset link' };
-    }
-
-    const supabase = createClient();
-
-    const { error } = await supabase.auth.verifyOtp({
-      type: 'recovery',
-      token_hash: tokenHash,
-    });
-
-    if (error) {
-      return { error: 'Invalid or expired reset link. Please request a new one.' };
-    }
-
-    return { success: true };
-  } catch {
-    return { error: 'Invalid or expired reset link. Please request a new one.' };
   }
 }
 
@@ -394,6 +343,7 @@ export async function updatePassword(currentPassword: string, newPassword: strin
       return { error: 'Not authenticated. Please log in again.' };
     }
 
+    // Re-authenticate with current password
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email: user.email,
       password: currentPassword,
@@ -412,5 +362,57 @@ export async function updatePassword(currentPassword: string, newPassword: strin
     return { success: true };
   } catch {
     return { error: 'Failed to update password. Please try again.' };
+  }
+}
+
+// Client-side read operations and sign out
+
+export async function signOut() {
+  try {
+    const supabase = createClient();
+    const { error } = await supabase.auth.signOut();
+    if (error) return { error: 'Sign out failed' };
+    return { success: true };
+  } catch {
+    return { error: 'Sign out failed' };
+  }
+}
+
+export async function getSession() {
+  try {
+    const supabase = createClient();
+    const { data, error } = await supabase.auth.getSession();
+    if (error) return { session: null, error: 'Session unavailable' };
+    return { session: data.session, error: null };
+  } catch {
+    return { session: null, error: 'Session unavailable' };
+  }
+}
+
+export async function getUser() {
+  try {
+    const supabase = createClient();
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error) return { user: null, error: 'Authentication failed' };
+    return { user, error: null };
+  } catch {
+    return { user: null, error: 'Authentication failed' };
+  }
+}
+
+export async function verifyRecoveryToken(tokenHash: string): Promise<AuthResult> {
+  try {
+    if (!tokenHash || typeof tokenHash !== 'string') {
+      return { error: 'Invalid reset link' };
+    }
+    const supabase = createClient();
+    const { error } = await supabase.auth.verifyOtp({
+      type: 'recovery',
+      token_hash: tokenHash,
+    });
+    if (error) return { error: 'Invalid or expired reset link. Please request a new one.' };
+    return { success: true };
+  } catch {
+    return { error: 'Invalid or expired reset link. Please request a new one.' };
   }
 }

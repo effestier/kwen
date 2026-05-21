@@ -64,6 +64,19 @@ export async function sendOTP(email: string, turnstileToken: string): Promise<Au
     }
 
     const supabase = createClient();
+
+    // Server-side rate limiting via Supabase RPC (3 per 5 min per email)
+    const { data: rateLimitResult } = await supabase.rpc('check_rate_limit', {
+      p_key: `otp-send:${cleanEmail}`,
+      p_max_requests: 3,
+      p_window_ms: 5 * 60 * 1000,
+    });
+
+    if (rateLimitResult && !rateLimitResult.allowed) {
+      const minutes = Math.ceil((rateLimitResult.retry_after_ms || 0) / 60000);
+      return { error: `Too many requests. Try again in ${minutes} minute(s).` };
+    }
+
     const { error } = await supabase.auth.signInWithOtp({
       email: cleanEmail,
       options: {
@@ -171,6 +184,19 @@ export async function signInWithPassword(email: string, password: string, turnst
     }
 
     const supabase = createClient();
+
+    // Server-side rate limiting via Supabase RPC (5 attempts per 15 min per email)
+    const { data: rateLimitResult } = await supabase.rpc('check_rate_limit', {
+      p_key: `password-login:${cleanEmail}`,
+      p_max_requests: 5,
+      p_window_ms: 15 * 60 * 1000,
+    });
+
+    if (rateLimitResult && !rateLimitResult.allowed) {
+      const minutes = Math.ceil((rateLimitResult.retry_after_ms || 0) / 60000);
+      return { error: `Too many login attempts. Try again in ${minutes} minute(s).` };
+    }
+
     const { error } = await supabase.auth.signInWithPassword({
       email: cleanEmail,
       password,
@@ -313,6 +339,19 @@ export async function sendPasswordReset(email: string, turnstileToken: string): 
     }
 
     const supabase = createClient();
+
+    // Server-side rate limiting via Supabase RPC (3 per 15 min per email)
+    const { data: rateLimitResult } = await supabase.rpc('check_rate_limit', {
+      p_key: `password-reset:${cleanEmail}`,
+      p_max_requests: 3,
+      p_window_ms: 15 * 60 * 1000,
+    });
+
+    if (rateLimitResult && !rateLimitResult.allowed) {
+      // Still return success — don't leak rate limit info
+      return { success: true };
+    }
+
     await supabase.auth.resetPasswordForEmail(cleanEmail, {
       redirectTo: 'https://kwen.in/auth/reset-password',
     });

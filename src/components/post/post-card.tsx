@@ -124,7 +124,10 @@ export function PostCard({ post, isOwnPost = false, onDelete }: PostCardProps) {
     setDeleted(true)
     setShowUndoToast(true)
 
-    // Auto-permanent after 5s
+    // Actually soft-delete on server
+    await deletePost(post.id)
+
+    // Auto-remove from UI after 5s if not undone
     setTimeout(() => {
       if (deleted) onDelete?.(post.id)
     }, 5000)

@@ -115,18 +115,20 @@ export default function CreatePage() {
         const item = mediaItems[i]
         setUploadProgress(prev => ({ ...prev, [item.id]: 0 }))
 
-        const result = await uploadMedia(item.file, (pct) => {
-          setUploadProgress(prev => ({ ...prev, [item.id]: pct }))
-        }, 'post')
-
-        if (result.error) {
-          setError(`Upload failed: ${result.error}`)
+        let result: { url: string; type: string }
+        try {
+          const uploadResult = await uploadMedia(item.file, (progress) => {
+            setUploadProgress(prev => ({ ...prev, [item.id]: progress.percent }))
+          }, 'post')
+          result = { url: uploadResult.url, type: item.type }
+        } catch (err) {
+          setError(`Upload failed for ${item.file.name}`)
           setSaving(false)
           return
         }
 
         uploadedUrls.push(result.url)
-        uploadResults.push({ url: result.url, type: item.type })
+        uploadResults.push(result)
         setUploadProgress(prev => ({ ...prev, [item.id]: 100 }))
       }
 

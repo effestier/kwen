@@ -214,7 +214,9 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- =============================================
 -- RLS: posts SELECT should exclude soft-deleted
+-- Must drop old permissive policy first (migration 002 had USING (true))
 -- =============================================
+DROP POLICY IF EXISTS "posts_select" ON public.posts;
 DROP POLICY IF EXISTS "posts_select_public" ON public.posts;
 CREATE POLICY "posts_select_public" ON public.posts
   FOR SELECT USING (deleted_at IS NULL);

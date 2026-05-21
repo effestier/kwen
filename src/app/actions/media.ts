@@ -167,6 +167,7 @@ export async function createPostWithMedia(formData: FormData) {
 
     const content = (formData.get('content') as string | null)?.trim().slice(0, 5000) || null
     const location = (formData.get('location') as string | null)?.trim().slice(0, 200) || null
+    const visibility = (formData.get('visibility') as string | null) || 'public'
     const mediaUrlsRaw = formData.get('mediaUrls') as string | null
     const mediaResultsRaw = formData.get('mediaResults') as string | null
 
@@ -213,6 +214,7 @@ export async function createPostWithMedia(formData: FormData) {
         content,
         location,
         media_url: mediaUrl,
+        visibility,
       })
       .select()
       .single()

@@ -240,7 +240,10 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 CREATE OR REPLACE FUNCTION public.increment_share_count(p_post_id uuid)
 RETURNS void AS $$
-BEGIN UPDATE posts SET shares = COALESCE(shares, 0) + 1 WHERE id = p_post_id; END;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+  UPDATE posts SET shares = COALESCE(shares, 0) + 1 WHERE id = p_post_id;
+END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Drop old posts_select policy (from migration 002)
@@ -371,16 +374,28 @@ CREATE TRIGGER on_post_hard_delete BEFORE DELETE ON public.posts
 
 CREATE OR REPLACE FUNCTION public.purge_old_deleted_posts()
 RETURNS void AS $$
-BEGIN DELETE FROM public.posts WHERE deleted_at IS NOT NULL AND deleted_at < now() - interval '30 days'; END;
+BEGIN
+  -- Only allow service_role or cron (no user-facing auth context)
+  -- When called from pg_cron, current_setting('request.jwt.claims', true) is NULL
+  -- When called by a user, it will have jwt claims with a 'sub' (user_id)
+  IF current_setting('request.jwt.claims', true) IS NOT NULL THEN
+    -- This is a user request, not a cron job — block it
+    RAISE EXCEPTION 'This function can only be called from a scheduled job';
+  END IF;
+  DELETE FROM public.posts WHERE deleted_at IS NOT NULL AND deleted_at < now() - interval '30 days';
+END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_comments_parent_id ON comments(parent_id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_comment_likes_comment_user ON comment_likes(comment_id, user_id);
 
--- pg_cron (silent fail on free tier)
+-- pg_cron (silent fail on free tier, no duplicate jobs)
 DO $$ BEGIN
   CREATE EXTENSION IF NOT EXISTS pg_cron;
-  PERFORM cron.schedule('purge-old-deleted-posts', '0 3 * * *', 'SELECT public.purge_old_deleted_posts()');
+  -- Only schedule if job doesn't already exist
+  IF NOT EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'purge-old-deleted-posts') THEN
+    PERFORM cron.schedule('purge-old-deleted-posts', '0 3 * * *', 'SELECT public.purge_old_deleted_posts()');
+  END IF;
 EXCEPTION WHEN OTHERS THEN NULL;
 END $$;

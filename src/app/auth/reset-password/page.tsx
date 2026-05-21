@@ -150,12 +150,12 @@ function RequestReset() {
 
                   {!isNative && turnstileSiteKey && turnstileSiteKey !== 'your-site-key-here' && (
                     <TurnstileWidget
+                      key="reset-password"
                       siteKey={turnstileSiteKey}
                       onSuccess={setTurnstileToken}
                       onExpire={() => setTurnstileToken(null)}
                       onError={() => {
                         setTurnstileToken(null);
-                        setError('Security check failed. Please refresh and try again.');
                       }}
                     />
                   )}

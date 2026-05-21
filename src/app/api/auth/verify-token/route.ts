@@ -37,11 +37,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ valid: false, error: 'Missing token' });
     }
 
-    // Skip Turnstile when not configured (site key is placeholder)
-    if (token === 'skip-turnstile') {
-      return NextResponse.json({ valid: true, degraded: true });
-    }
-
     // Native app bypass — Capacitor can't run Turnstile
     // Verify the request actually comes from a native app via User-Agent
     if (token === 'native-app-bypass') {

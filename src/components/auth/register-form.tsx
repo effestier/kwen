@@ -267,12 +267,12 @@ export function RegisterForm() {
 
             {turnstileEnabled && (
               <TurnstileWidget
+                key={`register-email-${step}`}
                 siteKey={turnstileSiteKey!}
                 onSuccess={setTurnstileToken}
                 onExpire={() => setTurnstileToken(null)}
                 onError={() => {
                   setTurnstileToken(null);
-                  setError('Security check failed. Please refresh and try again.');
                 }}
               />
             )}
@@ -340,7 +340,7 @@ export function RegisterForm() {
 
           <button
             type="submit"
-            disabled={loading || otpCode.length !== 8}
+            disabled={loading || otpCode.length !== 6}
             className="w-full py-3 rounded-xl bg-[var(--accent-primary)] text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
           >
             {loading ? 'Verifying...' : 'Verify'}

@@ -271,12 +271,12 @@ export function PasswordLoginForm() {
 
             {turnstileEnabled && (
               <TurnstileWidget
+                key={`login-credentials-${subStep}`}
                 siteKey={turnstileSiteKey!}
                 onSuccess={setTurnstileToken}
                 onExpire={() => setTurnstileToken(null)}
                 onError={() => {
                   setTurnstileToken(null);
-                  setError('Security check failed. Please refresh and try again.');
                 }}
               />
             )}
@@ -338,11 +338,12 @@ export function PasswordLoginForm() {
 
           {turnstileEnabled && (
             <TurnstileWidget
+              key={`login-otp-email-${subStep}`}
               siteKey={turnstileSiteKey!}
               onSuccess={setTurnstileToken}
               onExpire={() => setTurnstileToken(null)}
               onError={() => {
-                setTurnstileToken('skip-turnstile');
+                setTurnstileToken(null);
               }}
             />
           )}
@@ -414,7 +415,7 @@ export function PasswordLoginForm() {
 
           <button
             type="submit"
-            disabled={loading || otpCode.length !== 8}
+            disabled={loading || otpCode.length !== 6}
             className="w-full py-3 rounded-xl bg-[var(--accent-primary)] text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
           >
             {loading ? 'Verifying...' : 'Verify'}

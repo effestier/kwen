@@ -3,23 +3,32 @@ import { cn, formatNumber, formatTimeAgo } from '@/lib/utils';
 import { Avatar } from '@/components/ui/avatar';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { toggleLike as togglePostLike, toggleSave as togglePostSave } from '@/services/posts';
+import { toggleLike as togglePostLike, toggleSave as togglePostSave, deletePost, restorePost, blockUser, muteUser, incrementShareCount } from '@/services/posts';
 import { hapticLight } from '@/lib/haptics';
 import { CommentsModal } from '@/components/comments/comments-modal';
 import { getCommentCount } from '@/services/comments';
 import { createClient } from '@/lib/supabase/client';
+import { EditPostModal } from '@/components/post/edit-post-modal';
+import { renderRichText } from '@/lib/text-utils';
 
 interface PostCardProps {
   post: Post;
+  isOwnPost?: boolean;
+  onDelete?: (postId: string) => void;
 }
 
-export function PostCard({ post }: PostCardProps) {
+export function PostCard({ post, isOwnPost = false, onDelete }: PostCardProps) {
   const [liked, setLiked] = useState(post.isLiked);
   const [likeCount, setLikeCount] = useState(post.likes);
   const [saved, setSaved] = useState(post.isSaved);
   const [showComments, setShowComments] = useState(false);
   const [commentCount, setCommentCount] = useState(post.comments);
   const [loading, setLoading] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [deleted, setDeleted] = useState(false);
+  const [showUndoToast, setShowUndoToast] = useState(false);
+  const [editedAt, setEditedAt] = useState<string | null>(null);
   const supabase = createClient();
 
   // Load comment count on mount
@@ -110,6 +119,35 @@ export function PostCard({ post }: PostCardProps) {
     getCommentCount(post.id).then(count => setCommentCount(count));
   };
 
+  const handleDelete = async () => {
+    setShowMoreMenu(false)
+    setDeleted(true)
+    setShowUndoToast(true)
+
+    // Auto-permanent after 5s
+    setTimeout(() => {
+      if (deleted) onDelete?.(post.id)
+    }, 5000)
+  }
+
+  const handleUndoDelete = async () => {
+    await restorePost(post.id)
+    setDeleted(false)
+    setShowUndoToast(false)
+  }
+
+  const handleShare = async () => {
+    const url = `${window.location.origin}/post/${post.id}`
+    if (navigator.share) {
+      await navigator.share({ title: `Post by ${post.user.displayName}`, url })
+    } else {
+      await navigator.clipboard.writeText(url)
+    }
+    await incrementShareCount(post.id)
+  }
+
+  if (deleted && !showUndoToast) return null
+
   return (
     <>
       <article className="post-card">
@@ -147,18 +185,88 @@ export function PostCard({ post }: PostCardProps) {
             </div>
           </div>
 
-          <button aria-label="More options" className="p-2.5 rounded-full hover:bg-[var(--bg-tertiary)] text-[var(--text-muted)] transition-colors-fast">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" />
-            </svg>
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => setShowMoreMenu(!showMoreMenu)}
+              aria-label="More options"
+              className="p-2.5 rounded-full hover:bg-[var(--bg-tertiary)] text-[var(--text-muted)] transition-colors-fast"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" />
+              </svg>
+            </button>
+
+            {/* More menu */}
+            {showMoreMenu && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowMoreMenu(false)} />
+                <div className="absolute right-0 top-full mt-1 w-52 bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-xl shadow-lg z-50 overflow-hidden">
+                  {isOwnPost ? (
+                    <>
+                      <button
+                        onClick={() => { setShowEditModal(true); setShowMoreMenu(false) }}
+                        className="w-full px-4 py-3 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] flex items-center gap-3"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                        </svg>
+                        Edit
+                      </button>
+                      <button
+                        onClick={handleDelete}
+                        className="w-full px-4 py-3 text-left text-sm text-red-500 hover:bg-[var(--bg-secondary)] flex items-center gap-3"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                        </svg>
+                        Delete
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={async () => { await blockUser(post.user.id); setShowMoreMenu(false) }}
+                        className="w-full px-4 py-3 text-left text-sm text-red-500 hover:bg-[var(--bg-secondary)] flex items-center gap-3"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="10" /><path d="m4.9 4.9 14.2 14.2" />
+                        </svg>
+                        Block
+                      </button>
+                      <button
+                        onClick={async () => { await muteUser(post.user.id); setShowMoreMenu(false) }}
+                        className="w-full px-4 py-3 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] flex items-center gap-3"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+                        </svg>
+                        Mute
+                      </button>
+                      <button
+                        onClick={() => { alert('Report submitted.'); setShowMoreMenu(false) }}
+                        className="w-full px-4 py-3 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] flex items-center gap-3"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" x2="4" y1="22" y2="15" />
+                        </svg>
+                        Report
+                      </button>
+                    </>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Content */}
         <div className="mb-3">
           <p className="text-[15px] leading-relaxed text-[var(--text-secondary)] whitespace-pre-line">
-            {post.content}
+            {renderRichText(post.content)}
           </p>
+          {editedAt && (
+            <p className="text-xs text-[var(--text-muted)] mt-1">edited</p>
+          )}
         </div>
 
         {/* Media */}
@@ -228,14 +336,7 @@ export function PostCard({ post }: PostCardProps) {
           </button>
 
           <button
-            onClick={() => {
-              const url = `${window.location.origin}/post/${post.id}`;
-              if (navigator.share) {
-                navigator.share({ title: `Post by ${post.user.displayName}`, url });
-              } else {
-                navigator.clipboard.writeText(url);
-              }
-            }}
+            onClick={handleShare}
             className="p-2 rounded-full text-[var(--text-muted)] hover:text-[var(--success)] hover:bg-[var(--bg-tertiary)] transition-all duration-200 active:scale-90"
             aria-label="Share"
           >
@@ -275,6 +376,33 @@ export function PostCard({ post }: PostCardProps) {
         isOpen={showComments}
         onClose={handleCloseComments}
       />
+
+      {/* Edit Post Modal */}
+      {showEditModal && (
+        <EditPostModal
+          postId={post.id}
+          initialContent={post.content}
+          initialLocation={post.location}
+          onClose={() => setShowEditModal(false)}
+          onSave={(updated) => {
+            setShowEditModal(false)
+            setEditedAt(updated.edited_at)
+          }}
+        />
+      )}
+
+      {/* Undo delete toast */}
+      {showUndoToast && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-xl shadow-lg px-4 py-3 flex items-center gap-3">
+          <span className="text-sm text-[var(--text-primary)]">Post deleted</span>
+          <button
+            onClick={handleUndoDelete}
+            className="text-sm font-semibold text-[var(--accent-primary)] hover:underline"
+          >
+            Undo
+          </button>
+        </div>
+      )}
     </>
   );
 }

@@ -17,8 +17,6 @@
             <pin digest="SHA-256">C/BDigBHc9LV6bZegLg7u7GJe8cR7H1drkIgMFMVnwk=</pin>
             <!-- Let's Encrypt Root CA (ISRG Root X2) -->
             <pin digest="SHA-256">diGVwiVYbubAI3RW4hB9xU8e/CH2GGvrTMwlPhKpoBc=</pin>
-            <!-- Backup: DigiCert Global Root CA -->
-            <pin digest="SHA-256">W9oeJRBz0pJZ7GjPrDm0QI9VEFsYyemHxDeHFm0eMEs="</pin>
         </pin-set>
     </domain-config>
 </network-security-config>

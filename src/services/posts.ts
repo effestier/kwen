@@ -70,20 +70,37 @@ export async function deletePost(postId: string) {
     if (!user) return { error: 'Not authenticated' };
     if (!postId || typeof postId !== 'string') return { error: 'Invalid post ID' };
 
-    const { data: post } = await supabase
-      .from('posts')
-      .select('user_id')
-      .eq('id', postId)
-      .single();
-
-    if (!post || post.user_id !== user.id) return { error: 'Unauthorized' };
-
-    const { error } = await supabase.from('posts').delete().eq('id', postId);
+    const { error } = await supabase.rpc('soft_delete_post', { p_post_id: postId });
 
     if (error) return { error: 'Failed to delete post' };
     return { success: true };
   } catch {
     return { error: 'Failed to delete post' };
+  }
+}
+
+export async function restorePost(postId: string) {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: 'Not authenticated' };
+
+    const { error } = await supabase.rpc('restore_post', { p_post_id: postId });
+
+    if (error) return { error: 'Failed to restore post' };
+    return { success: true };
+  } catch {
+    return { error: 'Failed to restore post' };
+  }
+}
+
+export async function incrementShareCount(postId: string) {
+  try {
+    const supabase = createClient();
+    await supabase.rpc('increment_share_count', { p_post_id: postId });
+  } catch {
+    // Silent fail for share count
   }
 }
 

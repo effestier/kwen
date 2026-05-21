@@ -1,10 +1,10 @@
-'use server'
+// Server action converted to client-side for static export
 
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/client'
 
 export async function getNotifications(limit = 20, cursor?: string) {
   try {
-    const supabase = await createClient()
+    const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
@@ -54,7 +54,7 @@ export async function getNotifications(limit = 20, cursor?: string) {
 
 export async function markNotificationAsRead(notificationId: string) {
   try {
-    const supabase = await createClient()
+    const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user || !notificationId) {
@@ -79,7 +79,7 @@ export async function markNotificationAsRead(notificationId: string) {
 
 export async function markAllNotificationsAsRead() {
   try {
-    const supabase = await createClient()
+    const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
@@ -104,7 +104,7 @@ export async function markAllNotificationsAsRead() {
 
 export async function getUnreadNotificationCount() {
   try {
-    const supabase = await createClient()
+    const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {

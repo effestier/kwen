@@ -1,11 +1,10 @@
-'use server'
+// Server action converted to client-side for static export
 
-import { createClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
+import { createClient } from '@/lib/supabase/client'
 
 export async function toggleLike(postId: string) {
   try {
-    const supabase = await createClient()
+    const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
@@ -51,7 +50,7 @@ export async function toggleLike(postId: string) {
 
 export async function toggleSave(postId: string) {
   try {
-    const supabase = await createClient()
+    const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
@@ -97,7 +96,7 @@ export async function toggleSave(postId: string) {
 
 export async function deletePost(postId: string) {
   try {
-    const supabase = await createClient()
+    const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
@@ -128,7 +127,6 @@ export async function deletePost(postId: string) {
       return { error: 'Failed to delete post' }
     }
 
-    revalidatePath('/feed')
     return { success: true }
   } catch {
     return { error: 'Failed to delete post' }
@@ -137,7 +135,7 @@ export async function deletePost(postId: string) {
 
 export async function getPostLikes(postId: string) {
   try {
-    const supabase = await createClient()
+    const supabase = createClient()
 
     const { count } = await supabase
       .from('post_likes')
@@ -152,7 +150,7 @@ export async function getPostLikes(postId: string) {
 
 export async function getPost(postId: string) {
   try {
-    const supabase = await createClient()
+    const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!postId || typeof postId !== 'string') {
@@ -243,7 +241,7 @@ export async function getPost(postId: string) {
 
 export async function blockUser(userId: string) {
   try {
-    const supabase = await createClient()
+    const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) return { error: 'Not authenticated' }
@@ -262,7 +260,7 @@ export async function blockUser(userId: string) {
 
 export async function unblockUser(userId: string) {
   try {
-    const supabase = await createClient()
+    const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) return { error: 'Not authenticated' }
@@ -276,7 +274,7 @@ export async function unblockUser(userId: string) {
 
 export async function muteUser(userId: string) {
   try {
-    const supabase = await createClient()
+    const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) return { error: 'Not authenticated' }
@@ -295,7 +293,7 @@ export async function muteUser(userId: string) {
 
 export async function unmuteUser(userId: string) {
   try {
-    const supabase = await createClient()
+    const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) return { error: 'Not authenticated' }

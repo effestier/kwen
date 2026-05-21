@@ -1,7 +1,6 @@
-'use server'
+// Server action converted to client-side for static export
 
-import { createClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
+import { createClient } from '@/lib/supabase/client'
 
 export interface Highlight {
   id: string
@@ -20,7 +19,7 @@ export interface HighlightStory {
 
 // Get all highlights for a user
 export async function getUserHighlights(userId: string): Promise<Highlight[]> {
-  const supabase = await createClient()
+  const supabase = createClient()
 
   const { data, error } = await supabase
     .from('story_highlights')
@@ -50,7 +49,7 @@ export async function getUserHighlights(userId: string): Promise<Highlight[]> {
 
 // Get a single highlight with its stories
 export async function getHighlightStories(highlightId: string): Promise<HighlightStory[]> {
-  const supabase = await createClient()
+  const supabase = createClient()
 
   const { data, error } = await supabase
     .rpc('get_highlight_with_stories', { p_highlight_id: highlightId })
@@ -70,7 +69,7 @@ export async function getHighlightStories(highlightId: string): Promise<Highligh
 
 // Create a new highlight
 export async function createHighlight(title: string): Promise<{ id?: string; error?: string }> {
-  const supabase = await createClient()
+  const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
@@ -90,7 +89,6 @@ export async function createHighlight(title: string): Promise<{ id?: string; err
     return { error: 'Failed to create highlight' }
   }
 
-  revalidatePath('/profile')
   return { id: data.id }
 }
 
@@ -99,7 +97,7 @@ export async function updateHighlightTitle(
   highlightId: string,
   title: string
 ): Promise<{ success?: boolean; error?: string }> {
-  const supabase = await createClient()
+  const supabase = createClient()
 
   const { error } = await supabase
     .from('story_highlights')
@@ -110,13 +108,12 @@ export async function updateHighlightTitle(
     return { error: 'Failed to update highlight' }
   }
 
-  revalidatePath('/profile')
   return { success: true }
 }
 
 // Delete a highlight
 export async function deleteHighlight(highlightId: string): Promise<{ success?: boolean; error?: string }> {
-  const supabase = await createClient()
+  const supabase = createClient()
 
   const { error } = await supabase
     .from('story_highlights')
@@ -127,7 +124,6 @@ export async function deleteHighlight(highlightId: string): Promise<{ success?: 
     return { error: 'Failed to delete highlight' }
   }
 
-  revalidatePath('/profile')
   return { success: true }
 }
 
@@ -136,7 +132,7 @@ export async function addStoryToHighlight(
   highlightId: string,
   storyId: string
 ): Promise<{ success?: boolean; error?: string }> {
-  const supabase = await createClient()
+  const supabase = createClient()
 
   const { error } = await supabase
     .rpc('add_story_to_highlight', {
@@ -148,7 +144,6 @@ export async function addStoryToHighlight(
     return { error: 'Failed to add story to highlight' }
   }
 
-  revalidatePath('/profile')
   return { success: true }
 }
 
@@ -157,7 +152,7 @@ export async function removeStoryFromHighlight(
   highlightId: string,
   storyId: string
 ): Promise<{ success?: boolean; error?: string }> {
-  const supabase = await createClient()
+  const supabase = createClient()
 
   const { error } = await supabase
     .rpc('remove_story_from_highlight', {
@@ -169,7 +164,6 @@ export async function removeStoryFromHighlight(
     return { error: 'Failed to remove story from highlight' }
   }
 
-  revalidatePath('/profile')
   return { success: true }
 }
 
@@ -178,7 +172,7 @@ export async function saveStoryToHighlight(
   storyId: string,
   highlightId?: string
 ): Promise<{ success?: boolean; highlightId?: string; error?: string }> {
-  const supabase = await createClient()
+  const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {

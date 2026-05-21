@@ -1,6 +1,6 @@
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/supabase/client';
 
 export interface Comment {
   id: string;
@@ -22,7 +22,7 @@ export interface Comment {
 // Fetch parent comments with reply counts and current user's like status
 export async function getComments(postId: string, limit = 50): Promise<Comment[]> {
   try {
-    const supabase = await createClient();
+    const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!postId || typeof postId !== 'string') return [];
@@ -99,7 +99,7 @@ export async function getComments(postId: string, limit = 50): Promise<Comment[]
 // Fetch replies for a specific parent comment
 export async function getReplies(parentId: string, limit = 20): Promise<Comment[]> {
   try {
-    const supabase = await createClient();
+    const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!parentId) return [];
@@ -163,7 +163,7 @@ export async function addComment(
   parentId?: string
 ): Promise<{ success: boolean; error?: string; comment?: Comment }> {
   try {
-    const supabase = await createClient();
+    const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) return { success: false, error: 'Not authenticated' };
@@ -211,7 +211,7 @@ export async function addComment(
 // Toggle like on a comment
 export async function toggleCommentLike(commentId: string): Promise<{ success: boolean; liked?: boolean; error?: string }> {
   try {
-    const supabase = await createClient();
+    const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) return { success: false, error: 'Not authenticated' };
@@ -242,7 +242,7 @@ export async function toggleCommentLike(commentId: string): Promise<{ success: b
 // Delete a comment (soft delete)
 export async function deleteComment(commentId: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createClient();
+    const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) return { success: false, error: 'Not authenticated' };
@@ -264,7 +264,7 @@ export async function deleteComment(commentId: string): Promise<{ success: boole
 // Get total comment count (parents + replies)
 export async function getCommentCount(postId: string): Promise<number> {
   try {
-    const supabase = await createClient();
+    const supabase = createClient();
 
     if (!postId) return 0;
 

@@ -1,13 +1,12 @@
-'use server'
+// Server action converted to client-side for static export
 
-import { createClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
+import { createClient } from '@/lib/supabase/client'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 // Story Reactions
 export async function addStoryReaction(storyId: string, emoji: string) {
-  const supabase = await createClient()
+  const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) return { error: 'Not authenticated' }
@@ -29,7 +28,7 @@ export async function addStoryReaction(storyId: string, emoji: string) {
 }
 
 export async function removeStoryReaction(storyId: string, emoji: string) {
-  const supabase = await createClient()
+  const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) return { error: 'Not authenticated' }
@@ -46,7 +45,7 @@ export async function removeStoryReaction(storyId: string, emoji: string) {
 }
 
 export async function getStoryReactions(storyId: string) {
-  const supabase = await createClient()
+  const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) return []
@@ -80,7 +79,7 @@ export async function getStoryReactions(storyId: string) {
 
 // Story Replies
 export async function sendStoryReply(storyId: string, message: string, recipientId: string) {
-  const supabase = await createClient()
+  const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) return { error: 'Not authenticated' }
@@ -104,7 +103,7 @@ export async function sendStoryReply(storyId: string, message: string, recipient
 }
 
 export async function getStoryReplies(storyId: string) {
-  const supabase = await createClient()
+  const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) return []
@@ -145,7 +144,7 @@ export async function getStoryReplies(storyId: string) {
 }
 
 export async function getStoryRepliesForUser(userId: string) {
-  const supabase = await createClient()
+  const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) return []
@@ -182,7 +181,7 @@ export async function getStoryRepliesForUser(userId: string) {
 }
 
 export async function markStoryReplyAsRead(replyId: string) {
-  const supabase = await createClient()
+  const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) return { error: 'Not authenticated' }
@@ -199,7 +198,7 @@ export async function markStoryReplyAsRead(replyId: string) {
 
 // Story Viewers (who has seen the story) — only story owner can see
 export async function getStoryViewers(storyId: string) {
-  const supabase = await createClient()
+  const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) return []
@@ -237,7 +236,7 @@ export async function getStoryViewers(storyId: string) {
 }
 
 export async function getUserStoryViews(userId: string) {
-  const supabase = await createClient()
+  const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) return []
@@ -294,7 +293,7 @@ export async function getUserStoryViews(userId: string) {
 
 // Story Music
 export async function addStoryMusic(storyId: string, trackName: string, artist: string, previewUrl: string, coverUrl: string, startTime = 0, duration = 15) {
-  const supabase = await createClient()
+  const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) return { error: 'Not authenticated' }
@@ -340,7 +339,7 @@ export async function addStoryMusic(storyId: string, trackName: string, artist: 
 }
 
 export async function getStoryMusic(storyId: string) {
-  const supabase = await createClient()
+  const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) return null

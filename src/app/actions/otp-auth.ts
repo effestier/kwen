@@ -1,4 +1,5 @@
-'use server';
+// Server actions removed — auth functions moved to services/auth.ts (client-side)
+// This file is kept for reference but no longer imported
 
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
@@ -197,8 +198,8 @@ export async function verifyOTP(email: string, token: string): Promise<AuthResul
       return { error: 'Invalid email' };
     }
 
-    if (!cleanToken || cleanToken.length !== 6 || !/^\d{6}$/.test(cleanToken)) {
-      return { error: 'Please enter the 6-digit code' };
+    if (!cleanToken || cleanToken.length !== 8 || !/^\d{8}$/.test(cleanToken)) {
+      return { error: 'Please enter the 8-digit code' };
     }
 
     // Rate limit: 10 verification attempts per 15 min per email
@@ -473,14 +474,8 @@ export async function signInWithPassword(email: string, password: string, turnst
     });
 
     if (error) {
-      const msg = error.message?.toLowerCase() || '';
-      if (msg.includes('invalid login credentials')) {
-        return { error: 'Incorrect email or password. Please try again.' };
-      }
-      if (msg.includes('email not confirmed')) {
-        return { error: 'Please verify your email address first. Check your inbox or use OTP login.' };
-      }
-      return { error: 'Login failed. Please try again.' };
+      // Generic message — don't reveal whether email exists or password is wrong
+      return { error: 'Invalid email or password. Please try again.' };
     }
 
     revalidatePath('/', 'layout');

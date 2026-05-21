@@ -1,7 +1,6 @@
-'use server'
+// Server action converted to client-side for static export
 
-import { createClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
+import { createClient } from '@/lib/supabase/client'
 
 export interface CloseFriend {
   friend_id: string
@@ -12,7 +11,7 @@ export interface CloseFriend {
 
 // Get user's close friends list
 export async function getCloseFriends(): Promise<CloseFriend[]> {
-  const supabase = await createClient()
+  const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) return []
@@ -32,7 +31,7 @@ export async function getCloseFriends(): Promise<CloseFriend[]> {
 export async function addCloseFriend(
   friendId: string
 ): Promise<{ success?: boolean; error?: string }> {
-  const supabase = await createClient()
+  const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
@@ -53,7 +52,6 @@ export async function addCloseFriend(
     return { error: 'Failed to add to close friends' }
   }
 
-  revalidatePath('/settings/close-friends')
   return { success: true }
 }
 
@@ -61,7 +59,7 @@ export async function addCloseFriend(
 export async function removeCloseFriend(
   friendId: string
 ): Promise<{ success?: boolean; error?: string }> {
-  const supabase = await createClient()
+  const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
@@ -78,7 +76,6 @@ export async function removeCloseFriend(
     return { error: 'Failed to remove from close friends' }
   }
 
-  revalidatePath('/settings/close-friends')
   return { success: true }
 }
 
@@ -87,7 +84,7 @@ export async function isCloseFriend(
   ownerId: string,
   viewerId: string
 ): Promise<boolean> {
-  const supabase = await createClient()
+  const supabase = createClient()
 
   const { data } = await supabase
     .rpc('is_close_friend', {

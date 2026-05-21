@@ -18,7 +18,8 @@ async function verifyTurnstile(token: string): Promise<{ valid: boolean; degrade
     });
     return await res.json();
   } catch {
-    return { valid: true, degraded: true };
+    // Network failure = reject, never pass
+    return { valid: false, degraded: true };
   }
 }
 
@@ -92,8 +93,8 @@ export async function verifyOTP(email: string, token: string): Promise<AuthResul
     if (!cleanEmail || !isValidEmail(cleanEmail)) {
       return { error: 'Invalid email' };
     }
-    if (!cleanToken || cleanToken.length !== 6 || !/^\d{6}$/.test(cleanToken)) {
-      return { error: 'Please enter the 6-digit code' };
+    if (!cleanToken || cleanToken.length !== 8 || !/^\d{8}$/.test(cleanToken)) {
+      return { error: 'Please enter the 8-digit code' };
     }
 
     const supabase = createClient();
@@ -123,7 +124,7 @@ export async function verifyOTP(email: string, token: string): Promise<AuthResul
 
     if (!existingProfile) {
       const displayName = cleanEmail.split('@')[0].slice(0, 50);
-      const tempUsername = `user_${data.user.id.replace(/-/g, '').slice(0, 8)}`;
+      const tempUsername = `user_${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`;
 
       const { error: profileError } = await supabase.from('profiles').upsert({
         id: data.user.id,
@@ -176,14 +177,8 @@ export async function signInWithPassword(email: string, password: string, turnst
     });
 
     if (error) {
-      const msg = error.message?.toLowerCase() || '';
-      if (msg.includes('invalid login credentials')) {
-        return { error: 'Incorrect email or password. Please try again.' };
-      }
-      if (msg.includes('email not confirmed')) {
-        return { error: 'Please verify your email address first. Check your inbox or use OTP login.' };
-      }
-      return { error: 'Login failed. Please try again.' };
+      // Generic message — don't reveal whether email exists or password is wrong
+      return { error: 'Invalid email or password. Please try again.' };
     }
 
     return { success: true };

@@ -1,7 +1,6 @@
-'use server'
+// Server action converted to client-side for static export
 
-import { createClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
+import { createClient } from '@/lib/supabase/client'
 
 const ALLOWED_MEDIA_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/webm']
 const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'webm']
@@ -18,7 +17,7 @@ function isValidMediaUrl(url: string): boolean {
 
 export async function uploadAvatar(filePath: string) {
   try {
-    const supabase = await createClient()
+    const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
@@ -38,8 +37,6 @@ export async function uploadAvatar(filePath: string) {
       return { error: 'Failed to update avatar' }
     }
 
-    revalidatePath('/profile')
-    revalidatePath('/settings')
     return { success: true, url: filePath }
   } catch {
     return { error: 'Failed to upload avatar' }
@@ -48,7 +45,7 @@ export async function uploadAvatar(filePath: string) {
 
 export async function uploadPostMedia(postId: string, urls: string[]) {
   try {
-    const supabase = await createClient()
+    const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
@@ -100,7 +97,6 @@ export async function uploadPostMedia(postId: string, urls: string[]) {
       return { error: 'Failed to save media' }
     }
 
-    revalidatePath('/feed')
     return { success: true }
   } catch {
     return { error: 'Failed to upload media' }
@@ -109,7 +105,7 @@ export async function uploadPostMedia(postId: string, urls: string[]) {
 
 export async function deletePostMedia(mediaId: string) {
   try {
-    const supabase = await createClient()
+    const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
@@ -162,7 +158,7 @@ export async function deletePostMedia(mediaId: string) {
 
 export async function createPostWithMedia(formData: FormData) {
   try {
-    const supabase = await createClient()
+    const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
@@ -242,7 +238,6 @@ export async function createPostWithMedia(formData: FormData) {
       await supabase.from('post_media').insert(mediaRecords)
     }
 
-    revalidatePath('/feed')
     return { success: true, postId: post.id }
   } catch {
     return { error: 'Failed to create post' }
@@ -251,7 +246,7 @@ export async function createPostWithMedia(formData: FormData) {
 
 export async function uploadStory(mediaUrl: string, mediaType: string = 'image') {
   try {
-    const supabase = await createClient()
+    const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
@@ -295,11 +290,9 @@ export async function uploadStory(mediaUrl: string, mediaType: string = 'image')
         return { error: 'Failed to upload story' }
       }
 
-      revalidatePath('/feed')
       return { success: true, storyId: retryData?.id }
     }
 
-    revalidatePath('/feed')
     return { success: true, storyId: data?.id }
   } catch {
     return { error: 'Failed to upload story' }

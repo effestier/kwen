@@ -7,8 +7,8 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   minimumScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  maximumScale: 5,
+  userScalable: true,
   viewportFit: 'cover',
   themeColor: '#0a0a0b',
 };
@@ -103,7 +103,7 @@ export default function RootLayout({
         />
         <script
           dangerouslySetInnerHTML={{
-            __html: `if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js'); }`,
+            __html: `if ('serviceWorker' in navigator && !window.location.pathname.startsWith('/auth')) { navigator.serviceWorker.register('/sw.js', { scope: '/' }); }`,
           }}
         />
         <script
@@ -144,6 +144,12 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased">
+        <noscript>
+          <div style={{ padding: '2rem', textAlign: 'center', fontFamily: 'system-ui' }}>
+            <h1>JavaScript Required</h1>
+            <p>KWEN requires JavaScript to run. Please enable JavaScript in your browser settings.</p>
+          </div>
+        </noscript>
         <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:rounded-lg focus:bg-[var(--accent-primary)] focus:text-white focus:text-sm focus:font-semibold">
           Skip to main content
         </a>

@@ -1,7 +1,6 @@
-'use server'
+// Server action converted to client-side for static export
 
-import { createClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
+import { createClient } from '@/lib/supabase/client'
 
 // Poll types
 export interface Poll {
@@ -56,7 +55,7 @@ export async function createPoll(
   option1: string,
   option2: string
 ): Promise<{ pollId?: string; error?: string }> {
-  const supabase = await createClient()
+  const supabase = createClient()
 
   const { data, error } = await supabase
     .from('story_polls')
@@ -77,7 +76,7 @@ export async function createPoll(
 }
 
 export async function getPollByStory(storyId: string): Promise<Poll | null> {
-  const supabase = await createClient()
+  const supabase = createClient()
 
   const { data } = await supabase
     .from('story_polls')
@@ -92,7 +91,7 @@ export async function voteOnPoll(
   pollId: string,
   optionNumber: 1 | 2
 ): Promise<{ success?: boolean; error?: string }> {
-  const supabase = await createClient()
+  const supabase = createClient()
 
   const { error } = await supabase
     .rpc('vote_on_poll', {
@@ -111,7 +110,7 @@ export async function voteOnPoll(
 }
 
 export async function getPollResults(pollId: string): Promise<PollResults | null> {
-  const supabase = await createClient()
+  const supabase = createClient()
 
   const { data } = await supabase
     .rpc('get_poll_results', { p_poll_id: pollId })
@@ -127,7 +126,7 @@ export async function createQuestion(
   storyId: string,
   question: string
 ): Promise<{ questionId?: string; error?: string }> {
-  const supabase = await createClient()
+  const supabase = createClient()
 
   const { data, error } = await supabase
     .from('story_questions')
@@ -146,7 +145,7 @@ export async function createQuestion(
 }
 
 export async function getQuestionByStory(storyId: string): Promise<StoryQuestion | null> {
-  const supabase = await createClient()
+  const supabase = createClient()
 
   const { data } = await supabase
     .from('story_questions')
@@ -161,7 +160,7 @@ export async function respondToQuestion(
   questionId: string,
   response: string
 ): Promise<{ success?: boolean; error?: string }> {
-  const supabase = await createClient()
+  const supabase = createClient()
 
   const { error } = await supabase
     .rpc('respond_to_question', {
@@ -179,7 +178,7 @@ export async function respondToQuestion(
 export async function getQuestionResponses(
   questionId: string
 ): Promise<QuestionResponse[]> {
-  const supabase = await createClient()
+  const supabase = createClient()
 
   const { data, error } = await supabase
     .from('story_question_responses')
@@ -213,7 +212,7 @@ export async function createCountdown(
   title: string,
   endTime: string
 ): Promise<{ countdownId?: string; error?: string }> {
-  const supabase = await createClient()
+  const supabase = createClient()
 
   const { data, error } = await supabase
     .from('story_countdowns')
@@ -233,7 +232,7 @@ export async function createCountdown(
 }
 
 export async function getCountdownByStory(storyId: string): Promise<Countdown | null> {
-  const supabase = await createClient()
+  const supabase = createClient()
 
   const { data } = await supabase
     .from('story_countdowns')

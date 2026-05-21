@@ -1,11 +1,10 @@
-'use server'
+// Server action converted to client-side for static export
 
-import { createClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
+import { createClient } from '@/lib/supabase/client'
 
 export async function toggleFollow(userId: string) {
   try {
-    const supabase = await createClient()
+    const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
@@ -66,7 +65,6 @@ export async function toggleFollow(userId: string) {
         })
     }
 
-    revalidatePath('/profile')
     return { success: true }
   } catch {
     return { error: 'Failed to process follow' }
@@ -75,7 +73,7 @@ export async function toggleFollow(userId: string) {
 
 export async function getFollowers(userId: string, limit = 20, cursor?: string) {
   try {
-    const supabase = await createClient()
+    const supabase = createClient()
 
     if (!userId || typeof userId !== 'string') {
       return { followers: [], nextCursor: undefined }
@@ -120,7 +118,7 @@ export async function getFollowers(userId: string, limit = 20, cursor?: string) 
 
 export async function getFollowing(userId: string, limit = 20, cursor?: string) {
   try {
-    const supabase = await createClient()
+    const supabase = createClient()
 
     if (!userId || typeof userId !== 'string') {
       return { following: [], nextCursor: undefined }

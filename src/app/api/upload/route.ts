@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkRateLimit, UPLOAD_LIMIT } from '@/lib/rate-limit'
 
-export const runtime = 'nodejs'
-export const maxDuration = 60 // 60 seconds for large uploads
+export const dynamic = 'force-static';
+
+// Note: In static export (APIK), native uploads directly to Supabase, bypassing this route
 
 interface UploadResult {
   id: string

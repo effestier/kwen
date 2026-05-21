@@ -25,9 +25,9 @@ self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (request.method !== 'GET') return;
 
-  // Skip Supabase API calls (always network-first)
-  if (request.url.includes('.supabase.co') || request.url.includes('.supabase.in')) {
-    event.respondWith(fetch(request));
+  // NEVER intercept auth, API, or Supabase requests
+  const url = new URL(request.url);
+  if (url.pathname.startsWith('/auth') || url.pathname.startsWith('/api') || url.hostname.includes('supabase')) {
     return;
   }
 

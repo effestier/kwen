@@ -1,7 +1,6 @@
-'use server'
+// Server action converted to client-side for static export
 
-import { createClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
+import { createClient } from '@/lib/supabase/client'
 
 export interface MediaMetadata {
   path: string;
@@ -21,7 +20,7 @@ const SIGNED_URL_EXPIRY = 900; // 15 minutes
  */
 export async function getSignedUrl(storagePath: string): Promise<{ url?: string; error?: string }> {
   try {
-    const supabase = await createClient()
+    const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
@@ -76,7 +75,7 @@ export async function getSignedUrl(storagePath: string): Promise<{ url?: string;
 
 export async function sendMessage(conversationId: string, content: string, media?: MediaMetadata, replyToMessageId?: string) {
   try {
-    const supabase = await createClient()
+    const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
@@ -139,7 +138,6 @@ export async function sendMessage(conversationId: string, content: string, media
       .update({ updated_at: new Date().toISOString() })
       .eq('id', conversationId)
 
-    revalidatePath('/messages')
     return { success: true, message }
   } catch {
     return { error: 'Failed to send message' }
@@ -148,7 +146,7 @@ export async function sendMessage(conversationId: string, content: string, media
 
 export async function getOrCreateConversation(otherUserId: string) {
   try {
-    const supabase = await createClient()
+    const supabase = createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
@@ -225,7 +223,7 @@ export async function getOrCreateConversation(otherUserId: string) {
 
 export async function getMessages(conversationId: string) {
   try {
-    const supabase = await createClient()
+    const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
@@ -381,7 +379,7 @@ export async function getMessages(conversationId: string) {
 
 export async function markConversationAsRead(conversationId: string) {
   try {
-    const supabase = await createClient()
+    const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user || !conversationId) {
@@ -400,7 +398,7 @@ export async function markConversationAsRead(conversationId: string) {
 
 export async function getUnreadMessageCount() {
   try {
-    const supabase = await createClient()
+    const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
@@ -424,7 +422,7 @@ export async function getUnreadMessageCount() {
 
 export async function addReaction(messageId: string, emoji: string) {
   try {
-    const supabase = await createClient()
+    const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) return { error: 'Not authenticated' }
@@ -482,7 +480,7 @@ export async function addReaction(messageId: string, emoji: string) {
 
 export async function removeReaction(messageId: string) {
   try {
-    const supabase = await createClient()
+    const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) return { error: 'Not authenticated' }
@@ -501,7 +499,7 @@ export async function removeReaction(messageId: string) {
 
 export async function getMessageReactions(messageId: string) {
   try {
-    const supabase = await createClient()
+    const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) return { reactions: {} }
@@ -532,7 +530,7 @@ export async function getMessageReactions(messageId: string) {
 
 export async function deleteMessage(messageId: string, deleteForEveryone: boolean) {
   try {
-    const supabase = await createClient()
+    const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) return { error: 'Not authenticated' }

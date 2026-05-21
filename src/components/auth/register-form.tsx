@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { sendOTP, verifyOTP, setPassword, completeProfile } from '@/services/auth';
@@ -26,9 +26,26 @@ export function RegisterForm() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(isNative ? 'native-app-bypass' : null);
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const submittingRef = useRef(false);
+  const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Resend countdown timer
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    cooldownRef.current = setInterval(() => {
+      setResendCooldown(prev => {
+        if (prev <= 1) {
+          if (cooldownRef.current) clearInterval(cooldownRef.current);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => { if (cooldownRef.current) clearInterval(cooldownRef.current); };
+  }, [resendCooldown]);
 
   // Step 1: Send OTP
   const handleEmailSubmit = async (e: React.FormEvent) => {
@@ -56,6 +73,7 @@ export function RegisterForm() {
 
       setStep('otp');
       setTurnstileToken(isNative ? 'native-app-bypass' : null);
+      setResendCooldown(60);
       setSuccessMessage('Code sent! Check your email.');
       setTimeout(() => setSuccessMessage(null), 3000);
       setTimeout(() => inputRefs.current[0]?.focus(), 100);
@@ -279,7 +297,7 @@ export function RegisterForm() {
       <div className="rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] p-8">
         <h1 className="text-xl font-bold text-[var(--text-primary)] mb-1">Check your email</h1>
         <p className="text-sm text-[var(--text-muted)] mb-6">
-          We sent a 6-digit code to<br />
+          We sent an 8-digit code to<br />
           <span className="text-[var(--text-primary)] font-medium">{email}</span>
         </p>
 
@@ -297,9 +315,9 @@ export function RegisterForm() {
 
         <form id="otp-form" onSubmit={handleOtpSubmit} className="space-y-6">
           <fieldset>
-            <legend className="sr-only">Enter 6-digit verification code</legend>
-            <div className="flex justify-center gap-2" role="group" aria-label="Verification code">
-              {[0, 1, 2, 3, 4, 5].map((i) => (
+            <legend className="sr-only">Enter 8-digit verification code</legend>
+            <div className="flex justify-center gap-1.5" role="group" aria-label="Verification code">
+              {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
                 <input
                   key={i}
                   ref={(el) => { inputRefs.current[i] = el; }}
@@ -309,8 +327,8 @@ export function RegisterForm() {
                   value={otpCode[i] || ''}
                   onChange={(e) => handleOtpChange(i, e.target.value)}
                   onKeyDown={(e) => handleKeyDown(i, e)}
-                  aria-label={`Digit ${i + 1} of 6`}
-                  className="w-12 h-14 text-center text-xl font-bold rounded-xl bg-[var(--bg-tertiary)] border border-[var(--border-subtle)] focus:outline-none focus:border-[var(--accent-primary)] text-[var(--text-primary)]"
+                  aria-label={`Digit ${i + 1} of 8`}
+                  className="w-10 h-12 text-center text-lg font-bold rounded-xl bg-[var(--bg-tertiary)] border border-[var(--border-subtle)] focus:outline-none focus:border-[var(--accent-primary)] text-[var(--text-primary)]"
                 />
               ))}
             </div>
@@ -318,7 +336,7 @@ export function RegisterForm() {
 
           <button
             type="submit"
-            disabled={loading || otpCode.length !== 6}
+            disabled={loading || otpCode.length !== 8}
             className="w-full py-3 rounded-xl bg-[var(--accent-primary)] text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
           >
             {loading ? 'Verifying...' : 'Verify'}
@@ -327,13 +345,19 @@ export function RegisterForm() {
 
         <div className="mt-6 text-center">
           <p className="text-sm text-[var(--text-muted)]">
-            Didn&apos;t receive code?{' '}
-            <button
-              onClick={() => { setStep('email'); setError(null); setOtpCode(''); setTurnstileToken(isNative ? 'native-app-bypass' : null); }}
-              className="text-[var(--accent-primary)] hover:underline"
-            >
-              Go back and resend
-            </button>
+            {resendCooldown > 0 ? (
+              <>Resend code in {resendCooldown}s</>
+            ) : (
+              <>
+                Didn&apos;t receive code?{' '}
+                <button
+                  onClick={() => { setStep('email'); setError(null); setOtpCode(''); setTurnstileToken(isNative ? 'native-app-bypass' : null); }}
+                  className="text-[var(--accent-primary)] hover:underline"
+                >
+                  Resend
+                </button>
+              </>
+            )}
           </p>
         </div>
       </div>,

@@ -24,38 +24,16 @@ export function GifPicker({ onSelect, onClose }: GifPickerProps) {
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
-    }
-
-    if (!query.trim()) {
-      setLoading(true);
-      fetch('/api/gifs?limit=20')
-        .then(res => res.json())
-        .then(data => {
-          setGifs(data.gifs || []);
-          setLoading(false);
-        })
-        .catch(() => setLoading(false));
-      return;
-    }
-
-    searchTimeoutRef.current = setTimeout(async () => {
-      setLoading(true);
-      try {
-        const res = await fetch(`/api/gifs?q=${encodeURIComponent(query)}&limit=20`);
-        const data = await res.json();
+    setLoading(true);
+    fetch('/api/gifs?limit=20')
+      .then(res => res.json())
+      .then(data => {
         setGifs(data.gifs || []);
-      } catch {
-        // silent
-      }
-      setLoading(false);
-    }, 400);
-
-    return () => {
-      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-    };
-  }, [query]);
+        if (data.disabled) setLoading(false);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
 
   return (
     <div className="flex flex-col h-[50vh] bg-[var(--bg-primary)]">
@@ -86,8 +64,11 @@ export function GifPicker({ onSelect, onClose }: GifPickerProps) {
             <div className="animate-spin h-6 w-6 border-2 border-[var(--accent-primary)] border-t-transparent rounded-full" />
           </div>
         ) : gifs.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-[var(--text-muted)] text-sm">
-            {query ? 'No GIFs found' : 'Search for GIFs'}
+          <div className="flex flex-col items-center justify-center h-full text-[var(--text-muted)] gap-2">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="opacity-40">
+              <rect width="18" height="18" x="3" y="3" rx="2" /><path d="M8 7v7a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V7" /><path d="M12 7v7" /><path d="M8 12h4" />
+            </svg>
+            <p className="text-sm">GIFs coming soon</p>
           </div>
         ) : (
           <div className="columns-2 gap-2">

@@ -325,8 +325,10 @@ export default function CreateStoryPage() {
       }
 
       router.push('/feed');
-    } catch (err) {
-      alert('Failed to post story');
+    } catch (err: any) {
+      const message = err?.message || 'Failed to post story';
+      alert(message);
+      console.error('[StoryPost]', err);
     } finally {
       setIsUploading(false);
     }

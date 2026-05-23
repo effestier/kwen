@@ -212,10 +212,14 @@ async function uploadViaApi(
 
   if (!response.ok) {
     const data = await response.json().catch(() => ({}))
-    throw new Error(data.error || 'Upload failed')
+    throw new Error(data.error || `Upload failed (${response.status})`)
   }
 
-  return response.json()
+  const result = await response.json()
+  if (!result.url) {
+    throw new Error('Upload succeeded but no URL returned')
+  }
+  return result
 }
 
 export async function uploadMultipleMedia(

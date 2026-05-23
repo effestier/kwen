@@ -85,17 +85,34 @@ export async function sendStoryReply(storyId: string, message: string, recipient
   const cleanMessage = message.trim().slice(0, 1000);
   if (!cleanMessage) return { error: 'Message cannot be empty' };
 
-  const { error } = await supabase
-    .from('story_replies')
-    .insert({
+  // Get story media_url for the message preview
+  const { data: story } = await supabase
+    .from('stories')
+    .select('media_url')
+    .eq('id', storyId)
+    .single();
+
+  // Get or create DM conversation with story owner
+  const { getOrCreateConversation, sendMessage } = await import('./messages');
+  const convResult = await getOrCreateConversation(recipientId);
+  if (convResult.error || !convResult.conversationId) {
+    return { error: convResult.error || 'Failed to create conversation' };
+  }
+
+  // Send as story_reply message type, including story media_url for preview
+  const result = await sendMessage(convResult.conversationId, cleanMessage, story?.media_url ? { path: story.media_url } : undefined, undefined, storyId);
+
+  // Also keep the old story_replies table populated for backward compat
+  if (!('error' in result)) {
+    await supabase.from('story_replies').insert({
       story_id: storyId,
       sender_id: user.id,
       recipient_id: recipientId,
       message: cleanMessage,
     });
+  }
 
-  if (error) return { error: 'Failed to send reply' };
-  return { success: true };
+  return result;
 }
 
 export async function getStoryReplies(storyId: string) {
@@ -294,6 +311,16 @@ export async function addStoryMusic(storyId: string, trackName: string, artist: 
   if (!artist || artist.length > 200) return { error: 'Invalid artist' };
   if (!previewUrl || previewUrl.length > 500) return { error: 'Invalid preview URL' };
   if (!coverUrl || coverUrl.length > 500) return { error: 'Invalid cover URL' };
+  // Validate URLs are safe (https only)
+  try {
+    const pUrl = new URL(previewUrl);
+    const cUrl = new URL(coverUrl);
+    if (pUrl.protocol !== 'https:' || cUrl.protocol !== 'https:') {
+      return { error: 'URLs must use HTTPS' };
+    }
+  } catch {
+    return { error: 'Invalid URL format' };
+  }
 
   const { data: story } = await supabase
     .from('stories')

@@ -26,6 +26,7 @@ export interface MessageBubbleData {
   status?: string;
   delivered_at?: string | null;
   seen_at?: string | null;
+  story_id?: string | null;
 }
 
 interface MessageBubbleProps {
@@ -50,7 +51,7 @@ export function MessageBubble({ message, showAvatar, onReact, onReply, onDelete,
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bubbleRef = useRef<HTMLDivElement>(null);
 
-  const isText = message.message_type === 'text' || message.message_type === 'mixed';
+  const isText = message.message_type === 'text' || message.message_type === 'mixed' || message.message_type === 'story_reply';
   const hasReactions = message.reactions ? Object.keys(message.reactions).length > 0 : false;
 
   // Long press handlers (mobile)
@@ -150,6 +151,28 @@ export function MessageBubble({ message, showAvatar, onReact, onReply, onDelete,
               : 'bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-[var(--text-primary)] rounded-bl-md'
           }`}
         >
+          {/* Story reply preview */}
+          {message.message_type === 'story_reply' && message.media_url && (
+            <div className="rounded-lg overflow-hidden mb-1.5 relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={message.media_url}
+                alt="Story"
+                className="w-full h-28 object-cover"
+                loading="lazy"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+              <div className="absolute bottom-1.5 left-2 flex items-center gap-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+                  <circle cx="9" cy="9" r="2" />
+                  <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+                </svg>
+                <span className="text-white text-xs font-medium">Story</span>
+              </div>
+            </div>
+          )}
+
           {/* Image (image-only or mixed text+image) */}
           {(message.message_type === 'image' || message.message_type === 'mixed') && message.media_url && (
             <div className="rounded-lg overflow-hidden mb-1 max-w-[280px]">

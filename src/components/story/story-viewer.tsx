@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Avatar } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/design-system/skeleton';
@@ -14,6 +14,8 @@ import { CountdownDisplay } from '@/components/stickers/countdown-sticker';
 import { getPollByStory, voteOnPoll, getPollResults, getQuestionByStory, respondToQuestion, getQuestionResponses, getCountdownByStory } from '@/services/stickers';
 import type { Poll, PollResults, StoryQuestion, Countdown } from '@/services/stickers';
 import { ShareStoryModal } from '@/components/story/share-story-modal';
+
+// ---- Types ----
 
 interface Story {
   id: string;
@@ -38,21 +40,51 @@ interface Story {
   };
 }
 
-interface StoryViewerProps {
+interface GroupedUser {
+  userId: string;
+  username: string;
+  displayName: string;
+  avatarUrl: string | null;
+  isVerified: boolean;
   stories: Story[];
-  initialIndex: number;
+}
+
+interface StoryViewerProps {
+  users: GroupedUser[];
+  initialUserIndex: number;
+  initialStoryIndex: number;
   onClose: () => void;
-  isOwner?: boolean;
+  currentUserId: string;
 }
 
 const QUICK_REACTIONS = ['❤️', '😂', '😮', '😢', '🔥', '👏'];
+const IMAGE_DURATION = 5000;
+const MAX_VIDEO_DURATION = 60000;
 
-export function StoryViewer({ stories, initialIndex, onClose, isOwner = false }: StoryViewerProps) {
-  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+// ---- Helpers ----
+
+function flattenStories(users: GroupedUser[]): { userIndex: number; storyIndex: number; story: Story }[] {
+  const flat: { userIndex: number; storyIndex: number; story: Story }[] = [];
+  for (let ui = 0; ui < users.length; ui++) {
+    for (let si = 0; si < users[ui].stories.length; si++) {
+      flat.push({ userIndex: ui, storyIndex: si, story: users[ui].stories[si] });
+    }
+  }
+  return flat;
+}
+
+// ---- Component ----
+
+export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClose, currentUserId }: StoryViewerProps) {
+  const [userIndex, setUserIndex] = useState(initialUserIndex);
+  const [storyIndex, setStoryIndex] = useState(initialStoryIndex);
   const [progress, setProgress] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
-  const progressRef = useRef<NodeJS.Timeout | null>(null);
+  const [storyDuration, setStoryDuration] = useState(IMAGE_DURATION);
+  const progressRef = useRef<number | null>(null);
+  const startTimeRef = useRef<number>(0);
+  const elapsedRef = useRef<number>(0);
 
   // Reply state
   const [showReplyInput, setShowReplyInput] = useState(false);
@@ -63,29 +95,30 @@ export function StoryViewer({ stories, initialIndex, onClose, isOwner = false }:
   // Reactions state
   const [showReactionPicker, setShowReactionPicker] = useState(false);
   const [reactions, setReactions] = useState<{ emoji: string; count: number; users: string[] }[]>([]);
-  const [userReaction, setUserReaction] = useState<string | null>(null);
 
   // Viewers state (for story owner)
   const [showViewers, setShowViewers] = useState(false);
   const [viewers, setViewers] = useState<{ user: any; viewedAt: string }[]>([]);
   const [loadingViewers, setLoadingViewers] = useState(false);
+
+  // Music state
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
   const musicRef = useRef<HTMLAudioElement | null>(null);
 
-  // Long press state
+  // Long press / pause state
   const [isPaused, setIsPaused] = useState(false);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
 
-  // Highlight modal state
+  // Highlight modal
   const [showHighlightModal, setShowHighlightModal] = useState(false);
 
-  // Share state
-  const [showShareModal, setShowShareModal] = useState(false)
+  // Share
+  const [showShareModal, setShowShareModal] = useState(false);
 
-  // More menu state (mute, report)
+  // More menu
   const [showMoreMenu, setShowMoreMenu] = useState(false);
 
-  // Interactive stickers state
+  // Interactive stickers
   const [poll, setPoll] = useState<Poll | null>(null);
   const [pollResults, setPollResults] = useState<PollResults | null>(null);
   const [question, setQuestion] = useState<StoryQuestion | null>(null);
@@ -94,42 +127,62 @@ export function StoryViewer({ stories, initialIndex, onClose, isOwner = false }:
   const [countdown, setCountdown] = useState<Countdown | null>(null);
 
   // Video state
-  const [videoProgress, setVideoProgress] = useState(0);
-  const [isVideoReady, setIsVideoReady] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const videoTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [isVideoReady, setIsVideoReady] = useState(false);
 
-  // Swipe up state
-  const [swipeUpDistance, setSwipeUpDistance] = useState(0);
-  const touchStartY = useRef<number | null>(null);
-  const isSwipingUp = useRef(false);
+  // Gesture state
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const gestureCompletedRef = useRef(false);
+  const longPressActiveRef = useRef(false);
+  const [swipeDownDistance, setSwipeDownDistance] = useState(0);
 
   // Transition state
   const [transitionDirection, setTransitionDirection] = useState<'none' | 'left' | 'right'>('none');
 
+  // Desktop detection
+  const [isDesktop, setIsDesktop] = useState(false);
+
   const supabase = createClient();
-  const currentStory = stories[currentIndex];
+
+  const currentUser = users[userIndex];
+  const currentStory = currentUser?.stories[storyIndex];
+  const isOwner = currentUserId === currentUser?.userId;
   const isVideo = currentStory?.media_type === 'video';
+
+  // Desktop media query
+  useEffect(() => {
+    const mql = window.matchMedia('(min-width: 768px)');
+    setIsDesktop(mql.matches);
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, []);
 
   // Register with overlay stack for back button handling
   useEffect(() => {
     pushOverlay(onClose);
-    return () => popOverlay();
+    return () => {
+      popOverlay();
+      // Cleanup music on unmount
+      if (musicRef.current) {
+        musicRef.current.pause();
+        musicRef.current = null;
+      }
+    };
   }, [onClose]);
-  const duration = isVideo ? 15000 : 5000;
 
   // Load reactions for current story
   useEffect(() => {
     if (currentStory) {
       getStoryReactions(currentStory.id).then(setReactions);
     }
-  }, [currentStory]);
+  }, [currentStory?.id]);
 
   // Load music for current story
   useEffect(() => {
     if (currentStory) {
       getStoryMusic(currentStory.id).then(music => {
-        if (music) {
+        if (music && currentStory) {
           currentStory.music = {
             track_name: music.track_name,
             artist: music.artist,
@@ -139,13 +192,12 @@ export function StoryViewer({ stories, initialIndex, onClose, isOwner = false }:
         }
       });
     }
-  }, [currentStory]);
+  }, [currentStory?.id]);
 
   // Load interactive stickers for current story
   useEffect(() => {
     if (!currentStory) return;
 
-    // Reset state
     setPoll(null);
     setPollResults(null);
     setQuestion(null);
@@ -153,7 +205,6 @@ export function StoryViewer({ stories, initialIndex, onClose, isOwner = false }:
     setShowResponses(false);
     setCountdown(null);
 
-    // Fetch all sticker types in parallel
     Promise.all([
       getPollByStory(currentStory.id),
       getQuestionByStory(currentStory.id),
@@ -184,7 +235,7 @@ export function StoryViewer({ stories, initialIndex, onClose, isOwner = false }:
         setLoadingViewers(false);
       });
     }
-  }, [isOwner, currentStory, showViewers]);
+  }, [isOwner, currentStory?.id, showViewers]);
 
   const markAsViewed = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -194,90 +245,200 @@ export function StoryViewer({ stories, initialIndex, onClose, isOwner = false }:
       story_id: currentStory.id,
       user_id: user.id,
     }, { onConflict: 'story_id,user_id' });
-  }, [supabase, currentStory]);
+  }, [supabase, currentStory?.id]);
+
+  // ---- Navigation ----
+
+  const resetStoryState = useCallback(() => {
+    // Pause music explicitly
+    if (musicRef.current) {
+      musicRef.current.pause();
+    }
+    setProgress(0);
+    setIsLoading(true);
+    setImageError(false);
+    setShowReplyInput(false);
+    setReplyMessage('');
+    setReplySent(false);
+    setShowReactionPicker(false);
+    setShowViewers(false);
+    setShowMoreMenu(false);
+    setIsVideoReady(false);
+    setIsMusicPlaying(false);
+    setSwipeDownDistance(0);
+  }, []);
 
   const goToNext = useCallback(() => {
-    if (currentIndex < stories.length - 1) {
+    const currentUserData = users[userIndex];
+    if (!currentUserData) return;
+
+    if (storyIndex < currentUserData.stories.length - 1) {
+      // Next story within same user
       setTransitionDirection('left');
       setTimeout(() => {
-        setCurrentIndex(currentIndex + 1);
-        setProgress(0);
-        setIsLoading(true);
-        setImageError(false);
-        setShowReplyInput(false);
-        setReplyMessage('');
-        setReplySent(false);
-        setShowReactionPicker(false);
-        setShowViewers(false);
-        setSwipeUpDistance(0);
+        setStoryIndex(storyIndex + 1);
+        resetStoryState();
+        setTransitionDirection('none');
+      }, 150);
+    } else if (userIndex < users.length - 1) {
+      // First story of next user
+      setTransitionDirection('left');
+      setTimeout(() => {
+        setUserIndex(userIndex + 1);
+        setStoryIndex(0);
+        resetStoryState();
         setTransitionDirection('none');
       }, 150);
     } else {
+      // Last story of last user — close
       onClose();
     }
-  }, [currentIndex, stories.length, onClose]);
+  }, [userIndex, storyIndex, users, onClose, resetStoryState]);
 
   const goToPrevious = useCallback(() => {
-    if (currentIndex > 0) {
+    if (storyIndex > 0) {
       setTransitionDirection('right');
       setTimeout(() => {
-        setCurrentIndex(currentIndex - 1);
-        setProgress(0);
-        setIsLoading(true);
-        setImageError(false);
-        setShowReplyInput(false);
-        setReplyMessage('');
-        setReplySent(false);
-        setShowReactionPicker(false);
-        setShowViewers(false);
-        setSwipeUpDistance(0);
+        setStoryIndex(storyIndex - 1);
+        resetStoryState();
+        setTransitionDirection('none');
+      }, 150);
+    } else if (userIndex > 0) {
+      // Last story of previous user
+      const prevUser = users[userIndex - 1];
+      setTransitionDirection('right');
+      setTimeout(() => {
+        setUserIndex(userIndex - 1);
+        setStoryIndex(prevUser.stories.length - 1);
+        resetStoryState();
         setTransitionDirection('none');
       }, 150);
     }
-  }, [currentIndex]);
+  }, [userIndex, storyIndex, users, resetStoryState]);
 
-  // Progress bar timer
+  const goToUser = useCallback((targetUserIndex: number) => {
+    if (targetUserIndex === userIndex) return;
+    const direction = targetUserIndex > userIndex ? 'left' : 'right';
+    setTransitionDirection(direction);
+    setTimeout(() => {
+      setUserIndex(targetUserIndex);
+      setStoryIndex(0);
+      resetStoryState();
+      setTransitionDirection('none');
+    }, 150);
+  }, [userIndex, resetStoryState]);
+
+  // ---- Video timing ----
+
   useEffect(() => {
-    if (progressRef.current) {
-      clearInterval(progressRef.current);
+    if (!currentStory) return;
+
+    if (isVideo) {
+      // Wait for video metadata to set duration
+      setStoryDuration(IMAGE_DURATION); // temporary fallback
+      setIsVideoReady(false);
+    } else {
+      setStoryDuration(IMAGE_DURATION);
     }
 
-    if (isPaused || showReplyInput) return;
-
     setProgress(0);
-    const interval = 50;
-    const increment = (interval / duration) * 100;
+  }, [currentStory?.id, isVideo]);
 
-    progressRef.current = setInterval(() => {
-      setProgress(prev => {
-        if (prev >= 100) {
-          goToNext();
-          return 100;
-        }
-        return prev + increment;
-      });
-    }, interval);
+  const handleVideoMetadata = useCallback(() => {
+    if (videoRef.current) {
+      const durationMs = Math.min(videoRef.current.duration * 1000, MAX_VIDEO_DURATION);
+      setStoryDuration(durationMs);
+      setIsVideoReady(true);
+    }
+  }, []);
 
+  // ---- Progress bar (requestAnimationFrame) — pause/resume safe ----
+
+  useEffect(() => {
+    if (isPaused || showReplyInput || isLoading) {
+      // When pausing, snapshot elapsed time
+      if (progressRef.current !== null) {
+        cancelAnimationFrame(progressRef.current);
+        progressRef.current = null;
+      }
+      return;
+    }
+
+    // Resume from where we left off (elapsedRef persists across pause)
+    startTimeRef.current = performance.now() - elapsedRef.current;
+
+    const tick = (now: number) => {
+      const elapsed = now - startTimeRef.current;
+      elapsedRef.current = elapsed;
+      const pct = Math.min((elapsed / storyDuration) * 100, 100);
+      setProgress(pct);
+
+      if (pct >= 100) {
+        goToNext();
+        return;
+      }
+      progressRef.current = requestAnimationFrame(tick);
+    };
+
+    progressRef.current = requestAnimationFrame(tick);
     markAsViewed();
 
     return () => {
-      if (progressRef.current) {
-        clearInterval(progressRef.current);
+      if (progressRef.current !== null) {
+        cancelAnimationFrame(progressRef.current);
+        progressRef.current = null;
       }
     };
-  }, [currentIndex, duration, goToNext, markAsViewed, isPaused, showReplyInput]);
+  }, [userIndex, storyIndex, storyDuration, isPaused, showReplyInput, isLoading, goToNext, markAsViewed]);
 
-  // Preload next story
+  // Reset elapsed when story changes
   useEffect(() => {
-    if (currentIndex < stories.length - 1) {
-      const nextStory = stories[currentIndex + 1];
-      const link = document.createElement('link');
-      link.rel = 'prefetch';
-      link.href = nextStory.media_url;
-    }
-  }, [currentIndex, stories]);
+    elapsedRef.current = 0;
+  }, [userIndex, storyIndex]);
 
-  // Keyboard navigation
+  // ---- Preloading (next 3 stories across user boundaries) ----
+
+  useEffect(() => {
+    const flat = flattenStories(users);
+    const currentFlatIndex = flat.findIndex(
+      s => s.userIndex === userIndex && s.storyIndex === storyIndex
+    );
+    if (currentFlatIndex === -1) return;
+
+    const preloaded: (HTMLImageElement | HTMLVideoElement)[] = [];
+
+    for (let i = 1; i <= 3; i++) {
+      const next = flat[currentFlatIndex + i];
+      if (!next) break;
+
+      if (next.story.media_type === 'video') {
+        const video = document.createElement('video');
+        video.preload = 'auto';
+        video.src = next.story.media_url;
+        preloaded.push(video);
+      } else {
+        const img = new Image();
+        img.src = next.story.media_url;
+        preloaded.push(img);
+      }
+    }
+
+    return () => {
+      // Abort preload downloads to prevent network leaks
+      preloaded.forEach(el => {
+        if (el instanceof HTMLVideoElement) {
+          el.pause();
+          el.removeAttribute('src');
+          el.load();
+        } else {
+          (el as HTMLImageElement).src = '';
+        }
+      });
+    };
+  }, [userIndex, storyIndex, users]);
+
+  // ---- Keyboard navigation ----
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -293,673 +454,710 @@ export function StoryViewer({ stories, initialIndex, onClose, isOwner = false }:
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose, goToNext, goToPrevious]);
 
-  // Touch handling - swipe up to reply
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartY.current = e.touches[0].clientY;
-    isSwipingUp.current = false;
-  };
+  // ---- Gesture handling ----
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (touchStartY.current === null) return;
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY, time: Date.now() };
+    setSwipeDownDistance(0);
+  }, []);
 
-    const currentY = e.touches[0].clientY;
-    const diff = touchStartY.current - currentY;
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
+    const touch = e.touches[0];
+    const dx = touch.clientX - touchStartRef.current.x;
+    const dy = touch.clientY - touchStartRef.current.y;
 
-    // Swipe up detected
-    if (diff > 30) {
-      isSwipingUp.current = true;
-      setSwipeUpDistance(Math.min(diff, 150));
+    // Track swipe-down distance for visual feedback
+    if (dy > 30 && Math.abs(dy) > Math.abs(dx)) {
+      setSwipeDownDistance(Math.min(dy, 200));
     }
-  };
+  }, []);
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartY.current === null) return;
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
 
-    const touchEndY = e.changedTouches[0].clientY;
-    const diff = touchStartY.current - touchEndY;
+    const touch = e.changedTouches[0];
+    const dx = touch.clientX - touchStartRef.current.x;
+    const dy = touch.clientY - touchStartRef.current.y;
+    const elapsed = Date.now() - touchStartRef.current.time;
+    const velocity = Math.sqrt(dx * dx + dy * dy) / elapsed; // px/ms
 
-    // Swipe up to reply (if not owner and distance is enough)
-    if (diff > 80 && !isOwner) {
-      setShowReplyInput(true);
-      setSwipeUpDistance(0);
-    } else if (Math.abs(diff) > 50) {
-      // Horizontal swipe
-      if (diff > 0) {
-        goToNext();
-      } else {
-        goToPrevious();
+    const isHorizontal = Math.abs(dx) > Math.abs(dy);
+    const isVertical = Math.abs(dy) > Math.abs(dx);
+
+    // Fast swipe needs less distance
+    const fastSwipe = velocity > 0.5;
+
+    if (isVertical && dy > 0) {
+      // Downward swipe — close
+      if (dy > 80 || (fastSwipe && dy > 30)) {
+        gestureCompletedRef.current = true;
+        onClose();
+        touchStartRef.current = null;
+        setSwipeDownDistance(0);
+        return;
+      }
+      // Upward swipe — reply
+      if (dy < -80 || (fastSwipe && dy < -30)) {
+        if (!isOwner) {
+          gestureCompletedRef.current = true;
+          setShowReplyInput(true);
+        }
+        touchStartRef.current = null;
+        setSwipeDownDistance(0);
+        return;
       }
     }
 
-    touchStartY.current = null;
-    isSwipingUp.current = false;
-    setSwipeUpDistance(0);
-  };
+    if (isHorizontal) {
+      if (dx < -50 || (fastSwipe && dx < -20)) {
+        gestureCompletedRef.current = true;
+        goToUser(userIndex + 1 < users.length ? userIndex + 1 : userIndex);
+      } else if (dx > 50 || (fastSwipe && dx > 20)) {
+        gestureCompletedRef.current = true;
+        goToUser(userIndex - 1 >= 0 ? userIndex - 1 : userIndex);
+      }
+    }
 
-  // Long press handler
-  const handleLongPressStart = () => {
+    touchStartRef.current = null;
+    setSwipeDownDistance(0);
+  }, [onClose, isOwner, userIndex, users.length, goToUser]);
+
+  // ---- Long press handler ----
+
+  const handleLongPressStart = useCallback(() => {
     longPressTimer.current = setTimeout(() => {
+      longPressActiveRef.current = true;
       setIsPaused(true);
     }, 300);
-  };
+  }, []);
 
-  const handleLongPressEnd = () => {
+  const handleLongPressEnd = useCallback(() => {
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
     }
+    if (longPressActiveRef.current) {
+      longPressActiveRef.current = false;
+      // Suppress the click that fires after mouseup
+      setTimeout(() => { gestureCompletedRef.current = false; }, 50);
+      gestureCompletedRef.current = true;
+    }
     setIsPaused(false);
-  };
+  }, []);
 
-  // Handle reaction
-  const handleReaction = async (emoji: string) => {
+  // ---- Reaction handler ----
+
+  const handleReaction = useCallback(async (emoji: string) => {
     if (!currentStory) return;
-
     hapticLight();
     await addStoryReaction(currentStory.id, emoji);
     const updatedReactions = await getStoryReactions(currentStory.id);
     setReactions(updatedReactions);
     setShowReactionPicker(false);
-  };
+  }, [currentStory?.id]);
 
-  // Handle poll vote
-  const handlePollVote = async (option: 1 | 2) => {
+  // ---- Poll vote ----
+
+  const handlePollVote = useCallback(async (option: 1 | 2) => {
     if (!poll) return;
-
     const result = await voteOnPoll(poll.id, option);
     if (result.success) {
       const results = await getPollResults(poll.id);
       setPollResults(results);
     }
-  };
+  }, [poll]);
 
-  // Handle question response
-  const handleQuestionResponse = async (response: string) => {
+  // ---- Question response ----
+
+  const handleQuestionResponse = useCallback(async (response: string) => {
     if (!question) return;
-
     await respondToQuestion(question.id, response);
-  };
+  }, [question]);
 
-  // Handle reply send
-  const handleSendReply = async () => {
+  // ---- Reply send ----
+
+  const handleSendReply = useCallback(async () => {
     if (!currentStory || !replyMessage.trim() || sendingReply) return;
 
     setSendingReply(true);
     const result = await sendStoryReply(currentStory.id, replyMessage, currentStory.user.id);
 
-    if (result.success) {
+    if (!('error' in result)) {
       setReplySent(true);
       setReplyMessage('');
       setShowReplyInput(false);
     }
 
     setSendingReply(false);
-  };
+  }, [currentStory?.id, replyMessage, sendingReply]);
 
-  if (!currentStory) return null;
+  // ---- Tap handler ----
+
+  const handleContentClick = useCallback((e: React.MouseEvent) => {
+    // Suppress click after gesture (swipe, long-press)
+    if (gestureCompletedRef.current) {
+      gestureCompletedRef.current = false;
+      return;
+    }
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const width = rect.width;
+
+    // Instagram: left ~30% = previous, remaining ~70% = next
+    if (x < width * 0.3) {
+      goToPrevious();
+    } else {
+      goToNext();
+    }
+  }, [goToPrevious, goToNext]);
+
+  if (!currentStory || !currentUser) return null;
+
+  const totalUserStories = currentUser.stories.length;
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black flex items-center justify-center"
+      className={`fixed inset-0 z-50 flex items-center justify-center ${
+        isDesktop ? 'bg-black/80' : 'bg-black'
+      }`}
+      style={{
+        paddingTop: isDesktop ? 0 : 'env(safe-area-inset-top)',
+        paddingBottom: isDesktop ? 0 : 'env(safe-area-inset-bottom)',
+      }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      {/* Close button */}
-      <button
-        onClick={onClose}
-        className="absolute top-4 right-4 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M18 6 6 18" /><path d="m6 6 12 12" />
-        </svg>
-      </button>
-
-      {/* Progress bars */}
-      <div className="absolute top-4 left-4 right-4 flex gap-1 z-10">
-        {stories.map((story, idx) => (
-          <div
-            key={story.id}
-            className="flex-1 h-1 bg-white/30 rounded-full overflow-hidden"
-          >
-            <div
-              className="h-full bg-white rounded-full transition-all duration-75"
-              style={{
-                width: idx === currentIndex
-                  ? `${progress}%`
-                  : idx < currentIndex
-                    ? '100%'
-                    : '0%'
-              }}
-            />
-          </div>
-        ))}
-      </div>
-
-      {/* User info */}
-      <div className="absolute top-12 left-4 right-4 flex items-center gap-3 z-10">
-        <div className="w-8 h-8 rounded-full overflow-hidden bg-[var(--bg-secondary)]">
-          {currentStory.user.avatar_url ? (
-            <img
-              src={currentStory.user.avatar_url}
-              alt={currentStory.user.display_name}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-white text-sm font-semibold">
-              {currentStory.user.display_name.charAt(0).toUpperCase()}
-            </div>
-          )}
-        </div>
-        <div className="flex-1">
-          <p className="text-white font-semibold text-sm">{currentStory.user.display_name}</p>
-          <p className="text-white/60 text-xs">
-            {new Date(currentStory.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </p>
-        </div>
-        {isOwner && (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowHighlightModal(true)}
-              className="text-white/70 hover:text-white text-sm flex items-center gap-1"
-              title="Save to highlight"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-              </svg>
-            </button>
-            <button
-              onClick={() => setShowViewers(!showViewers)}
-              className="text-white/70 hover:text-white text-sm flex items-center gap-1"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-                <circle cx="12" cy="12" r="3" />
-              </svg>
-              <span className="text-xs">{viewers.length}</span>
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Viewers list overlay */}
-      {showViewers && (
-        <div className="absolute top-20 right-4 w-72 bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-xl z-20 max-h-80 overflow-hidden">
-          <div className="p-3 border-b border-[var(--border-subtle)]">
-            <h3 className="font-semibold text-white">Viewers</h3>
-          </div>
-          <div className="overflow-y-auto max-h-64">
-            {loadingViewers ? (
-              <div className="p-4 space-y-3">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="flex items-center gap-3">
-                    <Skeleton variant="circular" width={32} height={32} />
-                    <Skeleton variant="text" width="50%" />
-                  </div>
-                ))}
-              </div>
-            ) : viewers.length > 0 ? (
-              viewers.map((viewer, idx) => (
-                <div
-                  key={viewer.user?.id || idx}
-                  className="flex items-center gap-3 p-3 hover:bg-[var(--bg-tertiary)]"
-                >
-                  <Avatar src={viewer.user?.avatar_url} name={viewer.user?.display_name} size="sm" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white text-sm font-medium truncate">
-                      {viewer.user?.username || 'Unknown'}
-                    </p>
-                    <p className="text-[var(--text-muted)] text-xs">
-                      {new Date(viewer.viewedAt).toLocaleTimeString()}
-                    </p>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="p-4 text-center text-[var(--text-muted)] text-sm">No viewers yet</div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Story content */}
+      {/* Desktop modal container */}
       <div
-        className={`absolute inset-0 flex items-center justify-center transition-transform duration-150 ${
-          transitionDirection === 'left' ? '-translate-x-full' :
-          transitionDirection === 'right' ? 'translate-x-full' : ''
+        className={`relative ${
+          isDesktop
+            ? 'w-full max-w-[420px] max-h-[750px] h-full rounded-2xl overflow-hidden'
+            : 'w-full h-full'
         }`}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onClick={(e) => {
-          const rect = e.currentTarget.getBoundingClientRect();
-          const x = e.clientX - rect.left;
-          const width = rect.width;
-
-          if (x < width / 3) {
-            goToPrevious();
-          } else if (x > (width * 2) / 3) {
-            goToNext();
-          }
-        }}
-        onMouseDown={handleLongPressStart}
-        onMouseUp={handleLongPressEnd}
-        onMouseLeave={handleLongPressEnd}
+        style={swipeDownDistance > 0 ? { transform: `translateY(${swipeDownDistance * 0.5}px)`, opacity: 1 - swipeDownDistance / 400 } : undefined}
       >
-        {isLoading && !imageError && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-          </div>
-        )}
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+          </svg>
+        </button>
 
-        {isPaused && (
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white/70">
-            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect width="4" height="16" rx="1" x="6" y="4" />
-              <rect width="4" height="16" rx="1" x="14" y="4" />
-            </svg>
-          </div>
-        )}
-
-        {/* Video progress indicator */}
-        {isVideo && isVideoReady && (
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-32">
-            <div className="h-1 bg-white/30 rounded-full overflow-hidden">
+        {/* Progress bars — one segment per story in current user */}
+        <div className="absolute top-4 left-4 right-12 flex gap-1 z-10">
+          {currentUser.stories.map((story, idx) => (
+            <div
+              key={story.id}
+              className="flex-1 h-1 bg-white/30 rounded-full overflow-hidden"
+            >
               <div
-                className="h-full bg-white rounded-full transition-all duration-100"
-                style={{ width: `${videoProgress}%` }}
+                className="h-full bg-white rounded-full transition-none"
+                style={{
+                  width: idx === storyIndex
+                    ? `${progress}%`
+                    : idx < storyIndex
+                      ? '100%'
+                      : '0%'
+                }}
               />
             </div>
-          </div>
-        )}
-
-        {isVideo ? (
-          <video
-            ref={videoRef}
-            src={currentStory.media_url}
-            className="max-w-full max-h-full object-contain"
-            autoPlay
-            muted
-            playsInline
-            onLoadedData={() => {
-              setIsLoading(false);
-              setIsVideoReady(true);
-            }}
-            onTimeUpdate={() => {
-              if (videoRef.current) {
-                const progress = (videoRef.current.currentTime / videoRef.current.duration) * 100;
-                setVideoProgress(progress);
-              }
-            }}
-            onEnded={() => goToNext()}
-            onError={() => {
-              setIsLoading(false);
-              setImageError(true);
-            }}
-          />
-        ) : (
-          <img
-            src={currentStory.media_url}
-            alt="Story"
-            className={`max-w-full max-h-full object-contain transition-opacity ${isLoading ? 'opacity-0' : 'opacity-100'}`}
-            onLoad={() => setIsLoading(false)}
-            onError={() => {
-              setIsLoading(false);
-              setImageError(true);
-            }}
-          />
-        )}
-
-        {imageError && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-            <p className="text-white">Failed to load story</p>
-          </div>
-        )}
-
-        {/* Interactive stickers */}
-        <div className="absolute bottom-32 left-1/2 -translate-x-1/2 z-10">
-          {poll && (
-            <PollDisplay
-              poll={poll}
-              userVote={pollResults?.user_vote ?? null}
-              onVote={handlePollVote}
-              showResults={!!pollResults}
-            />
-          )}
-
-          {question && !poll && (
-            <QuestionDisplay
-              question={question}
-              isOwner={isOwner}
-              onSubmitResponse={handleQuestionResponse}
-              onViewResponses={() => setShowResponses(true)}
-              responseCount={questionResponses.length}
-            />
-          )}
-
-          {countdown && !poll && !question && (
-            <CountdownDisplay countdown={countdown} />
-          )}
+          ))}
         </div>
 
-        {/* Swipe up indicator */}
-        {!isOwner && !showReplyInput && (
-          <div
-            className="absolute bottom-20 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 transition-transform"
-            style={{ transform: `translateY(-${swipeUpDistance * 0.3}px)` }}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-60">
-              <path d="m18 15-6-6-6 6" />
-            </svg>
-            <span className="text-white/60 text-xs">Swipe up to reply</span>
+        {/* User info */}
+        <div className="absolute top-12 left-4 right-4 flex items-center gap-3 z-10">
+          <div className="w-8 h-8 rounded-full overflow-hidden bg-[var(--bg-secondary)]">
+            {currentUser.avatarUrl ? (
+              <img src={currentUser.avatarUrl} alt={currentUser.displayName} className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-white text-sm font-semibold">
+                {currentUser.displayName.charAt(0).toUpperCase()}
+              </div>
+            )}
+          </div>
+            <div className="flex-1">
+              <p className="text-white font-semibold text-sm">{currentUser.displayName}</p>
+              <p className="text-white/60 text-xs">
+                {new Date(currentStory.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </p>
+            </div>
+            {isOwner && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowHighlightModal(true)}
+                  className="text-white/70 hover:text-white text-sm flex items-center gap-1"
+                  title="Save to highlight"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => setShowViewers(!showViewers)}
+                  className="text-white/70 hover:text-white text-sm flex items-center gap-1"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                  <span className="text-xs">{viewers.length}</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+        {/* Viewers list overlay */}
+        {showViewers && (
+          <div className="absolute top-20 right-4 w-72 bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-xl z-20 max-h-80 overflow-hidden">
+            <div className="p-3 border-b border-[var(--border-subtle)]">
+              <h3 className="font-semibold text-white">Viewers</h3>
+            </div>
+            <div className="overflow-y-auto max-h-64">
+              {loadingViewers ? (
+                <div className="p-4 space-y-3">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <Skeleton variant="circular" width={32} height={32} />
+                      <Skeleton variant="text" width="50%" />
+                    </div>
+                  ))}
+                </div>
+              ) : viewers.length > 0 ? (
+                viewers.map((viewer, idx) => (
+                  <div
+                    key={viewer.user?.id || idx}
+                    className="flex items-center gap-3 p-3 hover:bg-[var(--bg-tertiary)]"
+                  >
+                    <Avatar src={viewer.user?.avatar_url} name={viewer.user?.display_name} size="sm" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white text-sm font-medium truncate">
+                        {viewer.user?.username || 'Unknown'}
+                      </p>
+                      <p className="text-[var(--text-muted)] text-xs">
+                        {new Date(viewer.viewedAt).toLocaleTimeString()}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="p-4 text-center text-[var(--text-muted)] text-sm">No viewers yet</div>
+              )}
+            </div>
           </div>
         )}
-      </div>
 
-      {/* Navigation hints */}
-      <div className="absolute inset-y-0 left-0 w-1/3 cursor-pointer" onClick={goToPrevious} />
-      <div className="absolute inset-y-0 right-0 w-1/3 cursor-pointer" onClick={goToNext} />
+        {/* Story content */}
+        <div
+          className={`absolute inset-0 flex items-center justify-center transition-transform duration-150 ${
+            transitionDirection === 'left' ? '-translate-x-full' :
+            transitionDirection === 'right' ? 'translate-x-full' : ''
+          }`}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onClick={handleContentClick}
+          onMouseDown={handleLongPressStart}
+          onMouseUp={handleLongPressEnd}
+          onMouseLeave={handleLongPressEnd}
+        >
+          {isLoading && !imageError && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            </div>
+          )}
 
-      {/* Bottom action bar */}
-      <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/60 to-transparent z-10">
-        {/* Music display */}
-        {currentStory?.music && (
-          <div className="flex items-center gap-3 mb-3 bg-white/10 rounded-full px-4 py-2">
-            <button
-              onClick={() => {
-                const audio = musicRef.current;
-                if (audio) {
-                  if (isMusicPlaying) {
-                    audio.pause();
-                  } else {
-                    audio.play().catch(() => {});
-                  }
-                  setIsMusicPlaying(!isMusicPlaying);
+          {isPaused && (
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white/70">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect width="4" height="16" rx="1" x="6" y="4" />
+                <rect width="4" height="16" rx="1" x="14" y="4" />
+              </svg>
+            </div>
+          )}
+
+          {isVideo ? (
+            <video
+              ref={videoRef}
+              src={currentStory.media_url}
+              className="max-w-full max-h-full object-contain"
+              autoPlay
+              muted
+              playsInline
+              onLoadedMetadata={handleVideoMetadata}
+              onTimeUpdate={() => {
+                if (videoRef.current && videoRef.current.duration) {
+                  // rAF handles progress, but we track video time for sync
                 }
               }}
-              className="w-8 h-8 rounded-full bg-[var(--accent-primary)] flex items-center justify-center"
-            >
-              {isMusicPlaying ? (
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="white">
-                  <rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" />
-                </svg>
-              ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="white">
-                  <path d="m5 3 14 9-14 9V3Z" />
-                </svg>
-              )}
-            </button>
-            <div className="flex-1 min-w-0">
-              <p className="text-white text-sm font-medium truncate">{currentStory.music.track_name}</p>
-              <p className="text-white/60 text-xs truncate">{currentStory.music.artist}</p>
+              onEnded={() => goToNext()}
+              onError={() => {
+                setIsLoading(false);
+                setImageError(true);
+              }}
+            />
+          ) : (
+            <img
+              src={currentStory.media_url}
+              alt="Story"
+              className={`max-w-full max-h-full object-contain transition-opacity ${isLoading ? 'opacity-0' : 'opacity-100'}`}
+              onLoad={() => setIsLoading(false)}
+              onError={() => {
+                setIsLoading(false);
+                setImageError(true);
+              }}
+            />
+          )}
+
+          {imageError && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+              <p className="text-white">Failed to load story</p>
             </div>
-            {currentStory.music.cover_url && (
-              <img
-                src={currentStory.music.cover_url}
-                alt={`${currentStory.music.track_name} cover art`}
-                className="w-8 h-8 rounded-full object-cover"
+          )}
+
+          {/* Interactive stickers */}
+          <div className="absolute bottom-32 left-1/2 -translate-x-1/2 z-10">
+            {poll && (
+              <PollDisplay
+                poll={poll}
+                userVote={pollResults?.user_vote ?? null}
+                onVote={handlePollVote}
+                showResults={!!pollResults}
               />
             )}
+
+            {question && !poll && (
+              <QuestionDisplay
+                question={question}
+                isOwner={isOwner}
+                onSubmitResponse={handleQuestionResponse}
+                onViewResponses={() => setShowResponses(true)}
+                responseCount={questionResponses.length}
+              />
+            )}
+
+            {countdown && !poll && !question && (
+              <CountdownDisplay countdown={countdown} />
+            )}
           </div>
-        )}
 
-        {/* Audio element for music playback */}
-        {currentStory?.music?.preview_url && (
-          <audio
-            ref={musicRef}
-            src={currentStory.music.preview_url}
-            preload="auto"
-            onEnded={() => setIsMusicPlaying(false)}
-          />
-        )}
-
-        {/* Reply input */}
-        {showReplyInput ? (
-          <div className="flex items-center gap-2 mb-2">
-            <input
-              type="text"
-              value={replyMessage}
-              onChange={(e) => setReplyMessage(e.target.value)}
-              placeholder="Send a message..."
-              className="flex-1 px-4 py-2 rounded-full bg-white/20 text-white placeholder:text-white/50 border border-white/20 focus:outline-none focus:border-white/40"
-              autoFocus
-              onKeyDown={(e) => e.key === 'Enter' && handleSendReply()}
-            />
-            <button
-              onClick={handleSendReply}
-              disabled={sendingReply || !replyMessage.trim()}
-              className="p-2 rounded-full bg-white/20 text-white hover:bg-white/30 disabled:opacity-50"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="m22 2-7 20-4-9-9-4Z" />
-                <path d="M22 2 11 13" />
+          {/* Swipe up indicator */}
+          {!isOwner && !showReplyInput && (
+            <div className="absolute bottom-20 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-60">
+                <path d="m18 15-6-6-6 6" />
               </svg>
-            </button>
-            <button
-              onClick={() => {
-                setShowReplyInput(false);
-                setReplyMessage('');
-              }}
-              className="p-2 rounded-full text-white/70 hover:text-white"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 6 6 18" /><path d="m6 6 12 12" />
-              </svg>
-            </button>
-          </div>
-        ) : replySent ? (
-          <div className="text-white/70 text-sm mb-2 flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 6 9 17l-5-5" />
-            </svg>
-            Message sent
-          </div>
-        ) : null}
+              <span className="text-white/60 text-xs">Swipe up to reply</span>
+            </div>
+          )}
+        </div>
 
-        {/* Reaction bar */}
-        <div className="flex items-center justify-between">
-          {/* Quick reactions */}
-          <div className="flex items-center gap-1">
-            {QUICK_REACTIONS.map((emoji) => (
+        {/* Bottom action bar */}
+        <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/60 to-transparent z-10">
+          {/* Music display */}
+          {currentStory?.music && (
+            <div className="flex items-center gap-3 mb-3 bg-white/10 rounded-full px-4 py-2">
               <button
-                key={emoji}
-                onClick={() => handleReaction(emoji)}
-                className="w-10 h-10 flex items-center justify-center text-xl hover:bg-white/10 rounded-full transition-transform hover:scale-125"
+                onClick={() => {
+                  const audio = musicRef.current;
+                  if (audio) {
+                    if (isMusicPlaying) {
+                      audio.pause();
+                    } else {
+                      audio.play().catch(() => {});
+                    }
+                    setIsMusicPlaying(!isMusicPlaying);
+                  }
+                }}
+                className="w-8 h-8 rounded-full bg-[var(--accent-primary)] flex items-center justify-center"
               >
-                {emoji}
+                {isMusicPlaying ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="white">
+                    <rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" />
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="white">
+                    <path d="m5 3 14 9-14 9V3Z" />
+                  </svg>
+                )}
               </button>
-            ))}
-            <button
-              onClick={() => setShowReactionPicker(!showReactionPicker)}
-              className="w-10 h-10 flex items-center justify-center text-white/70 hover:bg-white/10 rounded-full"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M8 14s1.5 2 4 2 4-2 4-2" />
-                <line x1="9" x2="9.01" y1="9" y2="9" />
-                <line x1="15" x2="15.01" y1="9" y2="9" />
-              </svg>
-            </button>
-          </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-white text-sm font-medium truncate">{currentStory.music.track_name}</p>
+                <p className="text-white/60 text-xs truncate">{currentStory.music.artist}</p>
+              </div>
+              {currentStory.music.cover_url && (
+                <img
+                  src={currentStory.music.cover_url}
+                  alt={`${currentStory.music.track_name} cover art`}
+                  className="w-8 h-8 rounded-full object-cover"
+                />
+              )}
+            </div>
+          )}
 
-          {/* Reply, Share, and More buttons */}
-          {!showReplyInput && !replySent && (
-            <div className="flex items-center gap-2">
+          {/* Audio element for music playback */}
+          {currentStory?.music?.preview_url && (
+            <audio
+              ref={musicRef}
+              src={currentStory.music.preview_url}
+              preload="auto"
+              onEnded={() => setIsMusicPlaying(false)}
+            />
+          )}
+
+          {/* Reply input */}
+          {showReplyInput ? (
+            <div className="flex items-center gap-2 mb-2">
+              <input
+                type="text"
+                value={replyMessage}
+                onChange={(e) => setReplyMessage(e.target.value)}
+                placeholder="Send a message..."
+                className="flex-1 px-4 py-2 rounded-full bg-white/20 text-white placeholder:text-white/50 border border-white/20 focus:outline-none focus:border-white/40"
+                autoFocus
+                onKeyDown={(e) => e.key === 'Enter' && handleSendReply()}
+              />
               <button
-                onClick={() => setShowShareModal(true)}
-                className="p-2 rounded-full bg-white/20 text-white hover:bg-white/30"
-                title="Share story"
+                onClick={handleSendReply}
+                disabled={sendingReply || !replyMessage.trim()}
+                className="p-2 rounded-full bg-white/20 text-white hover:bg-white/30 disabled:opacity-50"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="m22 2-7 20-4-9-9-4Z" />
                   <path d="M22 2 11 13" />
                 </svg>
               </button>
               <button
-                onClick={() => setShowReplyInput(true)}
-                className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/20 text-white hover:bg-white/30"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                </svg>
-                <span className="text-sm">Reply</span>
-              </button>
-              {!isOwner && (
-                <button
-                  onClick={() => setShowMoreMenu(!showMoreMenu)}
-                  className="p-2 rounded-full bg-white/20 text-white hover:bg-white/30"
-                  title="More"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" />
-                  </svg>
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Reaction counts */}
-        {reactions.length > 0 && (
-          <div className="flex items-center gap-2 mt-2 text-white/80 text-sm">
-            {reactions.slice(0, 5).map((r) => (
-              <span key={r.emoji} className="flex items-center gap-1">
-                <span>{r.emoji}</span>
-                <span className="text-xs">{r.count}</span>
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Reaction picker modal */}
-      {showReactionPicker && (
-        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-2xl p-4 z-20">
-          <div className="grid grid-cols-6 gap-2">
-            {[
-              '❤️', '😍', '😊', '🥰', '😘', '🤩',
-              '😂', '🤣', '😄', '😅', '😆', '😁',
-              '😮', '😲', '😱', '🤯', '😵', '🥳',
-              '😢', '😭', '😔', '😪', '🥺', '😿',
-              '🔥', '💯', '👏', '🎉', '✨', '💪',
-              '👎', '👌', '💕', '❤️‍🔥', '💖', '💙'
-            ].map((emoji) => (
-              <button
-                key={emoji}
-                onClick={() => handleReaction(emoji)}
-                className="w-10 h-10 flex items-center justify-center text-2xl hover:bg-[var(--bg-tertiary)] rounded-lg transition-transform hover:scale-125"
-              >
-                {emoji}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Add to highlight modal */}
-      {showHighlightModal && (
-        <AddToHighlightModal
-          storyId={currentStory.id}
-          storyUrl={currentStory.media_url}
-          onClose={() => setShowHighlightModal(false)}
-          onSuccess={() => {
-            setShowHighlightModal(false);
-            // Could show a success toast here
-          }}
-        />
-      )}
-
-      {/* More menu (mute, report) */}
-      {showMoreMenu && (
-        <div className="absolute bottom-24 right-4 z-30 bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-xl overflow-hidden min-w-[180px] shadow-xl">
-          <button
-            onClick={() => {
-              const muted = JSON.parse(localStorage.getItem('kw-muted-users') || '[]') as string[]
-              if (!muted.includes(currentStory.user_id)) {
-                muted.push(currentStory.user_id)
-                localStorage.setItem('kw-muted-users', JSON.stringify(muted))
-              }
-              setShowMoreMenu(false)
-              goToNext()
-            }}
-            className="w-full px-4 py-3 text-left text-white text-sm hover:bg-[var(--bg-tertiary)] flex items-center gap-3"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 6 6 18" /><path d="m6 6 12 12" />
-            </svg>
-            Mute {currentStory.user.display_name}
-          </button>
-          <button
-            onClick={() => {
-              alert('Report submitted. Thank you for keeping KWEN safe.')
-              setShowMoreMenu(false)
-            }}
-            className="w-full px-4 py-3 text-left text-red-400 text-sm hover:bg-[var(--bg-tertiary)] flex items-center gap-3"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" x2="4" y1="22" y2="15" />
-            </svg>
-            Report
-          </button>
-        </div>
-      )}
-
-      {/* Share story modal */}
-      {showShareModal && (
-        <ShareStoryModal
-          storyId={currentStory.id}
-          storyUrl={currentStory.media_url}
-          storyUsername={currentStory.user.username}
-          onClose={() => setShowShareModal(false)}
-        />
-      )}
-
-      {/* Question responses modal */}
-      {showResponses && question && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-          <div className="bg-[var(--bg-secondary)] rounded-2xl w-full max-w-md max-h-[80vh] overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b border-[var(--border-subtle)]">
-              <h3 className="font-semibold text-white">Responses</h3>
-              <button
-                onClick={() => setShowResponses(false)}
-                className="text-white/70 hover:text-white"
+                onClick={() => {
+                  setShowReplyInput(false);
+                  setReplyMessage('');
+                }}
+                className="p-2 rounded-full text-white/70 hover:text-white"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M18 6 6 18" /><path d="m6 6 12 12" />
                 </svg>
               </button>
             </div>
-            <div className="overflow-y-auto max-h-[60vh]">
-              {questionResponses.length > 0 ? (
-                questionResponses.map((r) => (
-                  <div key={r.id} className="flex items-start gap-3 p-4 border-b border-[var(--border-subtle)]">
-                    <div className="w-8 h-8 rounded-full overflow-hidden bg-[var(--bg-tertiary)]">
-                      {r.user.avatar_url ? (
-                        <img src={r.user.avatar_url} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-white text-xs">
-                          {r.user.username?.charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-white text-sm font-medium">{r.user.username}</p>
-                      <p className="text-[var(--text-muted)] text-sm mt-1">{r.response}</p>
-                      <p className="text-[var(--text-muted)] text-xs mt-1">
-                        {new Date(r.created_at).toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="p-8 text-center text-[var(--text-muted)]">
-                  No responses yet
-                </div>
-              )}
+          ) : replySent ? (
+            <div className="text-white/70 text-sm mb-2 flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
+              Message sent
+            </div>
+          ) : null}
+
+          {/* Reaction bar */}
+          <div className="flex items-center justify-between">
+            {/* Quick reactions */}
+            <div className="flex items-center gap-1">
+              {QUICK_REACTIONS.map((emoji) => (
+                <button
+                  key={emoji}
+                  onClick={() => handleReaction(emoji)}
+                  className="w-10 h-10 flex items-center justify-center text-xl hover:bg-white/10 rounded-full transition-transform hover:scale-125"
+                >
+                  {emoji}
+                </button>
+              ))}
+              <button
+                onClick={() => setShowReactionPicker(!showReactionPicker)}
+                className="w-10 h-10 flex items-center justify-center text-white/70 hover:bg-white/10 rounded-full"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+                  <line x1="9" x2="9.01" y1="9" y2="9" />
+                  <line x1="15" x2="15.01" y1="9" y2="9" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Reply, Share, and More buttons */}
+            {!showReplyInput && !replySent && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowShareModal(true)}
+                  className="p-2 rounded-full bg-white/20 text-white hover:bg-white/30"
+                  title="Share story"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m22 2-7 20-4-9-9-4Z" />
+                    <path d="M22 2 11 13" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => setShowReplyInput(true)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/20 text-white hover:bg-white/30"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                  </svg>
+                  <span className="text-sm">Reply</span>
+                </button>
+                {!isOwner && (
+                  <button
+                    onClick={() => setShowMoreMenu(!showMoreMenu)}
+                    className="p-2 rounded-full bg-white/20 text-white hover:bg-white/30"
+                    title="More"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Reaction counts */}
+          {reactions.length > 0 && (
+            <div className="flex items-center gap-2 mt-2 text-white/80 text-sm">
+              {reactions.slice(0, 5).map((r) => (
+                <span key={r.emoji} className="flex items-center gap-1">
+                  <span>{r.emoji}</span>
+                  <span className="text-xs">{r.count}</span>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Reaction picker modal */}
+        {showReactionPicker && (
+          <div className="absolute bottom-24 left-1/2 -translate-x-1/2 bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-2xl p-4 z-20">
+            <div className="grid grid-cols-6 gap-2">
+              {[
+                '❤️', '😍', '😊', '🥰', '😘', '🤩',
+                '😂', '🤣', '😄', '😅', '😆', '😁',
+                '😮', '😲', '😱', '🤯', '😵', '🥳',
+                '😢', '😭', '😔', '😪', '🥺', '😿',
+                '🔥', '💯', '👏', '🎉', '✨', '💪',
+                '👎', '👌', '💕', '❤️‍🔥', '💖', '💙'
+              ].map((emoji) => (
+                <button
+                  key={emoji}
+                  onClick={() => handleReaction(emoji)}
+                  className="w-10 h-10 flex items-center justify-center text-2xl hover:bg-[var(--bg-tertiary)] rounded-lg transition-transform hover:scale-125"
+                >
+                  {emoji}
+                </button>
+              ))}
             </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* Add to highlight modal */}
+        {showHighlightModal && (
+          <AddToHighlightModal
+            storyId={currentStory.id}
+            storyUrl={currentStory.media_url}
+            onClose={() => setShowHighlightModal(false)}
+            onSuccess={() => {
+              setShowHighlightModal(false);
+            }}
+          />
+        )}
+
+        {/* More menu (mute, report) */}
+        {showMoreMenu && (
+          <div className="absolute bottom-24 right-4 z-30 bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-xl overflow-hidden min-w-[180px] shadow-xl">
+            <button
+              onClick={() => {
+                const muted = JSON.parse(localStorage.getItem('kw-muted-users') || '[]') as string[]
+                if (!muted.includes(currentStory.user_id)) {
+                  muted.push(currentStory.user_id)
+                  localStorage.setItem('kw-muted-users', JSON.stringify(muted))
+                }
+                setShowMoreMenu(false)
+                goToNext()
+              }}
+              className="w-full px-4 py-3 text-left text-white text-sm hover:bg-[var(--bg-tertiary)] flex items-center gap-3"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+              </svg>
+              Mute {currentUser.displayName}
+            </button>
+            <button
+              onClick={() => {
+                alert('Report submitted. Thank you for keeping KWEN safe.')
+                setShowMoreMenu(false)
+              }}
+              className="w-full px-4 py-3 text-left text-red-400 text-sm hover:bg-[var(--bg-tertiary)] flex items-center gap-3"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" x2="4" y1="22" y2="15" />
+              </svg>
+              Report
+            </button>
+          </div>
+        )}
+
+        {/* Share story modal */}
+        {showShareModal && (
+          <ShareStoryModal
+            storyId={currentStory.id}
+            storyUrl={currentStory.media_url}
+            storyUsername={currentUser.username}
+            onClose={() => setShowShareModal(false)}
+          />
+        )}
+
+        {/* Question responses modal */}
+        {showResponses && question && (
+          <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+            <div className="bg-[var(--bg-secondary)] rounded-2xl w-full max-w-md max-h-[80vh] overflow-hidden">
+              <div className="flex items-center justify-between p-4 border-b border-[var(--border-subtle)]">
+                <h3 className="font-semibold text-white">Responses</h3>
+                <button
+                  onClick={() => setShowResponses(false)}
+                  className="text-white/70 hover:text-white"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="overflow-y-auto max-h-[60vh]">
+                {questionResponses.length > 0 ? (
+                  questionResponses.map((r) => (
+                    <div key={r.id} className="flex items-start gap-3 p-4 border-b border-[var(--border-subtle)]">
+                      <div className="w-8 h-8 rounded-full overflow-hidden bg-[var(--bg-tertiary)]">
+                        {r.user.avatar_url ? (
+                          <img src={r.user.avatar_url} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-white text-xs">
+                            {r.user.username?.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-white text-sm font-medium">{r.user.username}</p>
+                        <p className="text-[var(--text-muted)] text-sm mt-1">{r.response}</p>
+                        <p className="text-[var(--text-muted)] text-xs mt-1">
+                          {new Date(r.created_at).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-8 text-center text-[var(--text-muted)]">
+                    No responses yet
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

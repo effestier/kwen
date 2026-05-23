@@ -51,7 +51,7 @@ export async function getSignedUrl(storagePath: string): Promise<{ url?: string;
   }
 }
 
-export async function sendMessage(conversationId: string, content: string, media?: MediaMetadata, replyToMessageId?: string) {
+export async function sendMessage(conversationId: string, content: string, media?: MediaMetadata, replyToMessageId?: string, storyId?: string) {
   try {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -61,7 +61,7 @@ export async function sendMessage(conversationId: string, content: string, media
 
     const cleanContent = content.trim().slice(0, 5000);
 
-    if (!cleanContent && !media?.path) return { error: 'Message cannot be empty' };
+    if (!cleanContent && !media?.path && !storyId) return { error: 'Message cannot be empty' };
 
     const { data: participant } = await supabase
       .from('conversation_participants')
@@ -72,8 +72,15 @@ export async function sendMessage(conversationId: string, content: string, media
 
     if (!participant) return { error: 'Unauthorized' };
 
-    const messageType = media?.path ? (cleanContent ? 'mixed' : 'image') : 'text';
-    const messageContent = cleanContent || (media?.path ? 'Photo' : '');
+    let messageType: string;
+    if (storyId) {
+      messageType = 'story_reply';
+    } else if (media?.path) {
+      messageType = cleanContent ? 'mixed' : 'image';
+    } else {
+      messageType = 'text';
+    }
+    const messageContent = cleanContent || (media?.path ? 'Photo' : storyId ? '' : '');
 
     const insertData: Record<string, unknown> = {
       conversation_id: conversationId,
@@ -90,6 +97,19 @@ export async function sendMessage(conversationId: string, content: string, media
 
     if (replyToMessageId) {
       insertData.reply_to_message_id = replyToMessageId;
+    }
+
+    if (storyId) {
+      insertData.story_id = storyId;
+      // Fetch and store story media_url since stories expire after 24h
+      const { data: storyData } = await supabase
+        .from('stories')
+        .select('media_url')
+        .eq('id', storyId)
+        .single();
+      if (storyData?.media_url) {
+        insertData.media_url = storyData.media_url;
+      }
     }
 
     const { data: message, error } = await supabase
@@ -190,7 +210,7 @@ export async function getMessages(conversationId: string) {
 
     const { data: messages, error } = await supabase
       .from('messages')
-      .select('id, content, sender_id, created_at, message_type, media_url, thumbnail_url, mime_type, file_size, media_width, media_height, reply_to_message_id, deleted_for')
+      .select('id, content, sender_id, created_at, message_type, media_url, thumbnail_url, mime_type, file_size, media_width, media_height, reply_to_message_id, deleted_for, story_id')
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: true })
       .limit(200);
@@ -302,6 +322,7 @@ export async function getMessages(conversationId: string) {
         } : null,
         reactions: reactionCounts,
         my_reaction: reactions.find(r => r.userId === user.id)?.emoji || null,
+        story_id: (msg as Record<string, unknown>).story_id || null,
       };
     });
 

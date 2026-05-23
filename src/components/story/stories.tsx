@@ -45,7 +45,6 @@ interface StoriesProps {
 export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps) {
   const router = useRouter();
   const [viewerOpen, setViewerOpen] = useState(false);
-  const [viewerIndex, setViewerIndex] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const supabase = createClient();
@@ -66,17 +65,47 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
     return map;
   }, [otherStories]);
 
-  // Combine: my stories first, then other users (sorted by creation, newest first)
-  const allStoriesSorted = useMemo(() => [
-    ...myStories,
-    ...Array.from(storiesByUser.values())
-  ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()), [myStories, storiesByUser]);
+  // Sort: own stories first (newest), then unseen users (newest), then seen users (newest)
+  const allStoriesSorted = useMemo(() => {
+    const own = [...myStories].sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))
+    const otherEntries = Array.from(storiesByUser.values())
+    const unseen = otherEntries.filter(s => !s.hasViewed).sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))
+    const seen = otherEntries.filter(s => s.hasViewed).sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))
+    return [...own, ...unseen, ...seen]
+  }, [myStories, storiesByUser]);
 
-  // Track which stories are owned by current user
-  const isOwnStory = useCallback((story: Story) => story.user_id === currentUser?.id, [currentUser?.id]);
+  // Build user-grouped data for viewer (Instagram model)
+  const groupedUsers = useMemo(() => {
+    const userMap = new Map<string, {
+      userId: string;
+      username: string;
+      displayName: string;
+      avatarUrl: string | null;
+      isVerified: boolean;
+      stories: Story[];
+    }>();
 
-  const handleStoryClick = (index: number) => {
-    setViewerIndex(index);
+    for (const story of allStoriesSorted) {
+      if (!userMap.has(story.user_id)) {
+        userMap.set(story.user_id, {
+          userId: story.user_id,
+          username: story.user.username,
+          displayName: story.user.display_name,
+          avatarUrl: story.user.avatar_url,
+          isVerified: story.user.is_verified,
+          stories: [],
+        });
+      }
+      userMap.get(story.user_id)!.stories.push(story);
+    }
+
+    return Array.from(userMap.values());
+  }, [allStoriesSorted]);
+
+  const [viewerUserIndex, setViewerUserIndex] = useState(0);
+
+  const handleUserClick = (userIndex: number) => {
+    setViewerUserIndex(userIndex);
     setViewerOpen(true);
   };
 
@@ -85,16 +114,14 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
   };
 
   const handleMyStoryClick = () => {
-    // If user has stories, open viewer at their first story
     if (myStories.length > 0) {
-      // Find index of first my story in sorted list
-      const myIndex = allStoriesSorted.findIndex(s => s.user_id === currentUser?.id);
+      // Own user is always index 0 in groupedUsers
+      const myIndex = groupedUsers.findIndex(u => u.userId === currentUser?.id);
       if (myIndex !== -1) {
-        setViewerIndex(myIndex);
+        setViewerUserIndex(myIndex);
         setViewerOpen(true);
       }
     } else {
-      // No stories yet, trigger add
       handleAddStory();
     }
   };
@@ -188,37 +215,41 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
           </button>
         )}
 
-        {/* Other users' stories */}
-        {allStoriesSorted
-          .filter(s => s.user_id !== currentUser?.id)
-          .map((story) => (
-            <button
-              key={story.id}
-              onClick={() => handleStoryClick(allStoriesSorted.indexOf(story))}
-              className="flex flex-col items-center gap-1.5 flex-shrink-0"
-            >
-              <div
-                className={cn(
-                  'w-14 h-14 rounded-full p-0.5',
-                  story.hasViewed
-                    ? 'bg-[var(--border-subtle)]'
-                    : 'bg-gradient-to-br from-[var(--accent-primary)] to-[var(--accent-secondary)]'
-                )}
+        {/* Other users' stories (grouped) */}
+        {groupedUsers
+          .filter(u => u.userId !== currentUser?.id)
+          .map((user) => {
+            const idx = groupedUsers.indexOf(user);
+            const allViewed = user.stories.every(s => s.hasViewed);
+            return (
+              <button
+                key={user.userId}
+                onClick={() => handleUserClick(idx)}
+                className="flex flex-col items-center gap-1.5 flex-shrink-0"
               >
-                <div className="w-full h-full rounded-full p-0.5 bg-[var(--bg-primary)] overflow-hidden">
-                  <Avatar
-                    src={story.user.avatar_url}
-                    name={story.user.display_name}
-                    size="xl"
-                    className="w-full h-full"
-                  />
+                <div
+                  className={cn(
+                    'w-14 h-14 rounded-full p-0.5',
+                    allViewed
+                      ? 'bg-[var(--border-subtle)]'
+                      : 'bg-gradient-to-br from-[var(--accent-primary)] to-[var(--accent-secondary)]'
+                  )}
+                >
+                  <div className="w-full h-full rounded-full p-0.5 bg-[var(--bg-primary)] overflow-hidden">
+                    <Avatar
+                      src={user.avatarUrl}
+                      name={user.displayName}
+                      size="xl"
+                      className="w-full h-full"
+                    />
+                  </div>
                 </div>
-              </div>
-              <span className="text-xs text-[var(--text-muted)] max-w-[56px] truncate">
-                {story.user.display_name.split(' ')[0]}
-              </span>
-            </button>
-          ))}
+                <span className="text-xs text-[var(--text-muted)] max-w-[56px] truncate">
+                  {user.displayName.split(' ')[0]}
+                </span>
+              </button>
+            );
+          })}
       </div>
 
       {/* Hidden file input */}
@@ -231,12 +262,13 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
       />
 
       {/* Story viewer modal */}
-      {viewerOpen && allStoriesSorted.length > 0 && (
+      {viewerOpen && groupedUsers.length > 0 && (
         <StoryViewer
-          stories={allStoriesSorted}
-          initialIndex={viewerIndex}
+          users={groupedUsers}
+          initialUserIndex={viewerUserIndex}
+          initialStoryIndex={0}
           onClose={() => setViewerOpen(false)}
-          isOwner={isOwnStory(allStoriesSorted[viewerIndex])}
+          currentUserId={currentUser?.id || ''}
         />
       )}
     </>

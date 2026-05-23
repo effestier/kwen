@@ -35,7 +35,7 @@ export const Switch = forwardRef<HTMLInputElement, SwitchProps>(
           className={cn(
             'relative inline-flex h-6 w-11 items-center rounded-full',
             'transition-colors duration-200',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] focus-visible:ring-offset-2',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 focus-visible:ring-offset-2',
             'cursor-pointer',
             props.checked || props.defaultChecked
               ? 'bg-[var(--accent-primary)]'
@@ -104,7 +104,7 @@ export function ToggleGroup({ options, value, onChange, fullWidth = false }: Tog
             'flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium',
             'transition-all duration-150',
             value === option.value
-              ? 'bg-[var(--accent-primary)] text-white'
+              ? 'bg-[var(--accent-primary)] text-[var(--text-inverse)]'
               : 'bg-[var(--bg-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]',
             index > 0 && 'border-l border-[var(--border-subtle)]'
           )}

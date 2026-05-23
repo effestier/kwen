@@ -27,7 +27,7 @@ export function CreatePostModal({ isOpen, onClose }: CreatePostModalProps) {
           <button
             onClick={handlePost}
             disabled={!content.trim()}
-            className="px-5 py-2 rounded-full bg-[var(--accent-primary)] text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
+            className="px-5 py-2 rounded-full bg-[var(--accent-primary)] text-[var(--text-inverse)] font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
           >
             Post
           </button>

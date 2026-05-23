@@ -235,7 +235,7 @@ export function ConfirmationDialog({
               'flex-1 h-10 rounded-lg font-medium transition-colors disabled:opacity-50',
               variant === 'destructive'
                 ? 'bg-[var(--destructive)] text-white hover:bg-[var(--destructive-hover)]'
-                : 'bg-[var(--accent-primary)] text-white hover:bg-[var(--accent-hover)]'
+                : 'bg-[var(--accent-primary)] text-[var(--text-inverse)] hover:bg-[var(--accent-hover)]'
             )}
           >
             {isLoading ? 'Confirming...' : confirmText}

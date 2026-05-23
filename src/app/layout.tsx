@@ -10,7 +10,7 @@ export const viewport: Viewport = {
   maximumScale: 5,
   userScalable: true,
   viewportFit: 'cover',
-  themeColor: '#0a0a0b',
+  themeColor: '#000000',
 };
 
 export const metadata: Metadata = {
@@ -150,7 +150,7 @@ export default function RootLayout({
             <p>KWEN requires JavaScript to run. Please enable JavaScript in your browser settings.</p>
           </div>
         </noscript>
-        <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:rounded-lg focus:bg-[var(--accent-primary)] focus:text-white focus:text-sm focus:font-semibold">
+        <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:rounded-lg focus:bg-white focus:text-black focus:text-sm focus:font-semibold">
           Skip to main content
         </a>
         <Providers>

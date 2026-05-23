@@ -113,7 +113,7 @@ export function MediaPicker({ selected, onSelect, maxItems = 10 }: MediaPickerPr
             <p className="text-[var(--text-primary)] font-medium">Drag photos and videos here</p>
             <p className="text-sm text-[var(--text-muted)] mt-1">or tap to select from your device</p>
           </div>
-          <button className="px-6 py-2.5 bg-[var(--accent-primary)] text-white rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity">
+          <button className="px-6 py-2.5 bg-[var(--accent-primary)] text-[var(--text-inverse)] rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity">
             Select from device
           </button>
         </div>
@@ -130,7 +130,7 @@ export function MediaPicker({ selected, onSelect, maxItems = 10 }: MediaPickerPr
                   <img src={item.url} alt="" className="w-full h-full object-cover" />
                 )}
                 {/* Number badge */}
-                <div className="absolute top-1.5 left-1.5 w-6 h-6 rounded-full bg-[var(--accent-primary)] text-white text-xs flex items-center justify-center font-semibold">
+                <div className="absolute top-1.5 left-1.5 w-6 h-6 rounded-full bg-[var(--accent-primary)] text-[var(--text-inverse)] text-xs flex items-center justify-center font-semibold">
                   {idx + 1}
                 </div>
                 {/* Remove button — always visible on mobile, hover-only on desktop */}

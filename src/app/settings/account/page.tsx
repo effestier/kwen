@@ -266,7 +266,7 @@ export default function AccountPage() {
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--input-bg)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)]"
+                className="w-full px-3 py-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--input-bg)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-white/20"
                 placeholder="Your name"
               />
             </div>
@@ -281,7 +281,7 @@ export default function AccountPage() {
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
-                  className="flex-1 px-3 py-2 rounded-r-lg border border-[var(--border-subtle)] bg-[var(--input-bg)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)]"
+                  className="flex-1 px-3 py-2 rounded-r-lg border border-[var(--border-subtle)] bg-[var(--input-bg)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-white/20"
                   placeholder="username"
                 />
               </div>
@@ -292,7 +292,7 @@ export default function AccountPage() {
                 id="settings-bio"
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
-                className="w-full min-h-[100px] px-3 py-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--input-bg)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)] focus:border-transparent resize-none"
+                className="w-full min-h-[100px] px-3 py-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--input-bg)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-transparent resize-none"
                 placeholder="Tell us about yourself"
                 maxLength={160}
               />

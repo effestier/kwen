@@ -176,7 +176,7 @@ export function StickerPicker({ onAddSticker, onClose }: StickerPickerProps) {
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   placeholder="Ask a question..."
-                  className="w-full px-4 py-3 rounded-xl bg-[var(--bg-tertiary)] text-white placeholder:text-[var(--text-muted)] border-none focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)]"
+                  className="w-full px-4 py-3 rounded-xl bg-[var(--bg-tertiary)] text-white placeholder:text-[var(--text-muted)] border-none focus:outline-none focus:ring-2 focus:ring-white/20"
                   autoFocus
                 />
                 <div className="space-y-2">
@@ -213,7 +213,7 @@ export function StickerPicker({ onAddSticker, onClose }: StickerPickerProps) {
                   activeSticker === 'question' ? 'Ask a question...' :
                   'Title'
                 }
-                className="w-full px-4 py-3 rounded-xl bg-[var(--bg-tertiary)] text-white placeholder:text-[var(--text-muted)] border-none focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)]"
+                className="w-full px-4 py-3 rounded-xl bg-[var(--bg-tertiary)] text-white placeholder:text-[var(--text-muted)] border-none focus:outline-none focus:ring-2 focus:ring-white/20"
                 autoFocus
               />
             )}
@@ -221,7 +221,7 @@ export function StickerPicker({ onAddSticker, onClose }: StickerPickerProps) {
             {/* Submit button */}
             <button
               onClick={handleSubmit}
-              className="w-full py-3 rounded-xl bg-[var(--accent-primary)] text-white font-semibold hover:opacity-90 transition-opacity"
+              className="w-full py-3 rounded-xl bg-[var(--accent-primary)] text-[var(--text-inverse)] font-semibold hover:opacity-90 transition-opacity"
             >
               Add Sticker
             </button>

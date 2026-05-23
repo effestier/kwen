@@ -294,7 +294,7 @@ export function ProfileClient({ username }: { username: string }) {
   return (
     <MainLayout>
       <div className="min-h-screen">
-        <div className="h-32 md:h-48 bg-gradient-to-r from-[var(--accent-primary)]/20 via-[var(--accent-secondary)]/20 to-[var(--accent-blue)]/20" />
+        <div className="h-32 md:h-48 bg-gradient-to-r from-[var(--gradient-start)] via-[var(--accent-red)] to-[var(--gradient-end)]" />
 
         <div className="px-4 pb-4">
           <div className="flex items-start justify-between -mt-12 mb-3">
@@ -319,7 +319,7 @@ export function ProfileClient({ username }: { username: string }) {
                       'px-4 py-1.5 rounded-full text-sm font-semibold transition-colors-fast',
                       isFollowing
                         ? 'border border-[var(--border-soft)] text-[var(--text-primary)] hover:bg-[var(--bg-secondary)]'
-                        : 'bg-[var(--accent-primary)] text-white hover:opacity-90'
+                        : 'bg-[var(--accent-primary)] text-[var(--text-inverse)] hover:opacity-90'
                     )}
                   >
                     {isFollowing ? 'Following' : 'Follow'}
@@ -340,7 +340,7 @@ export function ProfileClient({ username }: { username: string }) {
             <div className="flex items-center gap-1.5 mb-1">
               <h1 className="text-xl font-bold text-[var(--text-primary)]">{profile.display_name}</h1>
               {profile.is_verified && (
-                <svg aria-label="Verified" className="w-5 h-5 text-[var(--accent-blue)]" viewBox="0 0 20 20" fill="currentColor">
+                <svg aria-label="Verified" className="w-5 h-5 text-[var(--accent-primary)]" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143z" clipRule="evenodd" />
                 </svg>
               )}
@@ -418,7 +418,7 @@ export function ProfileClient({ username }: { username: string }) {
             posts.length > 0 ? (
               <div className="grid grid-cols-3 gap-0.5">
                 {posts.map((post) => (
-                  <Link key={post.id} href={`/post/${post.id}`} className="aspect-square bg-[var(--bg-secondary)] relative group block focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)] focus:ring-inset cursor-pointer">
+                  <Link key={post.id} href={`/post/${post.id}`} className="aspect-square bg-[var(--bg-secondary)] relative group block focus:outline-none focus:ring-2 focus:ring-white/20 focus:ring-inset cursor-pointer">
                     {post.images?.[0] ? (
                       <img src={post.images[0]} alt={`Post by ${profile.display_name}`} className="w-full h-full object-cover" />
                     ) : (

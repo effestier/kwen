@@ -392,7 +392,7 @@ export function HighlightViewer({
                 onChange={(e) => setTitleValue(e.target.value)}
                 maxLength={30}
                 autoFocus
-                className="w-full px-3 py-2.5 bg-[var(--bg-secondary)] rounded-lg text-sm text-[var(--text-primary)] outline-none focus:ring-2 focus:ring-[var(--accent-primary)]"
+                className="w-full px-3 py-2.5 bg-[var(--bg-secondary)] rounded-lg text-sm text-[var(--text-primary)] outline-none focus:ring-2 focus:ring-white/20"
                 onKeyDown={async (e) => {
                   if (e.key === 'Enter' && titleValue.trim()) {
                     await updateHighlightTitle(highlightId, titleValue.trim())

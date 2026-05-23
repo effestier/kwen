@@ -885,7 +885,7 @@ export default function MessagesPage() {
                           {conv.last_message}
                         </p>
                         {isUnread && (
-                          <span className="flex-shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-[var(--accent-primary)] text-white text-xs font-bold flex items-center justify-center">
+                          <span className="flex-shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-[var(--accent-red)] text-white text-xs font-bold flex items-center justify-center">
                             {conv.unread_count > 99 ? '99+' : conv.unread_count}
                           </span>
                         )}
@@ -960,7 +960,7 @@ export default function MessagesPage() {
                         return (
                           <div key={msg.id} className={cn('flex w-full mt-2', msg.isMine ? 'justify-end' : 'justify-start')}>
                             <div className={cn('max-w-[75%]')}>
-                              <div className={cn('text-sm rounded-2xl px-3.5 py-2', msg.isMine ? 'bg-[var(--accent-primary)] text-white rounded-br-md' : 'bg-[var(--bg-secondary)] text-[var(--text-primary)] rounded-bl-md', msg.status === 'failed' && 'opacity-70')}>
+                              <div className={cn('text-sm rounded-2xl px-3.5 py-2', msg.isMine ? 'bg-[var(--accent-primary)] text-[var(--text-inverse)] rounded-br-md' : 'bg-[var(--bg-secondary)] text-[var(--text-primary)] rounded-bl-md', msg.status === 'failed' && 'opacity-70')}>
                                 {msg.content && msg.content !== 'Photo' && <p className="whitespace-pre-wrap text-sm">{msg.content}</p>}
                               </div>
                               {msg.status === 'failed' && msg.isMine && (
@@ -1074,13 +1074,13 @@ export default function MessagesPage() {
                     placeholder="Message..."
                     aria-label="Type a message"
                     disabled={!currentUserProfile}
-                    className="flex-1 px-4 py-2.5 rounded-full bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--accent-primary)] disabled:opacity-50 text-sm"
+                    className="flex-1 px-4 py-2.5 rounded-full bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-strong)] disabled:opacity-50 text-sm"
                   />
                   <button
                     type="submit"
                     disabled={(!newMessage.trim() && !imageFile) || sending || !currentUserProfile}
                     aria-label="Send message"
-                    className="p-2.5 rounded-full bg-[var(--accent-primary)] text-white disabled:opacity-30 hover:opacity-90 transition-all active:scale-95"
+                    className="p-2.5 rounded-full bg-[var(--accent-primary)] text-[var(--text-inverse)] disabled:opacity-30 hover:opacity-90 transition-all active:scale-95"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" />

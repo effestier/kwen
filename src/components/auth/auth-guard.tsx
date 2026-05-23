@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { PageSkeleton } from '@/components/design-system';
+import { AppLoader } from '@/components/ui/app-loader';
 import { isNativePlatform } from '@/lib/platform';
 
 const PUBLIC_ROUTES = ['/', '/auth/login', '/auth/register', '/auth/reset-password', '/privacy', '/terms'];
@@ -103,7 +103,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }, [hasUser, loading, pathname, router]);
 
   if (loading) {
-    return <PageSkeleton />;
+    return <AppLoader />;
   }
 
   return <>{children}</>;

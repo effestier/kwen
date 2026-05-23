@@ -16,7 +16,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantStyles: Record<ButtonVariant, string> = {
-  primary: 'bg-[var(--accent-primary)] text-white hover:bg-[var(--accent-hover)] active:bg-[var(--accent-primary)]',
+  primary: 'bg-[var(--accent-primary)] text-[var(--text-inverse)] hover:bg-[var(--accent-hover)] active:bg-[var(--accent-primary)]',
   secondary: 'bg-[var(--bg-tertiary)] text-[var(--text-primary)] hover:bg-[var(--border-soft)] active:bg-[var(--border-subtle)]',
   outline: 'border border-[var(--border-soft)] text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] active:bg-[var(--bg-tertiary)]',
   ghost: 'text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] active:bg-[var(--bg-tertiary)]',
@@ -50,7 +50,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         className={cn(
           'inline-flex items-center justify-center font-medium rounded-lg transition-all',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] focus-visible:ring-offset-2',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-primary)]',
           'disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed',
           variantStyles[variant],
           sizeStyles[size],
@@ -118,7 +118,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
         ref={ref}
         className={cn(
           'inline-flex items-center justify-center rounded-full transition-all',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)]',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20',
           'disabled:opacity-50 disabled:pointer-events-none',
           variantStyles[variant],
           sizeMap[size],

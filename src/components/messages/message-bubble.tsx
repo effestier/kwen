@@ -130,13 +130,13 @@ export function MessageBubble({ message, showAvatar, onReact, onReply, onDelete,
         {message.reply_to && (
           <div className={`mb-1 px-3 py-1.5 rounded-lg text-xs border-l-2 ${
             message.isMine
-              ? 'bg-white/10 border-white/30'
-              : 'bg-[var(--bg-tertiary)] border-[var(--accent-primary)]/50'
+              ? 'bg-black/10 border-black/20'
+              : 'bg-[var(--bg-tertiary)] border-[var(--text-muted)]/50'
           }`}>
-            <p className={`font-semibold ${message.isMine ? 'text-white/70' : 'text-[var(--accent-primary)]'}`}>
+            <p className={`font-semibold ${message.isMine ? 'text-black/60' : 'text-[var(--text-primary)]'}`}>
               {message.reply_to.senderName}
             </p>
-            <p className={`truncate ${message.isMine ? 'text-white/50' : 'text-[var(--text-muted)]'}`}>
+            <p className={`truncate ${message.isMine ? 'text-black/40' : 'text-[var(--text-muted)]'}`}>
               {message.reply_to.messageType === 'image' ? '📷 Photo' : message.reply_to.content}
             </p>
           </div>
@@ -146,7 +146,7 @@ export function MessageBubble({ message, showAvatar, onReact, onReply, onDelete,
         <div
           className={`relative rounded-2xl px-3 py-2 ${
             message.isMine
-              ? 'bg-[var(--accent-primary)] text-white rounded-br-md'
+              ? 'bg-[var(--accent-primary)] text-[var(--text-inverse)] rounded-br-md'
               : 'bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-[var(--text-primary)] rounded-bl-md'
           }`}
         >
@@ -176,11 +176,11 @@ export function MessageBubble({ message, showAvatar, onReact, onReply, onDelete,
             {message.isMine && (
               <span className="text-[10px]" title={message.seen_at ? `Seen at ${new Date(message.seen_at).toLocaleTimeString()}` : message.delivered_at ? 'Delivered' : 'Sent'}>
                 {message.seen_at ? (
-                  <span className="text-blue-400">✓✓</span>
+                  <span className="text-[var(--accent-primary)]">✓✓</span>
                 ) : message.delivered_at ? (
-                  <span className="text-white/60">✓✓</span>
+                  <span className="text-[var(--text-muted)]">✓✓</span>
                 ) : (
-                  <span className="text-white/40">✓</span>
+                  <span className="text-[var(--text-muted)]/60">✓</span>
                 )}
               </span>
             )}

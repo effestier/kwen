@@ -113,7 +113,7 @@ export default function CloseFriendsPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search users to add..."
-              className="w-full px-4 py-2 pl-10 rounded-lg bg-[var(--bg-secondary)] text-[var(--text-primary)] border border-[var(--border-subtle)] focus:outline-none focus:border-[var(--accent-primary)]"
+              className="w-full px-4 py-2 pl-10 rounded-lg bg-[var(--bg-secondary)] text-[var(--text-primary)] border border-[var(--border-subtle)] focus:outline-none focus:border-[var(--border-strong)]"
             />
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -175,7 +175,7 @@ export default function CloseFriendsPage() {
                     <button
                       onClick={() => handleAdd(user.id)}
                       disabled={adding === user.id}
-                      className="px-4 py-1.5 rounded-lg bg-[var(--accent-primary)] text-white text-sm font-medium hover:opacity-90 disabled:opacity-50"
+                      className="px-4 py-1.5 rounded-lg bg-[var(--accent-primary)] text-[var(--text-inverse)] text-sm font-medium hover:opacity-90 disabled:opacity-50"
                     >
                       {adding === user.id ? '...' : 'Add'}
                     </button>

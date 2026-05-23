@@ -521,7 +521,7 @@ export default function CreateStoryPage() {
             <button
               onClick={handlePost}
               disabled={isUploading}
-              className="px-4 py-1.5 rounded-full bg-[var(--accent-primary)] text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50"
+              className="px-4 py-1.5 rounded-full bg-[var(--accent-primary)] text-[var(--text-inverse)] text-sm font-semibold hover:opacity-90 disabled:opacity-50"
             >
               {isUploading ? 'Posting...' : 'Share'}
             </button>

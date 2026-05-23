@@ -122,7 +122,7 @@ export function MusicPicker({ onSelect, onClose }: MusicPickerProps) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search songs, artists..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[var(--bg-secondary)] text-white placeholder:text-[var(--text-muted)] border-none focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)] text-sm"
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[var(--bg-secondary)] text-white placeholder:text-[var(--text-muted)] border-none focus:outline-none focus:ring-2 focus:ring-white/20 text-sm"
             autoFocus
           />
         </div>
@@ -139,7 +139,7 @@ export function MusicPicker({ onSelect, onClose }: MusicPickerProps) {
       <div className="flex-1 overflow-y-auto px-2">
         {loading && displayTracks.length === 0 ? (
           <div className="flex items-center justify-center py-12">
-            <div className="w-6 h-6 border-2 border-[var(--accent-primary)] border-t-transparent rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-[var(--text-muted)] border-t-transparent rounded-full animate-spin" />
           </div>
         ) : displayTracks.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-[var(--text-muted)]">
@@ -218,7 +218,7 @@ export function MusicPicker({ onSelect, onClose }: MusicPickerProps) {
           </div>
           <button
             onClick={handleConfirm}
-            className="w-full py-3 rounded-xl bg-[var(--accent-primary)] text-white font-semibold hover:opacity-90 transition-opacity text-sm"
+            className="w-full py-3 rounded-xl bg-[var(--accent-primary)] text-[var(--text-inverse)] font-semibold hover:opacity-90 transition-opacity text-sm"
           >
             Add to Story
           </button>

@@ -338,7 +338,7 @@ export default function FeedPage() {
               <div ref={sentinelRef} className="h-1" />
               {loadingMore && (
                 <div className="py-8 flex justify-center">
-                  <div className="animate-spin h-5 w-5 border-2 border-[var(--accent-primary)] border-t-transparent rounded-full" />
+                  <div className="animate-spin h-5 w-5 border-2 border-[var(--text-muted)] border-t-transparent rounded-full" />
                 </div>
               )}
             </div>

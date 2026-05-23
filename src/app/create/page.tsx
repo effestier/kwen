@@ -316,7 +316,7 @@ export default function CreatePage() {
                       value={location}
                       onChange={(e) => setLocation(e.target.value)}
                       placeholder="Search for a location"
-                      className="w-full px-3 py-2.5 bg-[var(--bg-secondary)] rounded-lg text-sm text-[var(--text-primary)] outline-none focus:ring-2 focus:ring-[var(--accent-primary)] placeholder:text-[var(--text-muted)]"
+                      className="w-full px-3 py-2.5 bg-[var(--bg-secondary)] rounded-lg text-sm text-[var(--text-primary)] outline-none focus:ring-2 focus:ring-white/20 placeholder:text-[var(--text-muted)]"
                       autoFocus
                     />
                   </div>
@@ -372,7 +372,7 @@ export default function CreatePage() {
           <div className="sticky bottom-0 bg-[var(--bg-primary)] border-t border-[var(--border-subtle)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
             <button
               onClick={() => setStep('preview')}
-              className="w-full py-3 bg-[var(--accent-primary)] text-white rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity"
+              className="w-full py-3 bg-[var(--accent-primary)] text-[var(--text-inverse)] rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity"
             >
               Next
             </button>

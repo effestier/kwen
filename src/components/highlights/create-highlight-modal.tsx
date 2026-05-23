@@ -48,7 +48,7 @@ export function CreateHighlightModal({ onClose, onSuccess }: CreateHighlightModa
             onChange={(e) => setTitle(e.target.value)}
             maxLength={30}
             autoFocus
-            className="w-full px-3 py-2.5 bg-[var(--bg-secondary)] rounded-lg text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:ring-2 focus:ring-[var(--accent-primary)]"
+            className="w-full px-3 py-2.5 bg-[var(--bg-secondary)] rounded-lg text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:ring-2 focus:ring-white/20"
             onKeyDown={(e) => { if (e.key === 'Enter') handleCreate() }}
           />
         </div>

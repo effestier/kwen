@@ -31,7 +31,7 @@ const iconMap: Record<string, React.ReactNode> = {
 
 const iconColors: Record<string, string> = {
   like: 'text-[var(--accent-red)]',
-  comment: 'text-[var(--accent-blue)]',
+  comment: 'text-[var(--accent-primary)]',
   follow: 'text-[var(--accent-green)]',
   mention: 'text-[var(--accent-primary)]',
 };

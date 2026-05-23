@@ -212,7 +212,7 @@ export function Sidebar() {
 
       {/* Search */}
       <div className="px-4 mb-4" ref={searchRef}>
-        <div className={`relative transition-all ${searchOpen ? 'ring-2 ring-[var(--accent-primary)] rounded-lg' : ''}`}>
+        <div className={`relative transition-all ${searchOpen ? 'ring-2 ring-white/20 rounded-lg' : ''}`}>
           <label htmlFor="sidebar-search" className="sr-only">Search</label>
           <input
             id="sidebar-search"
@@ -252,12 +252,12 @@ export function Sidebar() {
                 <span className={cn(isActive ? 'text-[var(--accent-primary)]' : 'text-[var(--text-secondary)]')}>{item.label}</span>
               </div>
               {item.href === '/notifications' && notificationCount > 0 && (
-                <span className="px-2 py-0.5 text-xs font-medium bg-[var(--accent-primary)] text-white rounded-full">
+                <span className="px-2 py-0.5 text-xs font-medium bg-[var(--accent-red)] text-white rounded-full">
                   {notificationCount > 99 ? '99+' : notificationCount}
                 </span>
               )}
               {item.href === '/messages' && messageCount > 0 && (
-                <span className="px-2 py-0.5 text-xs font-medium bg-[var(--accent-primary)] text-white rounded-full">
+                <span className="px-2 py-0.5 text-xs font-medium bg-[var(--accent-red)] text-white rounded-full">
                   {messageCount > 99 ? '99+' : messageCount}
                 </span>
               )}
@@ -283,12 +283,12 @@ export function Sidebar() {
                 <img
                   src={user.avatar_url}
                   alt={user.display_name}
-                  className={cn('w-[22px] h-[22px] rounded-full object-cover', pathname?.startsWith('/profile/') && 'ring-2 ring-[var(--accent-primary)]')}
+                  className={cn('w-[22px] h-[22px] rounded-full object-cover', pathname?.startsWith('/profile/') && 'ring-2 ring-[var(--text-primary)]')}
                 />
               ) : (
                 <span className={cn(
                   'w-[22px] h-[22px] rounded-full flex items-center justify-center text-[10px] font-semibold',
-                  pathname?.startsWith('/profile/') ? 'bg-[var(--accent-primary)] text-white' : 'bg-[var(--bg-tertiary)] text-[var(--text-muted)]'
+                  pathname?.startsWith('/profile/') ? 'bg-[var(--accent-primary)] text-[var(--text-inverse)]' : 'bg-[var(--bg-tertiary)] text-[var(--text-muted)]'
                 )}>
                   {user.display_name?.charAt(0).toUpperCase() || 'U'}
                 </span>
@@ -352,7 +352,7 @@ export function Sidebar() {
       <div className="px-4 py-4">
         <Link
           href="/create"
-          className="flex items-center justify-center w-full py-3 rounded-full bg-[var(--accent-primary)] text-white text-sm font-semibold hover:opacity-90 transition-opacity shadow-lg shadow-[var(--accent-primary)]/20"
+          className="flex items-center justify-center w-full py-3 rounded-full bg-[var(--accent-primary)] text-[var(--text-inverse)] text-sm font-semibold hover:opacity-90 transition-opacity"
         >
           Post
         </Link>

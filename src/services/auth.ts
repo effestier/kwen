@@ -9,11 +9,6 @@ export interface AuthResult {
   error?: string;
 }
 
-async function verifyTurnstile(_token: string): Promise<{ valid: boolean; degraded: boolean }> {
-  // TEMPORARY: Skip Turnstile verification. Auth protected by OTP + Supabase.
-  return { valid: true, degraded: true };
-}
-
 function sanitizeEmail(email: string): string {
   return email.trim().toLowerCase().slice(0, 254);
 }
@@ -38,20 +33,11 @@ const RESERVED_USERNAMES = new Set([
   'privacy', 'terms', 'legal', 'report', 'safety', 'security',
 ]);
 
-export async function sendOTP(email: string, turnstileToken: string): Promise<AuthResult> {
+export async function sendOTP(email: string): Promise<AuthResult> {
   try {
     const cleanEmail = sanitizeEmail(email);
     if (!cleanEmail || !isValidEmail(cleanEmail)) {
       return { error: 'Please enter a valid email address' };
-    }
-
-    if (!turnstileToken) {
-      return { error: 'Security check required. Please complete the challenge.' };
-    }
-
-    const ts = await verifyTurnstile(turnstileToken);
-    if (!ts.valid) {
-      return { error: 'Security check failed. Please try again.' };
     }
 
     const supabase = createClient();
@@ -166,7 +152,7 @@ export async function verifyOTP(email: string, token: string): Promise<AuthResul
   }
 }
 
-export async function signInWithPassword(email: string, password: string, turnstileToken: string): Promise<AuthResult> {
+export async function signInWithPassword(email: string, password: string): Promise<AuthResult> {
   try {
     const cleanEmail = sanitizeEmail(email);
     if (!cleanEmail || !isValidEmail(cleanEmail)) {
@@ -174,15 +160,6 @@ export async function signInWithPassword(email: string, password: string, turnst
     }
     if (!password) {
       return { error: 'Please enter your password' };
-    }
-
-    if (!turnstileToken) {
-      return { error: 'Security check required. Please complete the challenge.' };
-    }
-
-    const ts = await verifyTurnstile(turnstileToken);
-    if (!ts.valid) {
-      return { error: 'Security check failed. Please try again.' };
     }
 
     const supabase = createClient();
@@ -324,20 +301,11 @@ export async function completeProfile(username: string, displayName: string): Pr
   }
 }
 
-export async function sendPasswordReset(email: string, turnstileToken: string): Promise<AuthResult> {
+export async function sendPasswordReset(email: string): Promise<AuthResult> {
   try {
     const cleanEmail = sanitizeEmail(email);
     if (!cleanEmail || !isValidEmail(cleanEmail)) {
       return { error: 'Please enter a valid email address' };
-    }
-
-    if (!turnstileToken) {
-      return { error: 'Security check required. Please complete the challenge.' };
-    }
-
-    const ts = await verifyTurnstile(turnstileToken);
-    if (!ts.valid) {
-      return { error: 'Security check failed. Please try again.' };
     }
 
     const supabase = createClient();

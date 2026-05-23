@@ -140,7 +140,7 @@ export function MobileNav() {
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
           </svg>
           {messageCount > 0 && (
-            <span className="absolute top-1 right-1/2 translate-x-4 min-w-[16px] h-4 px-1 rounded-full bg-[var(--accent-primary)] text-white text-[9px] font-bold flex items-center justify-center">
+            <span className="absolute top-1 right-1/2 translate-x-4 min-w-[16px] h-4 px-1 rounded-full bg-[var(--accent-red)] text-white text-[9px] font-bold flex items-center justify-center">
               {messageCount > 99 ? '99+' : messageCount}
             </span>
           )}
@@ -162,10 +162,10 @@ export function MobileNav() {
               <img
                 src={profile.avatar_url}
                 alt={profile.display_name}
-                className={`w-7 h-7 rounded-full object-cover ${isActive('/profile') ? 'ring-2 ring-[var(--accent-primary)]' : ''}`}
+                className={`w-7 h-7 rounded-full object-cover ${isActive('/profile') ? 'ring-2 ring-white' : ''}`}
               />
             ) : (
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold ${isActive('/profile') ? 'bg-[var(--accent-primary)] text-white' : 'bg-[var(--bg-tertiary)] text-[var(--text-muted)]'}`}>
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold ${isActive('/profile') ? 'bg-white text-black' : 'bg-[var(--bg-tertiary)] text-[var(--text-muted)]'}`}>
                 {profile.display_name?.charAt(0).toUpperCase() || 'U'}
               </div>
             )

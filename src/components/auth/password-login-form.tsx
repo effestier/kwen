@@ -35,7 +35,7 @@ export function PasswordLoginForm() {
     setLoading(true);
 
     try {
-      const result = await signInWithPassword(email, password, 'skip-turnstile');
+      const result = await signInWithPassword(email, password);
 
       if (result.error) {
         setError(result.error);
@@ -77,7 +77,7 @@ export function PasswordLoginForm() {
     setLoading(true);
 
     try {
-      const result = await sendOTP(email, 'skip-turnstile');
+      const result = await sendOTP(email);
 
       if (result.error) {
         setError(result.error);
@@ -213,7 +213,7 @@ export function PasswordLoginForm() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 autoComplete="email"
-                className="w-full px-4 py-3 rounded-xl bg-[var(--bg-tertiary)] border border-[var(--border-subtle)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--accent-primary)] text-[var(--text-primary)]"
+                className="w-full px-4 py-3 rounded-xl bg-[var(--bg-tertiary)] border border-[var(--border-subtle)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-strong)] text-[var(--text-primary)]"
               />
             </div>
 
@@ -227,7 +227,7 @@ export function PasswordLoginForm() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 autoComplete="current-password"
-                className="w-full px-4 py-3 pr-12 rounded-xl bg-[var(--bg-tertiary)] border border-[var(--border-subtle)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--accent-primary)] text-[var(--text-primary)]"
+                className="w-full px-4 py-3 pr-12 rounded-xl bg-[var(--bg-tertiary)] border border-[var(--border-subtle)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-strong)] text-[var(--text-primary)]"
               />
               <button
                 type="button"
@@ -253,7 +253,7 @@ export function PasswordLoginForm() {
             <button
               type="submit"
               disabled={loading || !email || !password}
-              className="w-full py-3 rounded-xl bg-[var(--accent-primary)] text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+              className="w-full py-3 rounded-xl bg-[var(--accent-primary)] text-[var(--text-inverse)] text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
             >
               {loading ? 'Signing in...' : 'Sign in'}
             </button>
@@ -301,7 +301,7 @@ export function PasswordLoginForm() {
               onChange={(e) => setEmail(e.target.value)}
               required
               autoComplete="email"
-              className="w-full px-4 py-3 rounded-xl bg-[var(--bg-tertiary)] border border-[var(--border-subtle)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--accent-primary)] text-[var(--text-primary)]"
+              className="w-full px-4 py-3 rounded-xl bg-[var(--bg-tertiary)] border border-[var(--border-subtle)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-strong)] text-[var(--text-primary)]"
             />
           </div>
 
@@ -309,7 +309,7 @@ export function PasswordLoginForm() {
           <button
             type="submit"
             disabled={loading || !email}
-            className="w-full py-3 rounded-xl bg-[var(--accent-primary)] text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+            className="w-full py-3 rounded-xl bg-[var(--accent-primary)] text-[var(--text-inverse)] text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
           >
             {loading ? 'Sending...' : 'Send code'}
           </button>
@@ -365,7 +365,7 @@ export function PasswordLoginForm() {
                   onChange={(e) => handleOtpChange(i, e.target.value)}
                   onKeyDown={(e) => handleKeyDown(i, e)}
                   aria-label={`Digit ${i + 1} of 8`}
-                  className="w-10 h-12 text-center text-lg font-bold rounded-xl bg-[var(--bg-tertiary)] border border-[var(--border-subtle)] focus:outline-none focus:border-[var(--accent-primary)] text-[var(--text-primary)]"
+                  className="w-10 h-12 text-center text-lg font-bold rounded-xl bg-[var(--bg-tertiary)] border border-[var(--border-subtle)] focus:outline-none focus:border-[var(--border-strong)] text-[var(--text-primary)]"
                 />
               ))}
             </div>
@@ -374,7 +374,7 @@ export function PasswordLoginForm() {
           <button
             type="submit"
             disabled={loading || otpCode.length !== 6}
-            className="w-full py-3 rounded-xl bg-[var(--accent-primary)] text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+            className="w-full py-3 rounded-xl bg-[var(--accent-primary)] text-[var(--text-inverse)] text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
           >
             {loading ? 'Verifying...' : 'Verify'}
           </button>

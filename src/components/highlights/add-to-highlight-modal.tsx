@@ -123,7 +123,7 @@ export function AddToHighlightModal({
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
                   placeholder="e.g., Travel, Food, Memories"
-                  className="w-full px-4 py-2 rounded-lg bg-[var(--bg-tertiary)] text-white border border-[var(--border-subtle)] focus:outline-none focus:border-[var(--accent-primary)]"
+                  className="w-full px-4 py-2 rounded-lg bg-[var(--bg-tertiary)] text-white border border-[var(--border-subtle)] focus:outline-none focus:border-[var(--border-strong)]"
                   autoFocus
                   maxLength={30}
                 />
@@ -138,7 +138,7 @@ export function AddToHighlightModal({
                 <button
                   onClick={handleCreateAndAdd}
                   disabled={creating || !newTitle.trim()}
-                  className="flex-1 px-4 py-2 rounded-lg bg-[var(--accent-primary)] text-white font-semibold hover:opacity-90 disabled:opacity-50"
+                  className="flex-1 px-4 py-2 rounded-lg bg-[var(--accent-primary)] text-[var(--text-inverse)] font-semibold hover:opacity-90 disabled:opacity-50"
                 >
                   {creating ? 'Creating...' : 'Create'}
                 </button>

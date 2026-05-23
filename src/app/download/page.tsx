@@ -23,7 +23,7 @@ export default function DownloadPage() {
         <a
           href="/kwen.apk"
           download
-          className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl bg-[var(--accent-primary)] text-white font-semibold text-lg hover:opacity-90 transition-opacity"
+          className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl bg-[var(--accent-primary)] text-[var(--text-inverse)] font-semibold text-lg hover:opacity-90 transition-opacity"
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />

@@ -509,7 +509,7 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
                 onKeyDown={handleKeyDown}
                 placeholder={replyingTo ? `Reply to @${replyingTo.user.username}...` : 'Add a comment...'}
                 aria-label={replyingTo ? `Reply to @${replyingTo.user.username}` : 'Add a comment'}
-                className="w-full min-h-[44px] max-h-32 px-4 py-2.5 rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] resize-none focus:outline-none focus:border-[var(--accent-primary)]"
+                className="w-full min-h-[44px] max-h-32 px-4 py-2.5 rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] resize-none focus:outline-none focus:border-[var(--border-strong)]"
                 rows={1}
               />
             </div>
@@ -519,7 +519,7 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
               aria-label="Toggle emoji picker"
               className={cn(
                 'p-2.5 rounded-full transition-all duration-200 active:scale-95',
-                showEmojiPicker ? 'bg-[var(--accent-primary)] text-white' : 'text-[var(--text-muted)] hover:bg-[var(--bg-secondary)]'
+                showEmojiPicker ? 'bg-[var(--accent-primary)] text-[var(--text-inverse)]' : 'text-[var(--text-muted)] hover:bg-[var(--bg-secondary)]'
               )}
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M8 14s1.5 2 4 2 4-2 4-2" /><line x1="9" x2="9.01" y1="9" y2="9" /><line x1="15" x2="15.01" y1="9" y2="9" /></svg>
@@ -532,12 +532,12 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
               className={cn(
                 'p-2.5 rounded-full transition-all duration-200 active:scale-95',
                 newComment.trim() && !submitting
-                  ? 'bg-[var(--accent-primary)] text-white hover:bg-[var(--accent-hover)]'
+                  ? 'bg-[var(--accent-primary)] text-[var(--text-inverse)] hover:bg-[var(--accent-hover)]'
                   : 'bg-[var(--bg-tertiary)] text-[var(--text-muted)] cursor-not-allowed'
               )}
             >
               {submitting ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <div className="w-5 h-5 border-2 border-[var(--text-inverse)] border-t-transparent rounded-full animate-spin" />
               ) : (
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></svg>
               )}

@@ -314,7 +314,7 @@ export default function ExplorePage() {
                 <Link
                   key={post.id}
                   href={`/post/${post.id}`}
-                  className="aspect-square bg-[var(--bg-secondary)] relative group block focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)] focus:ring-inset cursor-pointer"
+                  className="aspect-square bg-[var(--bg-secondary)] relative group block focus:outline-none focus:ring-2 focus:ring-white/20 focus:ring-inset cursor-pointer"
                 >
                   {post.images?.[0] ? (
                     post.mediaTypes?.[0] === 'video' ? (
@@ -368,7 +368,7 @@ export default function ExplorePage() {
             <div ref={sentinelRef} className="h-1" />
             {loadingMore && (
               <div className="py-8 flex justify-center">
-                <div className="animate-spin h-5 w-5 border-2 border-[var(--accent-primary)] border-t-transparent rounded-full" />
+                <div className="animate-spin h-5 w-5 border-2 border-[var(--text-muted)] border-t-transparent rounded-full" />
               </div>
             )}
           </div>

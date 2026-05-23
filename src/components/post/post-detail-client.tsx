@@ -279,7 +279,7 @@ export function PostDetailClient({ postId }: { postId: string }) {
   if (loading) {
     return (
       <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-2 border-[var(--accent-primary)] border-t-transparent rounded-full" />
+        <div className="animate-spin w-8 h-8 border-2 border-[var(--text-muted)] border-t-transparent rounded-full" />
       </div>
     );
   }
@@ -290,7 +290,7 @@ export function PostDetailClient({ postId }: { postId: string }) {
         <p className="text-[var(--text-muted)]">{error || 'Post not found'}</p>
         <button
           onClick={() => router.back()}
-          className="px-4 py-2 rounded-lg bg-[var(--accent-primary)] text-white text-sm font-medium"
+          className="px-4 py-2 rounded-lg bg-[var(--accent-primary)] text-[var(--text-inverse)] text-sm font-medium"
         >
           Go back
         </button>
@@ -445,7 +445,7 @@ export function PostDetailClient({ postId }: { postId: string }) {
 
               {commentsLoading ? (
                 <div className="flex justify-center py-6">
-                  <div className="animate-spin w-5 h-5 border-2 border-[var(--accent-primary)] border-t-transparent rounded-full" />
+                  <div className="animate-spin w-5 h-5 border-2 border-[var(--text-muted)] border-t-transparent rounded-full" />
                 </div>
               ) : comments.length === 0 ? (
                 <div className="text-center py-8">
@@ -604,7 +604,7 @@ export function PostDetailClient({ postId }: { postId: string }) {
                     onKeyDown={handleCommentKeyDown}
                     placeholder={replyingTo ? `Reply to @${replyingTo.user.username}...` : 'Add a comment...'}
                     aria-label={replyingTo ? `Reply to @${replyingTo.user.username}` : 'Add a comment'}
-                    className="w-full min-h-[40px] max-h-24 px-3 py-2 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] resize-none focus:outline-none focus:border-[var(--accent-primary)]"
+                    className="w-full min-h-[40px] max-h-24 px-3 py-2 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] resize-none focus:outline-none focus:border-[var(--border-strong)]"
                     rows={1}
                   />
                 </div>
@@ -615,12 +615,12 @@ export function PostDetailClient({ postId }: { postId: string }) {
                   className={cn(
                     'p-2 rounded-full transition-all active:scale-90',
                     newComment.trim() && !submitting
-                      ? 'bg-[var(--accent-primary)] text-white'
+                      ? 'bg-[var(--accent-primary)] text-[var(--text-inverse)]'
                       : 'bg-[var(--bg-tertiary)] text-[var(--text-muted)] cursor-not-allowed'
                   )}
                 >
                   {submitting ? (
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <div className="w-5 h-5 border-2 border-[var(--text-inverse)] border-t-transparent rounded-full animate-spin" />
                   ) : (
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" />

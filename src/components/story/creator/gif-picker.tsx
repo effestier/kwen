@@ -61,7 +61,7 @@ export function GifPicker({ onSelect, onClose }: GifPickerProps) {
       <div className="flex-1 overflow-y-auto p-2">
         {loading ? (
           <div className="flex items-center justify-center h-full">
-            <div className="animate-spin h-6 w-6 border-2 border-[var(--accent-primary)] border-t-transparent rounded-full" />
+            <div className="animate-spin h-6 w-6 border-2 border-[var(--text-muted)] border-t-transparent rounded-full" />
           </div>
         ) : gifs.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-[var(--text-muted)] gap-2">

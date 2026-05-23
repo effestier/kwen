@@ -36,7 +36,7 @@ export function ThemeToggle({ variant = 'full' }: ThemeToggleProps) {
           onClick={() => setTheme('light')}
           className={`p-2 rounded-lg transition-all ${
             theme === 'light'
-              ? 'bg-[var(--accent-primary)] text-white'
+              ? 'bg-[var(--accent-primary)] text-[var(--text-inverse)]'
               : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'
           }`}
           aria-label="Light theme"
@@ -49,7 +49,7 @@ export function ThemeToggle({ variant = 'full' }: ThemeToggleProps) {
           onClick={() => setTheme('dark')}
           className={`p-2 rounded-lg transition-all ${
             theme === 'dark'
-              ? 'bg-[var(--accent-primary)] text-white'
+              ? 'bg-[var(--accent-primary)] text-[var(--text-inverse)]'
               : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'
           }`}
           aria-label="Dark theme"
@@ -62,7 +62,7 @@ export function ThemeToggle({ variant = 'full' }: ThemeToggleProps) {
           onClick={() => setTheme('system')}
           className={`p-2 rounded-lg transition-all ${
             theme === 'system'
-              ? 'bg-[var(--accent-primary)] text-white'
+              ? 'bg-[var(--accent-primary)] text-[var(--text-inverse)]'
               : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'
           }`}
           aria-label="System theme"

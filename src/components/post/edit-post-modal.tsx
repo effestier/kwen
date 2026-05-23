@@ -108,7 +108,7 @@ export function EditPostModal({
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
                   placeholder="Add location"
-                  className="w-full px-3 py-2.5 bg-[var(--bg-secondary)] rounded-lg text-sm outline-none focus:ring-2 focus:ring-[var(--accent-primary)]"
+                  className="w-full px-3 py-2.5 bg-[var(--bg-secondary)] rounded-lg text-sm outline-none focus:ring-2 focus:ring-white/20"
                   autoFocus
                 />
               </div>

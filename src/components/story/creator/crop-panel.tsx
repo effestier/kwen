@@ -32,7 +32,7 @@ export function CropPanel({ onCrop }: CropPanelProps) {
             className={cn(
               'py-2 rounded text-xs',
               aspect === a.value
-                ? 'bg-[var(--accent-primary)] text-white'
+                ? 'bg-[var(--accent-primary)] text-[var(--text-inverse)]'
                 : 'bg-[var(--bg-secondary)] text-[var(--text-muted)]'
             )}
           >

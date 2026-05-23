@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkRateLimit, UPLOAD_LIMIT } from '@/lib/rate-limit'
+import { getClientIP } from '@/lib/auth-rate-limit'
 
 export const dynamic = 'force-dynamic';
 
@@ -75,13 +76,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
-    // Rate limit: per-user uploads
-    const limit = await checkRateLimit(`upload:${user.id}`, UPLOAD_LIMIT)
-    if (!limit.allowed) {
-      const seconds = Math.ceil((limit.retryAfterMs || 0) / 1000)
-      return NextResponse.json({ error: `Too many uploads. Try again in ${seconds}s.` }, { status: 429 })
-    }
-
     // Parse form data
     const formData = await request.formData()
     const file = formData.get('file') as File | null
@@ -118,6 +112,17 @@ export async function POST(request: NextRequest) {
       if (!thumbMagic.valid) {
         return NextResponse.json({ error: 'Invalid thumbnail format' }, { status: 400 })
       }
+    }
+
+    // Rate limit: AFTER validation — only valid uploads consume quota
+    // failOpen=true: don't block users on RPC errors (Supabase hiccups)
+    const limit = await checkRateLimit(`upload:${user.id}`, UPLOAD_LIMIT, true)
+    if (!limit.allowed) {
+      const retryAfterSec = Math.ceil((limit.retryAfterMs || 0) / 1000)
+      return NextResponse.json(
+        { error: 'Too many uploads. Please wait.', retryAfterSec },
+        { status: 429, headers: { 'Retry-After': String(retryAfterSec) } }
+      )
     }
 
     // Generate unique path

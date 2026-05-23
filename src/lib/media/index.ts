@@ -14,5 +14,5 @@ export {
 } from './video-compress'
 export type { VideoCompressResult, VideoProgress } from './video-compress'
 
-export { uploadMedia, uploadMultipleMedia } from './upload'
+export { uploadMedia, uploadMultipleMedia, RateLimitError } from './upload'
 export type { UploadResult, UploadProgress } from './upload'

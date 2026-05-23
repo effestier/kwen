@@ -10,7 +10,8 @@ export interface RateLimitConfig {
 
 export async function checkRateLimit(
   key: string,
-  config: RateLimitConfig
+  config: RateLimitConfig,
+  failOpen: boolean = false
 ): Promise<{ allowed: boolean; retryAfterMs?: number }> {
   try {
     const supabase = await createClient()
@@ -22,8 +23,10 @@ export async function checkRateLimit(
     })
 
     if (error) {
-      // If the RPC fails, fail CLOSED for auth-related checks
-      // to prevent bypassing rate limits during outages
+      if (failOpen) {
+        console.error('[rate-limit] RPC error, failing open:', error.message)
+        return { allowed: true }
+      }
       console.error('[rate-limit] RPC error, failing closed:', error.message)
       return { allowed: false, retryAfterMs: 60000 }
     }
@@ -35,7 +38,10 @@ export async function checkRateLimit(
       retryAfterMs: result.retry_after_ms,
     }
   } catch (err) {
-    // Network/other error — fail closed to prevent bypass
+    if (failOpen) {
+      console.error('[rate-limit] Error, failing open:', err)
+      return { allowed: true }
+    }
     console.error('[rate-limit] Error, failing closed:', err)
     return { allowed: false, retryAfterMs: 60000 }
   }
@@ -59,6 +65,12 @@ export const AUTH_LIMIT: RateLimitConfig = {
 };
 
 export const UPLOAD_LIMIT: RateLimitConfig = {
-  windowMs: 60 * 1000, // 1 minute
-  maxAttempts: 10,      // 10 uploads per minute
+  windowMs: 5 * 60 * 1000, // 5 minutes
+  maxAttempts: 20,          // 20 uploads per 5 minutes (sane for story posting with retries)
+};
+
+// Anonymous upload limit (IP-based, stricter)
+export const ANON_UPLOAD_LIMIT: RateLimitConfig = {
+  windowMs: 5 * 60 * 1000, // 5 minutes
+  maxAttempts: 5,           // 5 uploads per 5 minutes for unauthenticated
 };

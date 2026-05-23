@@ -11,7 +11,7 @@ import { DrawingTool } from '@/components/story/creator/drawing-tool';
 import { FiltersPanel } from '@/components/story/creator/filters-panel';
 import { CropPanel } from '@/components/story/creator/crop-panel';
 import { AudienceSelector } from '@/components/story/creator/audience-selector';
-import { uploadMedia } from '@/lib/media';
+import { uploadMedia, RateLimitError } from '@/lib/media';
 import { createPoll, createQuestion, createCountdown } from '@/services/stickers';
 
 const StoryPreview = dynamic(() => import('@/components/story/creator/story-preview').then(mod => ({ default: mod.StoryPreview })), {
@@ -97,6 +97,23 @@ export default function CreateStoryPage() {
   const [showMusicPicker, setShowMusicPicker] = useState(false);
   const [selectedMusic, setSelectedMusic] = useState<{ name: string; artist: string; previewUrl: string; coverUrl: string } | null>(null);
   const [showAudienceSelector, setShowAudienceSelector] = useState(false);
+  const [toast, setToast] = useState<{ message: string; countdown: number } | null>(null);
+
+  // Countdown toast timer
+  const toastTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const showToast = useCallback((message: string, countdownSec: number) => {
+    setToast({ message, countdown: countdownSec });
+    if (toastTimerRef.current) clearInterval(toastTimerRef.current);
+    toastTimerRef.current = setInterval(() => {
+      setToast(prev => {
+        if (!prev || prev.countdown <= 1) {
+          if (toastTimerRef.current) clearInterval(toastTimerRef.current);
+          return null;
+        }
+        return { ...prev, countdown: prev.countdown - 1 };
+      });
+    }, 1000);
+  }, []);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mediaRef = useRef<HTMLVideoElement>(null);
@@ -326,9 +343,13 @@ export default function CreateStoryPage() {
 
       router.push('/feed');
     } catch (err: any) {
-      const message = err?.message || 'Failed to post story';
-      alert(message);
-      console.error('[StoryPost]', err);
+      if (err instanceof RateLimitError) {
+        showToast(`Upload limit reached. Try again in ${err.retryAfterSec}s`, err.retryAfterSec);
+      } else {
+        const message = err?.message || 'Failed to post story';
+        alert(message);
+        console.error('[StoryPost]', err);
+      }
     } finally {
       setIsUploading(false);
     }
@@ -608,6 +629,18 @@ export default function CreateStoryPage() {
 
         {/* Hidden canvas for export */}
         <canvas ref={canvasRef} className="hidden" />
+
+        {/* Rate limit toast with countdown */}
+        {toast && (
+          <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-red-600 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-3 max-w-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="8" y2="12" /><line x1="12" x2="12.01" y1="16" y2="16" />
+            </svg>
+            <span className="text-sm font-medium">
+              {toast.message} ({toast.countdown}s)
+            </span>
+          </div>
+        )}
       </div>
     </MainLayout>
   );

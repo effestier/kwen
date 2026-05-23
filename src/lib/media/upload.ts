@@ -27,6 +27,15 @@ export interface UploadResult {
 
 export type MediaType = 'image' | 'video'
 
+export class RateLimitError extends Error {
+  retryAfterSec: number
+  constructor(message: string, retryAfterSec: number) {
+    super(message)
+    this.name = 'RateLimitError'
+    this.retryAfterSec = retryAfterSec
+  }
+}
+
 function getMediaType(file: File): MediaType {
   if (file.type.startsWith('video/')) return 'video'
   return 'image'
@@ -212,6 +221,9 @@ async function uploadViaApi(
 
   if (!response.ok) {
     const data = await response.json().catch(() => ({}))
+    if (response.status === 429) {
+      throw new RateLimitError(data.error || 'Too many uploads', data.retryAfterSec || 60)
+    }
     throw new Error(data.error || `Upload failed (${response.status})`)
   }
 

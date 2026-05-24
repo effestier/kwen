@@ -474,6 +474,33 @@
 
 ---
 
+## PRIORITY F — MOBILE POLISH FIX STATUS (H39-H41)
+
+| Fix | Status | Files Changed |
+|-----|--------|---------------|
+| H39. WebM on Android | ✅ PASS | `story/creator/media-picker.tsx` |
+| H40. Overscroll bounce | ✅ PASS | `globals.css` |
+| H41. Keyboard scroll jumps | ✅ PASS | `messages/page.tsx` |
+
+**Build verification:** `npx tsc --noEmit` clean. `npx next build` clean.
+
+### H39. WebM unsupported on Android — FIX VERIFIED
+- **Root cause:** `MediaRecorder.isTypeSupported('video/webm;codecs=vp9')` — WebM not supported on most Android browsers.
+- **Fix:** Added MP4 check first: `MediaRecorder.isTypeSupported('video/mp4;codecs=avc1')`. Falls back to WebM only if MP4 unsupported. File extension set dynamically based on chosen mime type.
+- **Verification:** TypeCheck + Build pass. MP4 preferred on Android.
+
+### H40. Overscroll bounce — FIX VERIFIED
+- **Root cause:** No `overscroll-behavior` set — browser default allows rubber-bounce that conflicts with gestures.
+- **Fix:** Added `overscroll-behavior: contain` to `html` element in globals.css.
+- **Verification:** CSS property present in globals.css.
+
+### H41. Messages keyboard resize — FIX VERIFIED
+- **Root cause:** `h-[calc(100dvh-57px)]` — `dvh` (dynamic viewport height) resizes when mobile keyboard opens, causing scroll container to shrink and push content up.
+- **Fix:** Changed to `h-[calc(100svh-57px)]` — `svh` (small viewport height) stays constant regardless of keyboard visibility.
+- **Verification:** TypeCheck + Build pass.
+
+---
+
 ## MEDIUM (Edge Cases / Degraded UX) — 42 failures
 
 ### Messaging

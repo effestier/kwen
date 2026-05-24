@@ -155,15 +155,20 @@ export function MediaPicker({ onMediaSelected, onCancel }: MediaPickerProps) {
     setIsRecording(true);
     chunksRef.current = [];
 
-    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
-      ? 'video/webm;codecs=vp9'
-      : 'video/webm';
+    // H39: Prefer MP4 on Android (WebM unsupported), fallback to WebM
+    // H39: Prefer MP4 (Android-supported), fallback to WebM
+    const mimeType = MediaRecorder.isTypeSupported('video/mp4;codecs=avc1')
+      ? 'video/mp4;codecs=avc1'
+      : MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+        ? 'video/webm;codecs=vp9'
+        : 'video/webm';
+    const ext = mimeType.startsWith('video/mp4') ? 'mp4' : 'webm';
 
     const recorder = new MediaRecorder(cameraStream, { mimeType });
     recorder.ondataavailable = (e) => chunksRef.current.push(e.data);
     recorder.onstop = () => {
       const blob = new Blob(chunksRef.current, { type: mimeType });
-      const file = new File([blob], 'story-video.webm', { type: mimeType });
+      const file = new File([blob], `story-video.${ext}`, { type: mimeType });
       const url = URL.createObjectURL(blob);
       onMediaSelected(file, url, 'video');
       setIsRecording(false);

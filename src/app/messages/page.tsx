@@ -1240,7 +1240,8 @@ export default function MessagesPage() {
       {/* Expose unread count for sidebar/mobile nav to read */}
       <div id="messages-unread-count" data-count={totalUnread} className="hidden" />
 
-      <div className="flex h-[calc(100dvh-57px)] lg:h-[calc(100vh-57px)]">
+      {/* H41: Use svh (small viewport) to prevent keyboard resize scroll jumps on mobile */}
+      <div className="flex h-[calc(100svh-57px)] lg:h-[calc(100vh-57px)]">
         {/* Conversations List */}
         <div className={cn(
           "w-full md:w-80 border-r border-[var(--border-subtle)] flex flex-col bg-[var(--bg-primary)]",

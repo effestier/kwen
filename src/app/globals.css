@@ -196,6 +196,8 @@
 
 html {
   color-scheme: dark;
+  /* H40: Prevent rubber-bounce overscroll on mobile */
+  overscroll-behavior: contain;
 }
 
 body {

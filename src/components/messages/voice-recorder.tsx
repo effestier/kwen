@@ -9,6 +9,11 @@ interface VoiceRecorderProps {
 }
 
 export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
+  if (typeof window !== 'undefined') {
+    // eslint-disable-next-line no-console
+    console.trace('[VOICE][MOUNT] VoiceRecorder rendered');
+  }
+
   // Lifecycle states
   const [phase, setPhase] = useState<'initializing' | 'recording' | 'locked'>('initializing');
   const [isPaused, setIsPaused] = useState(false);
@@ -34,6 +39,8 @@ export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
   const touchStartYRef = useRef<number>(0);
 
   const cleanup = useCallback(() => {
+    // eslint-disable-next-line no-console
+    console.log('[VOICE] cleanup()');
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop());
       streamRef.current = null;
@@ -50,6 +57,8 @@ export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
 
   // Single authoritative send
   const stopAndSend = useCallback(() => {
+    // eslint-disable-next-line no-console
+    console.log('[VOICE] stopAndSend()', { sentRef: sentRef.current, cancelledRef: cancelledRef.current, mediaRecorderState: mediaRecorderRef.current?.state });
     if (sentRef.current || cancelledRef.current) return;
 
     if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
@@ -69,6 +78,8 @@ export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
 
   // Single authoritative cancel
   const doCancel = useCallback(() => {
+    // eslint-disable-next-line no-console
+    console.log('[VOICE] doCancel()', { sentRef: sentRef.current });
     if (sentRef.current) return;
     cancelledRef.current = true;
 
@@ -86,13 +97,21 @@ export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
 
   // Start recording — the ONLY async operation
   const startRecording = useCallback(async () => {
+    // eslint-disable-next-line no-console
+    console.log('[VOICE] startRecording() entry', { mediaRecorderDefined: typeof MediaRecorder !== 'undefined', hasGetUserMedia: !!navigator.mediaDevices?.getUserMedia });
     try {
       if (typeof MediaRecorder === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+        // eslint-disable-next-line no-console
+        console.warn('[VOICE] unsupported -> setIsUnsupported(true)');
         setIsUnsupported(true);
         return;
       }
 
+      // eslint-disable-next-line no-console
+      console.log('[VOICE] requesting getUserMedia...');
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // eslint-disable-next-line no-console
+      console.log('[VOICE] getUserMedia success', { tracks: stream.getTracks().length });
       streamRef.current = stream;
 
       const audioCtx = new AudioContext();
@@ -120,6 +139,8 @@ export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
       };
 
       recorder.onstop = () => {
+        // eslint-disable-next-line no-console
+        console.log('[VOICE] recorder.onstop', { cancelledRef: cancelledRef.current, chunks: chunksRef.current.length });
         stream.getTracks().forEach(t => t.stop());
         if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
           audioCtxRef.current.close().catch(() => {});
@@ -131,11 +152,15 @@ export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
       };
 
       mediaRecorderRef.current = recorder;
+      // eslint-disable-next-line no-console
+      console.log('[VOICE] MediaRecorder.start()');
       recorder.start(100);
       totalPausedMsRef.current = 0;
       pausedAtRef.current = 0;
 
       // ONLY NOW is the recorder ready — transition from initializing to recording
+      // eslint-disable-next-line no-console
+      console.log('[VOICE] phase -> recording');
       setPhase('recording');
 
       // Duration timer
@@ -156,15 +181,21 @@ export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
         animFrameRef.current = requestAnimationFrame(updateWaveform);
       };
       animFrameRef.current = requestAnimationFrame(updateWaveform);
-    } catch {
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('[VOICE] startRecording() failure -> doCancel()', e);
       doCancel();
     }
   }, [doCancel, onSend]);
 
   // Auto-start on mount
   useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.log('[VOICE] useEffect mount -> startRecording()');
     startRecording();
     return () => {
+      // eslint-disable-next-line no-console
+      console.log('[VOICE][UNMOUNT] VoiceRecorder unmounting');
       cancelledRef.current = true;
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
       if (durationTimerRef.current) clearInterval(durationTimerRef.current);
@@ -210,12 +241,16 @@ export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
   // Touch handlers — slide left to cancel, slide up to lock
   // ALL guarded by isRecorderActive — no events processed during initializing phase
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    // eslint-disable-next-line no-console
+    console.log('[VOICE] touchstart', { isRecorderActive });
     if (!isRecorderActive) return;
     touchStartXRef.current = e.touches[0].clientX;
     touchStartYRef.current = e.touches[0].clientY;
   }, [isRecorderActive]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    // eslint-disable-next-line no-console
+    console.log('[VOICE] touchmove', { isRecorderActive });
     if (!isRecorderActive) return;
     const dx = touchStartXRef.current - e.touches[0].clientX;
     const dy = touchStartYRef.current - e.touches[0].clientY;
@@ -236,6 +271,8 @@ export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
   }, [isRecorderActive, phase, slideCancelled]);
 
   const handleTouchEnd = useCallback(() => {
+    // eslint-disable-next-line no-console
+    console.log('[VOICE] touchend', { isRecorderActive, phase });
     if (!isRecorderActive) return;
     if (phase === 'locked') return;
     if (cancelledRef.current) {

@@ -14,6 +14,31 @@ import { ReplyPreview } from '@/components/messages/reply-preview';
 import { compressForMessage, generateThumbnail, validateRawFile, verifyImageContent } from '@/lib/image-compress';
 import { ListSkeleton, Skeleton } from '@/components/design-system/skeleton';
 import { VoiceRecorder } from '@/components/messages/voice-recorder';
+import { isNativePlatform } from '@/lib/platform';
+
+// Debug: platform + mic permission probe (runs once per session)
+if (typeof window !== 'undefined' && !(window as any).__voiceDebugProbed) {
+  (window as any).__voiceDebugProbed = true;
+  const probe = async () => {
+    const info: Record<string, unknown> = {
+      isNative: isNativePlatform(),
+      userAgent: navigator.userAgent,
+      hasMediaRecorder: typeof MediaRecorder !== 'undefined',
+      hasGetUserMedia: !!(navigator.mediaDevices?.getUserMedia),
+      isSecureContext: window.isSecureContext,
+    };
+    try {
+      if (navigator.permissions?.query) {
+        const status = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+        info.micPermission = status.state;
+      }
+    } catch (e) {
+      info.micPermission = 'query_failed';
+    }
+    console.log('[VOICE][PLATFORM]', info);
+  };
+  probe();
+}
 
 interface Message {
   id: string;
@@ -101,6 +126,11 @@ export default function MessagesPage() {
   const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' } | null>(null);
   const [isRecordingVoice, setIsRecordingVoice] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Debug: track every isRecordingVoice change
+  useEffect(() => {
+    console.log('[PAGE] isRecordingVoice changed:', isRecordingVoice);
+  }, [isRecordingVoice]);
 
   const showToast = useCallback((message: string, type: 'error' | 'success' = 'error') => {
     setToast({ message, type });

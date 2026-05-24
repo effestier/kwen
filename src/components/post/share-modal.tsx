@@ -15,8 +15,22 @@ export function ShareModal({ postId, isOpen, onClose }: ShareModalProps) {
 
   const handleCopyLink = useCallback(async () => {
     const url = `${window.location.origin}/post/${postId}`;
-    await navigator.clipboard.writeText(url);
-    setCopied(true);
+    // M20: Handle clipboard API errors (not available in insecure contexts)
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+    } catch {
+      // Fallback: copy via textarea (older browsers / insecure contexts)
+      const ta = document.createElement('textarea');
+      ta.value = url;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      setCopied(true);
+    }
     await incrementShareCount(postId);
     setTimeout(() => {
       setCopied(false);

@@ -176,13 +176,17 @@ export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
       console.log('[VOICE] phase -> recording');
       setPhase('recording');
 
-      // Duration timer
+      // Duration timer — M8: Auto-stop at 60 seconds (Instagram limit)
       const startTime = Date.now();
+      const MAX_DURATION = 60;
       durationTimerRef.current = setInterval(() => {
         const elapsed = Date.now() - startTime - totalPausedMsRef.current;
         const d = Math.floor(elapsed / 1000);
         durationRef.current = d;
         setDuration(d);
+        if (d >= MAX_DURATION) {
+          stopAndSend();
+        }
       }, 200);
 
       // Waveform animation
@@ -279,6 +283,11 @@ export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
     }
 
     if (dy > 80 && phase !== 'locked') {
+      // M4: Reset cancelled state when locking — user changed their mind
+      if (slideCancelled) {
+        cancelledRef.current = false;
+        setSlideCancelled(false);
+      }
       setPhase('locked');
     }
   }, [isRecorderActive, phase, slideCancelled]);

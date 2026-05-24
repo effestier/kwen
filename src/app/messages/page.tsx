@@ -230,15 +230,18 @@ export default function MessagesPage() {
       const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
       const otherMap = new Map(others?.map(o => [o.conversation_id, o]) || []);
 
+      // M3: Limit to reasonable count instead of fetching ALL messages
       const { data: lastMessages } = await supabase
         .from('messages')
-        .select('conversation_id, content, created_at, message_type')
+        .select('conversation_id, content, created_at, message_type, deleted_at')
         .in('conversation_id', conversationIds)
-        .order('created_at', { ascending: false });
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+        .limit(conversationIds.length * 5);
 
       const lastMessageMap = new Map<string, { content: string; created_at: string; message_type?: string }>();
       lastMessages?.forEach(m => {
-        if (!lastMessageMap.has(m.conversation_id)) {
+        if (!lastMessageMap.has(m.conversation_id) && !m.deleted_at) {
           lastMessageMap.set(m.conversation_id, { content: m.content, created_at: m.created_at, message_type: m.message_type });
         }
       });
@@ -894,7 +897,13 @@ export default function MessagesPage() {
   };
 
   const handleDeleteFailedMessage = (tempId: string) => {
-    setMessages(prev => prev.filter(m => m.id !== tempId));
+    // M7: Revoke any blob URLs before removing the failed message
+    setMessages(prev => {
+      const msg = prev.find(m => m.id === tempId);
+      if (msg?.media_url?.startsWith('blob:')) URL.revokeObjectURL(msg.media_url);
+      if (msg?.thumbnail_url?.startsWith('blob:')) URL.revokeObjectURL(msg.thumbnail_url);
+      return prev.filter(m => m.id !== tempId);
+    });
     setFailedMessages(prev => { const next = new Map(prev); next.delete(tempId); return next; });
   };
 
@@ -940,9 +949,27 @@ export default function MessagesPage() {
       return;
     }
     if (result.action === 'deleted_for_me') {
-      setMessages(prev => prev.filter(m => m.id !== messageId));
+      // M5: Use functional setState to access current messages without closure dependency
+      setMessages(prev => {
+        const remaining = prev.filter(m => m.id !== messageId);
+        // Update conversation preview if this was the latest message
+        const convId = selectedIdRef.current;
+        if (convId) {
+          const last = remaining[remaining.length - 1];
+          const preview = last
+            ? (last.isMine ? `You: ${last.content || 'Media'}` : (last.content || 'Media'))
+            : 'Start a conversation';
+          setConversations(convs => convs.map(c => c.id === convId ? { ...c, last_message: preview } : c));
+        }
+        return remaining;
+      });
     } else if (result.action === 'deleted_for_everyone') {
       setMessages(prev => prev.map(m => m.id === messageId ? { ...m, content: 'This message was deleted', message_type: 'text', media_url: null, thumbnail_url: null } : m));
+      // M5: Update conversation preview
+      const convId = selectedIdRef.current;
+      if (convId) {
+        setConversations(prev => prev.map(c => c.id === convId ? { ...c, last_message: '🚫 Message deleted' } : c));
+      }
     }
   }, []);
 

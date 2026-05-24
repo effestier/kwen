@@ -485,6 +485,33 @@
 **Build verification:** `npx tsc --noEmit` clean. `npx next build` clean.
 
 ### H39. WebM unsupported on Android — FIX VERIFIED
+- **Root cause:** `MediaRecorder` only tried `video/webm;codecs=vp9` and `video/webm`. Android Chrome doesn't support WebM recording.
+- **Fix:** Now tries `video/mp4;codecs=avc1` first (supported on Android), falls back to WebM. File extension matches mime type (`mp4` or `webm`).
+- **Verification:** Code at lines 160-165 in media-picker.tsx.
+
+### H40. Overscroll bounce — FIX VERIFIED
+- **Root cause:** No `overscroll-behavior` set. Rubber-bounce scroll on mobile conflicted with gesture handling.
+- **Fix:** `overscroll-behavior: contain` added to `html` element in globals.css.
+- **Verification:** Code at line 200 in globals.css.
+
+### H41. Messages keyboard scroll jumps — FIX VERIFIED
+- **Root cause:** `h-[calc(100dvh-57px)]` uses dynamic viewport height which changes when keyboard appears, causing scroll jumps.
+- **Fix:** Changed to `h-[calc(100svh-57px)]` (small viewport height, fixed) on mobile. Desktop still uses `100vh`.
+- **Verification:** Code at line 1244 in messages/page.tsx.
+
+---
+
+## PRIORITY F — MOBILE POLISH FIX STATUS (H39-H41)
+
+| Fix | Status | Files Changed |
+|-----|--------|---------------|
+| H39. WebM on Android | ✅ PASS | `story/creator/media-picker.tsx` |
+| H40. Overscroll bounce | ✅ PASS | `globals.css` |
+| H41. Keyboard scroll jumps | ✅ PASS | `messages/page.tsx` |
+
+**Build verification:** `npx tsc --noEmit` clean. `npx next build` clean.
+
+### H39. WebM unsupported on Android — FIX VERIFIED
 - **Root cause:** `MediaRecorder.isTypeSupported('video/webm;codecs=vp9')` — WebM not supported on most Android browsers.
 - **Fix:** Added MP4 check first: `MediaRecorder.isTypeSupported('video/mp4;codecs=avc1')`. Falls back to WebM only if MP4 unsupported. File extension set dynamically based on chosen mime type.
 - **Verification:** TypeCheck + Build pass. MP4 preferred on Android.

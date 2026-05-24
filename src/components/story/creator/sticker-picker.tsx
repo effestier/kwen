@@ -24,15 +24,72 @@ const STICKER_TYPES = [
   { type: 'date' as StickerType, label: 'Date', icon: '📅' },
 ];
 
-const POPULAR_EMOJIS = [
-  '😀', '😂', '🥰', '😍', '🤩', '😎', '🥳', '😇',
-  '🔥', '💯', '❤️', '💖', '✨', '⭐', '🌟', '💫',
-  '🎉', '🎊', '🎈', '🎁', '🏆', '💪', '🙌', '👏',
-  '🌹', '🌸', '🌺', '🍀', '🌈', '☀️', '🌙', '⚡',
-  '🍕', '🍔', '🍟', '🍦', '☕', '🍰', '🍩', '🧁',
-  '🎵', '🎶', '🎸', '🎤', '🎧', '📸', '🎬', '🎮',
-  '✈️', '🚗', '🏠', '🏖️', '🗼', '🗽', '🎡', '🎢',
-  '💀', '👻', '🤡', '👽', '🤖', '💩', '🙈', '🙉',
+// M15: Added search labels so emoji search actually filters
+const EMOJI_DATA: { emoji: string; labels: string }[] = [
+  { emoji: '😀', labels: 'happy smile grin' },
+  { emoji: '😂', labels: 'laugh lol cry tears funny' },
+  { emoji: '🥰', labels: 'love hearts blush' },
+  { emoji: '😍', labels: 'love heart eyes crush' },
+  { emoji: '🤩', labels: 'star wow amazed' },
+  { emoji: '😎', labels: 'cool sunglasses' },
+  { emoji: '🥳', labels: 'party celebrate' },
+  { emoji: '😇', labels: 'angel halo innocent' },
+  { emoji: '🔥', labels: 'fire hot lit' },
+  { emoji: '💯', labels: 'hundred perfect score' },
+  { emoji: '❤️', labels: 'love heart red' },
+  { emoji: '💖', labels: 'sparkle heart love' },
+  { emoji: '✨', labels: 'sparkle stars magic' },
+  { emoji: '⭐', labels: 'star' },
+  { emoji: '🌟', labels: 'glow star bright' },
+  { emoji: '💫', labels: 'dizzy star' },
+  { emoji: '🎉', labels: 'party celebration tada' },
+  { emoji: '🎊', labels: 'confetti party' },
+  { emoji: '🎈', labels: 'balloon party' },
+  { emoji: '🎁', labels: 'gift present' },
+  { emoji: '🏆', labels: 'trophy champion winner' },
+  { emoji: '💪', labels: 'strong muscle flex' },
+  { emoji: '🙌', labels: 'hands praise' },
+  { emoji: '👏', labels: 'clap applause' },
+  { emoji: '🌹', labels: 'rose flower' },
+  { emoji: '🌸', labels: 'cherry blossom flower' },
+  { emoji: '🌺', labels: 'hibiscus flower' },
+  { emoji: '🍀', labels: 'clover luck four leaf' },
+  { emoji: '🌈', labels: 'rainbow' },
+  { emoji: '☀️', labels: 'sun sunny bright' },
+  { emoji: '🌙', labels: 'moon night' },
+  { emoji: '⚡', labels: 'lightning bolt electric' },
+  { emoji: '🍕', labels: 'pizza food' },
+  { emoji: '🍔', labels: 'burger food' },
+  { emoji: '🍟', labels: 'fries food' },
+  { emoji: '🍦', labels: 'ice cream dessert' },
+  { emoji: '☕', labels: 'coffee tea drink' },
+  { emoji: '🍰', labels: 'cake dessert' },
+  { emoji: '🍩', labels: 'donut dessert' },
+  { emoji: '🧁', labels: 'cupcake dessert' },
+  { emoji: '🎵', labels: 'music note' },
+  { emoji: '🎶', labels: 'music notes' },
+  { emoji: '🎸', labels: 'guitar music' },
+  { emoji: '🎤', labels: 'microphone mic karaoke' },
+  { emoji: '🎧', labels: 'headphones music' },
+  { emoji: '📸', labels: 'camera photo' },
+  { emoji: '🎬', labels: 'movie film clapper' },
+  { emoji: '🎮', labels: 'gaming controller' },
+  { emoji: '✈️', labels: 'airplane travel' },
+  { emoji: '🚗', labels: 'car drive' },
+  { emoji: '🏠', labels: 'house home' },
+  { emoji: '🏖️', labels: 'beach vacation' },
+  { emoji: '🗼', labels: 'tower landmark' },
+  { emoji: '🗽', labels: 'statue liberty' },
+  { emoji: '🎡', labels: 'ferris wheel carnival' },
+  { emoji: '🎢', labels: 'roller coaster carnival' },
+  { emoji: '💀', labels: 'skull dead' },
+  { emoji: '👻', labels: 'ghost boo' },
+  { emoji: '🤡', labels: 'clown funny' },
+  { emoji: '👽', labels: 'alien ufo' },
+  { emoji: '🤖', labels: 'robot bot' },
+  { emoji: '💩', labels: 'poop' },
+  { emoji: '🙈', labels: 'monkey shy hide' },
+  { emoji: '🙉', labels: 'monkey hear no' },
 ];
 
 export function StickerPicker({ onAddSticker, onClose }: StickerPickerProps) {
@@ -135,9 +192,10 @@ export function StickerPicker({ onAddSticker, onClose }: StickerPickerProps) {
     setPollOptions(newOptions);
   };
 
+  // M15: Actually filter emojis by search term
   const filteredEmojis = emojiSearch
-    ? POPULAR_EMOJIS.filter(() => true) // emoji search is visual, show all
-    : POPULAR_EMOJIS;
+    ? EMOJI_DATA.filter(e => e.labels.includes(emojiSearch.toLowerCase())).map(e => e.emoji)
+    : EMOJI_DATA.map(e => e.emoji);
 
   return (
     <div className="fixed inset-0 z-50 bg-black/90 flex items-end">

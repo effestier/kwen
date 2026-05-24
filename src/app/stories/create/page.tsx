@@ -384,6 +384,7 @@ export default function CreateStoryPage() {
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
+      setProcessingMessage(''); // M18: Clear processing message on error
     }
   };
 

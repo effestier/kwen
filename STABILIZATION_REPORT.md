@@ -528,6 +528,24 @@
 
 ---
 
+## TIER 3 — MEDIUM BUGS FIX STATUS (Batch 1)
+
+| Fix | Status | Files Changed |
+|-----|--------|---------------|
+| M3. Unbounded last-message query | ✅ PASS | `messages/page.tsx` |
+| M4. Voice recorder broken state | ✅ PASS | `voice-recorder.tsx` |
+| M5. Conversation preview stale on unsend | ✅ PASS | `messages/page.tsx` |
+| M7. Failed message delete blob leak | ✅ PASS | `messages/page.tsx` |
+| M8. Voice duration cap | ✅ PASS | `voice-recorder.tsx` |
+| M15. Emoji search no-op | ✅ PASS | `sticker-picker.tsx` |
+| M18. processingMessage not cleared on error | ✅ PASS | `stories/create/page.tsx` |
+| M20. Clipboard API error handling | ✅ PASS | `share-modal.tsx` |
+| M21. VideoPlayer overlay timer cleanup | ✅ PASS | `video-player.tsx` |
+
+**Build verification:** `npx tsc --noEmit` clean. `npx next build` clean.
+
+---
+
 ## MEDIUM (Edge Cases / Degraded UX) — 42 failures
 
 ### Messaging

@@ -102,16 +102,6 @@ export async function sendStoryReply(storyId: string, message: string, recipient
   // Send as story_reply message type, including story media_url for preview
   const result = await sendMessage(convResult.conversationId, cleanMessage, story?.media_url ? { path: story.media_url } : undefined, undefined, storyId);
 
-  // Also keep the old story_replies table populated for backward compat
-  if (!('error' in result)) {
-    await supabase.from('story_replies').insert({
-      story_id: storyId,
-      sender_id: user.id,
-      recipient_id: recipientId,
-      message: cleanMessage,
-    });
-  }
-
   return result;
 }
 
@@ -362,3 +352,5 @@ export async function getStoryMusic(storyId: string) {
   if (error || !data) return null;
   return data;
 }
+
+

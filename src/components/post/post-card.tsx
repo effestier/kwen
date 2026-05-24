@@ -1,32 +1,69 @@
-import { Post } from '@/types';
+'use client';
+
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { cn, formatNumber, formatTimeAgo } from '@/lib/utils';
 import { Avatar } from '@/components/ui/avatar';
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import { toggleLike as togglePostLike, toggleSave as togglePostSave, deletePost, restorePost, blockUser, muteUser, incrementShareCount } from '@/services/posts';
-import { hapticLight } from '@/lib/haptics';
+import { toggleLike as togglePostLike, toggleSave as togglePostSave, deletePost, restorePost, blockUser, muteUser } from '@/services/posts';
+import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { getCommentCount } from '@/services/comments';
 import { createClient } from '@/lib/supabase/client';
 import { EditPostModal } from '@/components/post/edit-post-modal';
 import { renderRichText } from '@/lib/text-utils';
+import { MediaCarousel } from '@/components/post/media-carousel';
+import { HeartAnimation } from '@/components/post/heart-animation';
 
 const CommentsModal = dynamic(() => import('@/components/comments/comments-modal').then(mod => ({ default: mod.CommentsModal })), {
   loading: () => null,
   ssr: false,
 });
 
+const ShareModal = dynamic(() => import('@/components/post/share-modal').then(mod => ({ default: mod.ShareModal })), {
+  loading: () => null,
+  ssr: false,
+});
+
+interface MediaItem {
+  id: string;
+  storage_path: string;
+  media_type: string;
+  sort_order: number;
+}
+
 interface PostCardProps {
-  post: Post;
+  post: {
+    id: string;
+    user: {
+      id: string;
+      username: string;
+      displayName: string;
+      avatar: string;
+      isVerified?: boolean;
+    };
+    content: string;
+    images?: string[];
+    mediaTypes?: string[];
+    media?: MediaItem[];
+    likes: number;
+    comments: number;
+    shares: number;
+    saves?: number;
+    isLiked: boolean;
+    isSaved: boolean;
+    createdAt: string;
+    location?: string;
+  };
   isOwnPost?: boolean;
   onDelete?: (postId: string) => void;
 }
 
-export function PostCard({ post, isOwnPost = false, onDelete }: PostCardProps) {
+const PostCardInner = ({ post, isOwnPost = false, onDelete }: PostCardProps) => {
   const [liked, setLiked] = useState(post.isLiked);
   const [likeCount, setLikeCount] = useState(post.likes);
   const [saved, setSaved] = useState(post.isSaved);
   const [showComments, setShowComments] = useState(false);
+  const [showShare, setShowShare] = useState(false);
   const [commentCount, setCommentCount] = useState(post.comments);
   const [loading, setLoading] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
@@ -34,107 +71,96 @@ export function PostCard({ post, isOwnPost = false, onDelete }: PostCardProps) {
   const [deleted, setDeleted] = useState(false);
   const [showUndoToast, setShowUndoToast] = useState(false);
   const [editedAt, setEditedAt] = useState<string | null>(null);
+  const [heartTrigger, setHeartTrigger] = useState(0);
+  const lastTapRef = useRef(0);
   const supabase = createClient();
 
-  // Use comment count from feed RPC (no per-card subscription needed)
-  useEffect(() => {
-    setCommentCount(post.comments);
-  }, [post.comments]);
+  useEffect(() => { setLiked(post.isLiked); }, [post.isLiked]);
+  useEffect(() => { setLikeCount(post.likes); }, [post.likes]);
+  useEffect(() => { setSaved(post.isSaved); }, [post.isSaved]);
+  useEffect(() => { setCommentCount(post.comments); }, [post.comments]);
 
-  const handleLike = async () => {
+  const handleLike = useCallback(async () => {
     if (loading) return;
     setLoading(true);
-
-    // Haptic feedback
     if (!liked) hapticLight();
-
-    // Optimistic update
+    const prevLiked = liked;
+    const prevCount = likeCount;
     setLiked(!liked);
     setLikeCount(liked ? likeCount - 1 : likeCount + 1);
-
     try {
       await togglePostLike(post.id);
     } catch {
-      // Revert on error
-      setLiked(liked);
-      setLikeCount(likeCount);
+      setLiked(prevLiked);
+      setLikeCount(prevCount);
     } finally {
       setLoading(false);
     }
-  };
+  }, [liked, likeCount, loading, post.id]);
 
-  const handleSave = async () => {
+  const handleMediaDoubleTap = useCallback(() => {
+    const now = Date.now();
+    if (now - lastTapRef.current < 300) {
+      if (!liked) handleLike();
+      setHeartTrigger(prev => prev + 1);
+      hapticMedium();
+    }
+    lastTapRef.current = now;
+  }, [liked, handleLike]);
+
+  const handleSave = useCallback(async () => {
     if (loading) return;
     setLoading(true);
-
+    const prevSaved = saved;
     setSaved(!saved);
-
     try {
       await togglePostSave(post.id);
     } catch {
-      setSaved(!saved);
+      setSaved(prevSaved);
     } finally {
       setLoading(false);
     }
-  };
+  }, [saved, loading, post.id]);
 
-  const handleOpenComments = () => {
-    setShowComments(true);
-  };
-
-  const handleCloseComments = () => {
-    setShowComments(false);
-  };
-
-  // Update comment count when modal closes (in case comments were added)
-  const handleCommentsChange = () => {
-    // Refresh comment count when modal closes
+  const handleCommentsChange = useCallback(() => {
     getCommentCount(post.id).then(count => setCommentCount(count));
-  };
+  }, [post.id]);
 
-  const handleDelete = async () => {
-    setShowMoreMenu(false)
-    setDeleted(true)
-    setShowUndoToast(true)
-
-    // Actually soft-delete on server
-    await deletePost(post.id)
-
-    // Auto-remove from UI after 5s if not undone
+  const handleDelete = useCallback(async () => {
+    setShowMoreMenu(false);
+    setDeleted(true);
+    setShowUndoToast(true);
+    await deletePost(post.id);
     setTimeout(() => {
-      if (deleted) onDelete?.(post.id)
-    }, 5000)
-  }
+      onDelete?.(post.id);
+    }, 5000);
+  }, [post.id, onDelete]);
 
-  const handleUndoDelete = async () => {
-    await restorePost(post.id)
-    setDeleted(false)
-    setShowUndoToast(false)
-  }
+  const handleUndoDelete = useCallback(async () => {
+    await restorePost(post.id);
+    setDeleted(false);
+    setShowUndoToast(false);
+  }, [post.id]);
 
-  const handleShare = async () => {
-    const url = `${window.location.origin}/post/${post.id}`
-    if (navigator.share) {
-      await navigator.share({ title: `Post by ${post.user.displayName}`, url })
-    } else {
-      await navigator.clipboard.writeText(url)
-    }
-    await incrementShareCount(post.id)
-  }
+  // Build media array for carousel
+  const mediaItems: MediaItem[] = post.media && post.media.length > 0
+    ? post.media
+    : (post.images || []).map((path, i) => ({
+        id: `${post.id}-media-${i}`,
+        storage_path: path,
+        media_type: post.mediaTypes?.[i] || 'image',
+        sort_order: i,
+      }));
 
-  if (deleted && !showUndoToast) return null
+  if (deleted && !showUndoToast) return null;
 
   return (
     <>
-      <article className="post-card">
+      <article className="post-card border-b border-[var(--border-subtle)] px-4 py-4">
         {/* Header */}
         <div className="flex items-start gap-3 mb-3">
           <Link href={`/profile/${post.user.username}`} className="flex-shrink-0">
-            <Avatar
-              src={post.user.avatar}
-              name={post.user.displayName}
-              size="md"
-            />
+            <Avatar src={post.user.avatar} name={post.user.displayName} size="md" />
           </Link>
 
           <div className="flex-1 min-w-0">
@@ -147,14 +173,14 @@ export function PostCard({ post, isOwnPost = false, onDelete }: PostCardProps) {
                   <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143z" clipRule="evenodd" />
                 </svg>
               )}
-              <span className="text-[var(--text-muted)]">·</span>
+              <span className="text-[var(--text-muted)]">&middot;</span>
               <span className="text-xs text-[var(--text-muted)]">{formatTimeAgo(post.createdAt)}</span>
             </div>
             <div className="flex items-center gap-1 text-xs text-[var(--text-muted)]">
               <span>@{post.user.username}</span>
               {post.location && (
                 <>
-                  <span>·</span>
+                  <span>&middot;</span>
                   <span>{post.location}</span>
                 </>
               )}
@@ -172,59 +198,33 @@ export function PostCard({ post, isOwnPost = false, onDelete }: PostCardProps) {
               </svg>
             </button>
 
-            {/* More menu */}
             {showMoreMenu && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowMoreMenu(false)} />
                 <div className="absolute right-0 top-full mt-1 w-52 bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-xl shadow-lg z-50 overflow-hidden">
                   {isOwnPost ? (
                     <>
-                      <button
-                        onClick={() => { setShowEditModal(true); setShowMoreMenu(false) }}
-                        className="w-full px-4 py-3 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] flex items-center gap-3"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
-                        </svg>
+                      <button onClick={() => { setShowEditModal(true); setShowMoreMenu(false); }} className="w-full px-4 py-3 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] flex items-center gap-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
                         Edit
                       </button>
-                      <button
-                        onClick={handleDelete}
-                        className="w-full px-4 py-3 text-left text-sm text-red-500 hover:bg-[var(--bg-secondary)] flex items-center gap-3"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                        </svg>
+                      <button onClick={handleDelete} className="w-full px-4 py-3 text-left text-sm text-red-500 hover:bg-[var(--bg-secondary)] flex items-center gap-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
                         Delete
                       </button>
                     </>
                   ) : (
                     <>
-                      <button
-                        onClick={async () => { await blockUser(post.user.id); setShowMoreMenu(false) }}
-                        className="w-full px-4 py-3 text-left text-sm text-red-500 hover:bg-[var(--bg-secondary)] flex items-center gap-3"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <circle cx="12" cy="12" r="10" /><path d="m4.9 4.9 14.2 14.2" />
-                        </svg>
+                      <button onClick={async () => { await blockUser(post.user.id); setShowMoreMenu(false); }} className="w-full px-4 py-3 text-left text-sm text-red-500 hover:bg-[var(--bg-secondary)] flex items-center gap-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="m4.9 4.9 14.2 14.2" /></svg>
                         Block
                       </button>
-                      <button
-                        onClick={async () => { await muteUser(post.user.id); setShowMoreMenu(false) }}
-                        className="w-full px-4 py-3 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] flex items-center gap-3"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M18 6 6 18" /><path d="m6 6 12 12" />
-                        </svg>
+                      <button onClick={async () => { await muteUser(post.user.id); setShowMoreMenu(false); }} className="w-full px-4 py-3 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] flex items-center gap-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
                         Mute
                       </button>
-                      <button
-                        onClick={() => { alert('Report submitted.'); setShowMoreMenu(false) }}
-                        className="w-full px-4 py-3 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] flex items-center gap-3"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" x2="4" y1="22" y2="15" />
-                        </svg>
+                      <button onClick={() => { alert('Report submitted.'); setShowMoreMenu(false); }} className="w-full px-4 py-3 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] flex items-center gap-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" x2="4" y1="22" y2="15" /></svg>
                         Report
                       </button>
                     </>
@@ -236,51 +236,25 @@ export function PostCard({ post, isOwnPost = false, onDelete }: PostCardProps) {
         </div>
 
         {/* Content */}
-        <div className="mb-3">
-          <p className="text-[15px] leading-relaxed text-[var(--text-secondary)] whitespace-pre-line">
-            {renderRichText(post.content)}
-          </p>
-          {editedAt && (
-            <p className="text-xs text-[var(--text-muted)] mt-1">edited</p>
-          )}
-        </div>
+        {post.content && (
+          <div className="mb-3">
+            <p className="text-[15px] leading-relaxed text-[var(--text-secondary)] whitespace-pre-line">
+              {renderRichText(post.content)}
+            </p>
+            {editedAt && (
+              <p className="text-xs text-[var(--text-muted)] mt-1">edited</p>
+            )}
+          </div>
+        )}
 
         {/* Media */}
-        {post.images && post.images.length > 0 && (
-          <div className="mb-3 rounded-xl overflow-hidden bg-[var(--bg-tertiary)]">
-            <div className={cn(
-              'grid gap-0.5',
-              post.images.length === 1 ? '' : 'grid-cols-2'
-            )}>
-              {post.images.slice(0, 4).map((image, i) => {
-                const isVideo = post.mediaTypes?.[i] === 'video';
-                return (
-                  <div
-                    key={i}
-                    className={cn(
-                      'overflow-hidden',
-                      post.images!.length === 1 ? 'aspect-[4/5]' : 'aspect-square'
-                    )}
-                  >
-                    {isVideo ? (
-                      <video
-                        src={image}
-                        className="w-full h-full object-cover"
-                        controls
-                        playsInline
-                        preload="metadata"
-                      />
-                    ) : (
-                      <img
-                        src={image}
-                        alt={`Post image ${i + 1} by ${post.user.displayName}`}
-                        className="w-full h-full object-cover"
-                      />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+        {mediaItems.length > 0 && (
+          <div className="mb-3 rounded-xl overflow-hidden bg-[var(--bg-tertiary)] relative">
+            <MediaCarousel
+              media={mediaItems}
+              onDoubleTap={handleMediaDoubleTap}
+            />
+            <HeartAnimation trigger={heartTrigger} />
           </div>
         )}
 
@@ -302,7 +276,7 @@ export function PostCard({ post, isOwnPost = false, onDelete }: PostCardProps) {
           </button>
 
           <button
-            onClick={handleOpenComments}
+            onClick={() => setShowComments(true)}
             className="p-2 rounded-full text-[var(--text-muted)] hover:text-[var(--accent-primary)] hover:bg-[var(--bg-tertiary)] transition-all duration-200 active:scale-90"
             aria-label="Comments"
           >
@@ -312,8 +286,8 @@ export function PostCard({ post, isOwnPost = false, onDelete }: PostCardProps) {
           </button>
 
           <button
-            onClick={handleShare}
-            className="p-2 rounded-full text-[var(--text-muted)] hover:text-[var(--success)] hover:bg-[var(--bg-tertiary)] transition-all duration-200 active:scale-90"
+            onClick={() => setShowShare(true)}
+            className="p-2 rounded-full text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-all duration-200 active:scale-90"
             aria-label="Share"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -340,20 +314,16 @@ export function PostCard({ post, isOwnPost = false, onDelete }: PostCardProps) {
         {/* Engagement Stats */}
         <div className="flex items-center gap-3 mt-1 text-xs text-[var(--text-muted)]">
           <span className="font-semibold text-[var(--text-secondary)] cursor-default">{formatNumber(likeCount)} likes</span>
-          <button onClick={handleOpenComments} className="hover:underline">
+          <button onClick={() => setShowComments(true)} className="hover:underline">
             <span className="font-semibold text-[var(--text-secondary)]">{formatNumber(commentCount)}</span> comments
           </button>
         </div>
       </article>
 
-      {/* Comments Modal */}
-      <CommentsModal
-        postId={post.id}
-        isOpen={showComments}
-        onClose={handleCloseComments}
-      />
+      <CommentsModal postId={post.id} isOpen={showComments} onClose={() => setShowComments(false)} />
 
-      {/* Edit Post Modal */}
+      <ShareModal postId={post.id} postAuthorName={post.user.displayName} isOpen={showShare} onClose={() => setShowShare(false)} />
+
       {showEditModal && (
         <EditPostModal
           postId={post.id}
@@ -361,24 +331,22 @@ export function PostCard({ post, isOwnPost = false, onDelete }: PostCardProps) {
           initialLocation={post.location}
           onClose={() => setShowEditModal(false)}
           onSave={(updated) => {
-            setShowEditModal(false)
-            setEditedAt(updated.edited_at)
+            setShowEditModal(false);
+            setEditedAt(updated.edited_at);
           }}
         />
       )}
 
-      {/* Undo delete toast */}
       {showUndoToast && (
         <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-xl shadow-lg px-4 py-3 flex items-center gap-3">
           <span className="text-sm text-[var(--text-primary)]">Post deleted</span>
-          <button
-            onClick={handleUndoDelete}
-            className="text-sm font-semibold text-[var(--accent-primary)] hover:underline"
-          >
+          <button onClick={handleUndoDelete} className="text-sm font-semibold text-[var(--accent-primary)] hover:underline">
             Undo
           </button>
         </div>
       )}
     </>
   );
-}
+};
+
+export const PostCard = React.memo(PostCardInner);

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { cn } from '@/lib/utils';
+import { hapticLight } from '@/lib/haptics';
 
 interface MediaPickerProps {
   onMediaSelected: (file: File, previewUrl: string, type: 'image' | 'video') => void;
@@ -13,14 +14,18 @@ export function MediaPicker({ onMediaSelected, onCancel }: MediaPickerProps) {
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const [isRecording, setIsRecording] = useState(false);
-  const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
-  const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [flashEnabled, setFlashEnabled] = useState(false);
+  const [timerCountdown, setTimerCountdown] = useState<number | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const recordingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Start camera
   const startCamera = useCallback(async () => {
@@ -34,7 +39,6 @@ export function MediaPicker({ onMediaSelected, onCancel }: MediaPickerProps) {
         videoRef.current.srcObject = stream;
       }
     } catch {
-      // Camera not available, fall back to gallery
       setMode('gallery');
     }
   }, [facingMode]);
@@ -47,6 +51,68 @@ export function MediaPicker({ onMediaSelected, onCancel }: MediaPickerProps) {
       cameraStream?.getTracks().forEach(t => t.stop());
     };
   }, [mode, facingMode]);
+
+  // Clipboard paste handler
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          if (file) {
+            const url = URL.createObjectURL(file);
+            onMediaSelected(file, url, 'image');
+          }
+          break;
+        }
+      }
+    };
+
+    document.addEventListener('paste', handlePaste);
+    return () => document.removeEventListener('paste', handlePaste);
+  }, [onMediaSelected]);
+
+  // Flash/torch control
+  const toggleFlash = useCallback(async () => {
+    if (!cameraStream) return;
+    const track = cameraStream.getVideoTracks()[0];
+    if (!track) return;
+
+    try {
+      const capabilities = track.getCapabilities();
+      if ('torch' in capabilities) {
+        await track.applyConstraints({
+          advanced: [{ torch: !flashEnabled } as any],
+        });
+        setFlashEnabled(!flashEnabled);
+      }
+    } catch {
+      // Flash not supported
+    }
+  }, [cameraStream, flashEnabled]);
+
+  // Timer countdown for capture
+  const startTimer = useCallback((seconds: number) => {
+    setTimerCountdown(seconds);
+    hapticLight();
+
+    timerIntervalRef.current = setInterval(() => {
+      setTimerCountdown(prev => {
+        if (prev === null || prev <= 1) {
+          if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+          setTimeout(() => {
+            capturePhoto();
+            setTimerCountdown(null);
+          }, 100);
+          return null;
+        }
+        hapticLight();
+        return prev - 1;
+      });
+    }, 1000);
+  }, []);
 
   // Capture photo
   const capturePhoto = useCallback(() => {
@@ -64,8 +130,24 @@ export function MediaPicker({ onMediaSelected, onCancel }: MediaPickerProps) {
       const file = new File([blob], 'story-photo.jpg', { type: 'image/jpeg' });
       const url = URL.createObjectURL(blob);
       onMediaSelected(file, url, 'image');
-    }, 'image/jpeg', 0.9);
+    }, 'image/jpeg', 0.92);
   }, [onMediaSelected]);
+
+  // Recording timer
+  useEffect(() => {
+    if (isRecording) {
+      setRecordingTime(0);
+      recordingIntervalRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+    } else {
+      if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
+      setRecordingTime(0);
+    }
+    return () => {
+      if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
+    };
+  }, [isRecording]);
 
   // Record video
   const startRecording = useCallback(() => {
@@ -73,18 +155,22 @@ export function MediaPicker({ onMediaSelected, onCancel }: MediaPickerProps) {
     setIsRecording(true);
     chunksRef.current = [];
 
-    const recorder = new MediaRecorder(cameraStream, { mimeType: 'video/webm' });
+    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+      ? 'video/webm;codecs=vp9'
+      : 'video/webm';
+
+    const recorder = new MediaRecorder(cameraStream, { mimeType });
     recorder.ondataavailable = (e) => chunksRef.current.push(e.data);
     recorder.onstop = () => {
-      const blob = new Blob(chunksRef.current, { type: 'video/webm' });
-      const file = new File([blob], 'story-video.webm', { type: 'video/webm' });
+      const blob = new Blob(chunksRef.current, { type: mimeType });
+      const file = new File([blob], 'story-video.webm', { type: mimeType });
       const url = URL.createObjectURL(blob);
       onMediaSelected(file, url, 'video');
       setIsRecording(false);
     };
 
     mediaRecorderRef.current = recorder;
-    recorder.start();
+    recorder.start(100); // collect data every 100ms for smoother chunks
   }, [cameraStream, onMediaSelected]);
 
   const stopRecording = useCallback(() => {
@@ -94,6 +180,7 @@ export function MediaPicker({ onMediaSelected, onCancel }: MediaPickerProps) {
   // Toggle camera
   const toggleCamera = useCallback(() => {
     cameraStream?.getTracks().forEach(t => t.stop());
+    setFlashEnabled(false);
     setFacingMode(f => f === 'user' ? 'environment' : 'user');
   }, [cameraStream]);
 
@@ -102,11 +189,33 @@ export function MediaPicker({ onMediaSelected, onCancel }: MediaPickerProps) {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
-    // If selecting a single file, use it directly
     const file = files[0];
     const type = file.type.startsWith('video/') ? 'video' : 'image';
     const url = URL.createObjectURL(file);
     onMediaSelected(file, url, type);
+  }, [onMediaSelected]);
+
+  // Drag and drop handlers (desktop)
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback(() => {
+    setIsDragOver(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    const mediaFile = files.find(f => f.type.startsWith('image/') || f.type.startsWith('video/'));
+    if (mediaFile) {
+      const type = mediaFile.type.startsWith('video/') ? 'video' : 'image';
+      const url = URL.createObjectURL(mediaFile);
+      onMediaSelected(mediaFile, url, type);
+    }
   }, [onMediaSelected]);
 
   // Long press for video, tap for photo
@@ -123,33 +232,46 @@ export function MediaPicker({ onMediaSelected, onCancel }: MediaPickerProps) {
     }
     if (isRecording) {
       stopRecording();
-    } else {
+    } else if (!timerCountdown) {
       capturePhoto();
     }
-  }, [isRecording, capturePhoto, stopRecording]);
+  }, [isRecording, capturePhoto, stopRecording, timerCountdown]);
+
+  const formatRecordingTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black flex flex-col">
+    <div
+      className="fixed inset-0 z-50 bg-black flex flex-col"
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* Drag-drop overlay */}
+      {isDragOver && (
+        <div className="absolute inset-0 z-50 bg-black/80 border-2 border-dashed border-white/60 flex items-center justify-center">
+          <div className="text-center">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" className="mx-auto mb-3 opacity-60">
+              <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242" />
+              <path d="M12 12v9" /><path d="m16 16-4-4-4 4" />
+            </svg>
+            <p className="text-white text-lg font-medium">Drop image or video</p>
+            <p className="text-white/50 text-sm mt-1">to create a story</p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 relative z-10">
+      <div className="flex items-center justify-between px-4 py-3 relative z-10" style={{ paddingTop: 'max(12px, env(safe-area-inset-top))' }}>
         <button onClick={onCancel} className="text-white p-2">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M18 6 6 18" /><path d="m6 6 12 12" />
           </svg>
         </button>
-        <div className="flex gap-1 bg-white/10 rounded-full p-0.5">
-          {(['Story', 'Reel', 'Post'] as const).map((tab) => (
-            <button
-              key={tab}
-              className={cn(
-                'px-4 py-1.5 rounded-full text-xs font-semibold transition-colors',
-                tab === 'Story' ? 'bg-white text-black' : 'text-white/60'
-              )}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
+        <p className="text-white font-semibold text-sm">Story</p>
         <div className="w-10" />
       </div>
 
@@ -165,8 +287,23 @@ export function MediaPicker({ onMediaSelected, onCancel }: MediaPickerProps) {
           />
           <canvas ref={canvasRef} className="hidden" />
 
+          {/* Timer countdown overlay */}
+          {timerCountdown !== null && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-20">
+              <span className="text-white text-8xl font-bold animate-pulse">{timerCountdown}</span>
+            </div>
+          )}
+
+          {/* Recording indicator */}
+          {isRecording && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/60 rounded-full px-4 py-2 z-10">
+              <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
+              <span className="text-white text-sm font-medium">{formatRecordingTime(recordingTime)}</span>
+            </div>
+          )}
+
           {/* Camera controls */}
-          <div className="absolute bottom-0 left-0 right-0 p-6 flex items-center justify-between">
+          <div className="absolute bottom-0 left-0 right-0 p-6 flex items-center justify-between" style={{ paddingBottom: 'max(24px, env(safe-area-inset-bottom))' }}>
             {/* Gallery */}
             <button
               onClick={() => setMode('gallery')}
@@ -198,13 +335,33 @@ export function MediaPicker({ onMediaSelected, onCancel }: MediaPickerProps) {
               )}
             </button>
 
-            {/* Flip camera */}
-            <button onClick={toggleCamera} className="w-10 h-10 flex items-center justify-center text-white">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M11 19H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5" /><path d="M13 5h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5" />
-                <path d="m16 3-4 4 4 4" /><path d="m8 21 4-4-4-4" />
-              </svg>
-            </button>
+            {/* Right side controls */}
+            <div className="flex flex-col gap-3">
+              {/* Flip camera */}
+              <button onClick={toggleCamera} className="w-10 h-10 flex items-center justify-center text-white">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M11 19H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5" /><path d="M13 5h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5" />
+                  <path d="m16 3-4 4 4 4" /><path d="m8 21 4-4-4-4" />
+                </svg>
+              </button>
+
+              {/* Flash */}
+              <button onClick={toggleFlash} className="w-10 h-10 flex items-center justify-center text-white">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill={flashEnabled ? 'white' : 'none'} stroke="currentColor" strokeWidth="2">
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                </svg>
+              </button>
+
+              {/* Timer */}
+              <button
+                onClick={() => startTimer(3)}
+                className="w-10 h-10 flex items-center justify-center text-white"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+                </svg>
+              </button>
+            </div>
           </div>
 
           {/* Swipe up hint */}
@@ -236,11 +393,12 @@ export function MediaPicker({ onMediaSelected, onCancel }: MediaPickerProps) {
               </div>
               <p className="text-white font-medium mb-1">Tap to select</p>
               <p className="text-white/50 text-sm">Photo or video</p>
+              <p className="text-white/30 text-xs mt-2">or paste from clipboard</p>
             </div>
           </div>
 
           {/* Bottom controls */}
-          <div className="p-6 flex items-center justify-between">
+          <div className="p-6 flex items-center justify-between" style={{ paddingBottom: 'max(24px, env(safe-area-inset-bottom))' }}>
             <button onClick={onCancel} className="text-white/60 text-sm">
               Cancel
             </button>

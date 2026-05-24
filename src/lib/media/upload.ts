@@ -44,7 +44,8 @@ function getMediaType(file: File): MediaType {
 export async function uploadMedia(
   file: File,
   onProgress?: (progress: UploadProgress) => void,
-  context: 'post' | 'story' | 'message' | 'avatar' = 'post'
+  context: 'post' | 'story' | 'message' | 'avatar' = 'post',
+  skipCompression: boolean = false,
 ): Promise<UploadResult> {
   const mediaType = getMediaType(file)
   const originalSize = file.size
@@ -63,14 +64,22 @@ export async function uploadMedia(
   let duration: number | undefined
 
   if (mediaType === 'image') {
-    onProgress?.({ percent: 10, stage: 'compressing', message: 'Compressing image...' })
-
-    const result = await compressImage(file)
-    compressedFile = new File([result.blob], file.name.replace(/\.[^.]+$/, '.webp'), {
-      type: 'image/webp',
-    })
-    width = result.width
-    height = result.height
+    if (skipCompression) {
+      // Already composited/compressed — use as-is
+      compressedFile = file
+      const bitmap = await createImageBitmap(file)
+      width = bitmap.width
+      height = bitmap.height
+      bitmap.close()
+    } else {
+      onProgress?.({ percent: 10, stage: 'compressing', message: 'Compressing image...' })
+      const result = await compressImage(file)
+      compressedFile = new File([result.blob], file.name.replace(/\.[^.]+$/, '.webp'), {
+        type: 'image/webp',
+      })
+      width = result.width
+      height = result.height
+    }
   } else {
     onProgress?.({ percent: 5, stage: 'compressing', message: 'Loading video encoder...' })
 

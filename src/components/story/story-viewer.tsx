@@ -109,6 +109,15 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
   const [isPaused, setIsPaused] = useState(false);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
 
+  // Video mute state (persisted)
+  const [isMuted, setIsMuted] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('kw-story-muted') === 'true';
+    }
+    return true;
+  });
+  const [isBuffering, setIsBuffering] = useState(false);
+
   // Highlight modal
   const [showHighlightModal, setShowHighlightModal] = useState(false);
 
@@ -117,6 +126,9 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
 
   // More menu
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+
+  // Toast
+  const [viewerToast, setViewerToast] = useState<string | null>(null);
 
   // Interactive stickers
   const [poll, setPoll] = useState<Poll | null>(null);
@@ -178,20 +190,45 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
     }
   }, [currentStory?.id]);
 
-  // Load music for current story
+  // Load music for current story and auto-play
   useEffect(() => {
-    if (currentStory) {
-      getStoryMusic(currentStory.id).then(music => {
-        if (music && currentStory) {
-          currentStory.music = {
-            track_name: music.track_name,
-            artist: music.artist,
-            preview_url: music.preview_url,
-            cover_url: music.cover_url,
-          };
-        }
-      });
+    if (!currentStory) return;
+
+    // Stop any playing music first
+    if (musicRef.current) {
+      musicRef.current.pause();
+      musicRef.current = null;
+      setIsMusicPlaying(false);
     }
+
+    getStoryMusic(currentStory.id).then(music => {
+      if (music && currentStory) {
+        currentStory.music = {
+          track_name: music.track_name,
+          artist: music.artist,
+          preview_url: music.preview_url,
+          cover_url: music.cover_url,
+        };
+
+        // Auto-play music if preview_url exists
+        if (music.preview_url) {
+          const audio = new Audio(music.preview_url);
+          audio.volume = 0.7;
+          audio.loop = true;
+          audio.play().catch(() => {});
+          musicRef.current = audio;
+          setIsMusicPlaying(true);
+        }
+      }
+    });
+
+    return () => {
+      if (musicRef.current) {
+        musicRef.current.pause();
+        musicRef.current = null;
+        setIsMusicPlaying(false);
+      }
+    };
   }, [currentStory?.id]);
 
   // Load interactive stickers for current story
@@ -351,6 +388,16 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
       setIsVideoReady(true);
     }
   }, []);
+
+  // Sync music pause/resume with story pause
+  useEffect(() => {
+    if (!musicRef.current) return;
+    if (isPaused || showReplyInput) {
+      musicRef.current.pause();
+    } else if (isMusicPlaying) {
+      musicRef.current.play().catch(() => {});
+    }
+  }, [isPaused, showReplyInput, isMusicPlaying]);
 
   // ---- Progress bar (requestAnimationFrame) — pause/resume safe ----
 
@@ -640,15 +687,41 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
         }`}
         style={swipeDownDistance > 0 ? { transform: `translateY(${swipeDownDistance * 0.5}px)`, opacity: 1 - swipeDownDistance / 400 } : undefined}
       >
-        {/* Close button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M18 6 6 18" /><path d="m6 6 12 12" />
-          </svg>
-        </button>
+        {/* Close + mute buttons */}
+        <div className="absolute top-4 right-4 z-10 flex gap-2">
+          {isVideo && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                const newMuted = !isMuted;
+                setIsMuted(newMuted);
+                localStorage.setItem('kw-story-muted', String(newMuted));
+                if (videoRef.current) videoRef.current.muted = newMuted;
+              }}
+              className="w-8 h-8 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+            >
+              {isMuted ? (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                  <line x1="23" x2="17" y1="9" y2="15" /><line x1="17" x2="23" y1="9" y2="15" />
+                </svg>
+              ) : (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07" /><path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+                </svg>
+              )}
+            </button>
+          )}
+          <button
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+            </svg>
+          </button>
+        </div>
 
         {/* Progress bars — one segment per story in current user */}
         <div className="absolute top-4 left-4 right-12 flex gap-1 z-10">
@@ -782,13 +855,20 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
             </div>
           )}
 
+          {/* Buffering indicator */}
+          {isVideo && isBuffering && (
+            <div className="absolute inset-0 flex items-center justify-center z-10">
+              <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            </div>
+          )}
+
           {isVideo ? (
             <video
               ref={videoRef}
               src={currentStory.media_url}
               className="max-w-full max-h-full object-contain"
               autoPlay
-              muted
+              muted={isMuted}
               playsInline
               onLoadedMetadata={handleVideoMetadata}
               onTimeUpdate={() => {
@@ -797,6 +877,8 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
                 }
               }}
               onEnded={() => goToNext()}
+              onWaiting={() => setIsBuffering(true)}
+              onPlaying={() => setIsBuffering(false)}
               onError={() => {
                 setIsLoading(false);
                 setImageError(true);
@@ -1088,8 +1170,9 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
             </button>
             <button
               onClick={() => {
-                alert('Report submitted. Thank you for keeping KWEN safe.')
-                setShowMoreMenu(false)
+                setShowMoreMenu(false);
+                setViewerToast('Report submitted. Thank you for keeping KWEN safe.');
+                setTimeout(() => setViewerToast(null), 3000);
               }}
               className="w-full px-4 py-3 text-left text-red-400 text-sm hover:bg-[var(--bg-tertiary)] flex items-center gap-3"
             >
@@ -1098,6 +1181,13 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
               </svg>
               Report
             </button>
+          </div>
+        )}
+
+        {/* Toast */}
+        {viewerToast && (
+          <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-40 bg-white/90 text-black px-4 py-2 rounded-xl text-sm font-medium shadow-lg max-w-[280px] text-center">
+            {viewerToast}
           </div>
         )}
 

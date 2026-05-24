@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 
-export type ActionKind = 'react' | 'reply' | 'copy' | 'delete-me' | 'delete-everyone' | 'report' | 'forward';
+export type ActionKind = 'react' | 'reply' | 'copy' | 'delete-me' | 'delete-everyone' | 'report' | 'save';
 
 interface MessageActionsMenuProps {
   isMine: boolean;
@@ -46,14 +46,16 @@ export function MessageActionsMenu({ isMine, isText, onAction, onClose, variant 
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
+  const hasMedia = !isText;
+
   const actions = [
     { kind: 'react' as ActionKind, label: 'React', icon: '😊', show: true },
     { kind: 'reply' as ActionKind, label: 'Reply', icon: '↩️', show: true },
     { kind: 'copy' as ActionKind, label: 'Copy', icon: '📋', show: isText },
+    { kind: 'save' as ActionKind, label: 'Save media', icon: '💾', show: hasMedia },
     { kind: 'delete-me' as ActionKind, label: 'Delete for me', icon: '🗑️', show: true },
-    { kind: 'delete-everyone' as ActionKind, label: 'Delete for everyone', icon: '🗑️', show: isMine },
+    { kind: 'delete-everyone' as ActionKind, label: 'Unsend', icon: '🗑️', show: isMine },
     { kind: 'report' as ActionKind, label: 'Report', icon: '⚠️', show: !isMine },
-    { kind: 'forward' as ActionKind, label: 'Forward', icon: '↗️', show: true },
   ].filter(a => a.show);
 
   if (variant === 'mobile') {

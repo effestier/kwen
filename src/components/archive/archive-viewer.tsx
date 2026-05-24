@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { pushOverlay, popOverlay } from '@/lib/overlay-stack'
-import { deleteArchivedStory, type ArchivedStory } from '@/services/archive'
+import { deleteArchivedStory, restoreArchivedStory, downloadArchivedStory, type ArchivedStory } from '@/services/archive'
 import { AddToHighlightModal } from '@/components/highlights/add-to-highlight-modal'
 
 interface ArchiveViewerProps {
@@ -25,6 +25,8 @@ export function ArchiveViewer({
   const [showActions, setShowActions] = useState(false)
   const [showHighlightModal, setShowHighlightModal] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [restoring, setRestoring] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
   const progressRef = useRef<NodeJS.Timeout | null>(null)
   const longPressTimer = useRef<NodeJS.Timeout | null>(null)
 
@@ -215,11 +217,54 @@ export function ArchiveViewer({
         {showActions && (
           <div className="absolute bottom-16 right-4 bg-[var(--bg-primary)] rounded-xl overflow-hidden shadow-xl min-w-[180px]">
             <button
-              onClick={() => { setConfirmDelete(true); setShowActions(false) }}
-              className="w-full px-4 py-3 text-left text-sm text-red-500 hover:bg-[var(--bg-secondary)] transition-colors"
+              onClick={async () => {
+                setShowActions(false);
+                setRestoring(true);
+                const result = await restoreArchivedStory(currentStory.id);
+                setRestoring(false);
+                if (result.error) {
+                  setToast(result.error);
+                } else {
+                  setToast('Story restored!');
+                }
+                setTimeout(() => setToast(null), 3000);
+              }}
+              className="w-full px-4 py-3 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] transition-colors flex items-center gap-2"
             >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><path d="M8 16H3v5" /></svg>
+              Restore story
+            </button>
+            <button
+              onClick={async () => {
+                setShowActions(false);
+                await downloadArchivedStory(currentStory.id);
+              }}
+              className="w-full px-4 py-3 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] transition-colors flex items-center gap-2"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" x2="12" y1="15" y2="3" /></svg>
+              Download
+            </button>
+            <button
+              onClick={() => { setConfirmDelete(true); setShowActions(false) }}
+              className="w-full px-4 py-3 text-left text-sm text-red-500 hover:bg-[var(--bg-secondary)] transition-colors flex items-center gap-2"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
               Delete
             </button>
+          </div>
+        )}
+
+        {/* Toast */}
+        {toast && (
+          <div className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-white/90 text-black px-4 py-2 rounded-xl text-sm font-medium shadow-lg">
+            {toast}
+          </div>
+        )}
+
+        {/* Restoring overlay */}
+        {restoring && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-50">
+            <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
           </div>
         )}
 

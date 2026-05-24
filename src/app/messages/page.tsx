@@ -6,14 +6,14 @@ import { Avatar } from '@/components/ui/avatar';
 import { createClient } from '@/lib/supabase/client';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { cn } from '@/lib/utils';
-import { formatTimeAgo } from '@/lib/utils';
 import Link from 'next/link';
-import { getMessages, sendMessage, markConversationAsRead, getSignedUrl, addReaction, deleteMessage, reportMessage } from '@/services/messages';
+import { getMessages, sendMessage, markConversationAsRead, markMessagesAsDelivered, markMessagesAsSeen, getSignedUrl, addReaction, deleteMessage, reportMessage } from '@/services/messages';
 import type { MediaMetadata } from '@/services/messages';
 import { MessageBubble, type MessageBubbleData } from '@/components/messages/message-bubble';
 import { ReplyPreview } from '@/components/messages/reply-preview';
 import { compressForMessage, generateThumbnail, validateRawFile, verifyImageContent } from '@/lib/image-compress';
 import { ListSkeleton, Skeleton } from '@/components/design-system/skeleton';
+import { VoiceRecorder } from '@/components/messages/voice-recorder';
 
 interface Message {
   id: string;
@@ -44,16 +44,22 @@ interface Message {
     messageType: string;
     media_url: string | null;
   } | null;
-  reactions?: Record<string, { count: number; userIds: string[] }>;
-  my_reaction?: string | null;
+  reactions: Record<string, { count: number; userIds: string[] }>;
+  my_reaction: string | null;
   status?: 'sending' | 'sent' | 'failed';
   file?: File;
+  duration?: number | null;
+  delivered_at?: string | null;
+  seen_at?: string | null;
 }
 
 interface FailedMessageData {
   content: string;
   media?: MediaMetadata;
   file?: File;
+  blob?: Blob;
+  duration?: number;
+  replyToMessageId?: string;
 }
 
 interface Conversation {
@@ -86,15 +92,20 @@ export default function MessagesPage() {
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
-  const [hoveredMsgId, setHoveredMsgId] = useState<string | null>(null);
-  const [tappedMsgId, setTappedMsgId] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(-1); // -1 = idle, 0-100 = uploading
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
   const [failedMessages, setFailedMessages] = useState<Map<string, FailedMessageData>>(new Map());
   const [replyTo, setReplyTo] = useState<MessageBubbleData | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' } | null>(null);
+  const [isRecordingVoice, setIsRecordingVoice] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const showToast = useCallback((message: string, type: 'error' | 'success' = 'error') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  }, []);
 
   // User state
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -104,6 +115,7 @@ export default function MessagesPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageChannelRef = useRef<RealtimeChannel | null>(null);
   const typingChannelRef = useRef<RealtimeChannel | null>(null);
+  const reactionsChannelRef = useRef<RealtimeChannel | null>(null);
   const messagesRef = useRef<Message[]>([]);
   const sentTempIdsRef = useRef<Set<string>>(new Set());
   const otherUserProfileRef = useRef<UserProfile | null>(null);
@@ -112,8 +124,8 @@ export default function MessagesPage() {
   const selectedIdRef = useRef<string | null>(null);
   const isSubscribedRef = useRef<boolean>(false);
   const signedUrlCacheRef = useRef<Map<string, { url: string; expiresAt: number }>>(new Map());
-
-  const supabase = createClient();
+  const supabaseRef = useRef(createClient());
+  const supabase = supabaseRef.current;
 
   // Keep refs in sync
   useEffect(() => { messagesRef.current = messages; }, [messages]);
@@ -162,8 +174,6 @@ export default function MessagesPage() {
 
       if (!participants || participants.length === 0) { setLoading(false); return; }
 
-      if (!participants || participants.length === 0) { setLoading(false); return; }
-
       const conversationIds = participants.map(p => p.conversation_id);
       const participantMap = new Map(participants.map(p => [p.conversation_id, p]));
 
@@ -209,7 +219,7 @@ export default function MessagesPage() {
         return {
           id: c.id,
           other_user: profile ? { id: profile.id, username: profile.username, display_name: profile.display_name, avatar_url: profile.avatar_url } : null,
-          last_message: lastMsg?.message_type === 'image' ? 'Photo' : lastMsg?.message_type === 'mixed' ? `Photo · ${lastMsg.content}` : (lastMsg?.content || 'Start a conversation'),
+          last_message: lastMsg?.message_type === 'image' ? 'Photo' : lastMsg?.message_type === 'voice' ? '🎤 Voice message' : lastMsg?.message_type === 'mixed' ? `Photo · ${lastMsg.content}` : (lastMsg?.content || 'Start a conversation'),
           unread_count: participant?.unread_count || 0,
           updated_at: lastMsg?.created_at || c.updated_at,
         };
@@ -229,7 +239,7 @@ export default function MessagesPage() {
           if (!exists) return prev;
           return prev.map(c => {
             if (c.id === msg.conversation_id) {
-              const preview = msg.message_type === 'image' ? 'Photo' : msg.message_type === 'mixed' ? `Photo · ${msg.content}` : msg.content;
+              const preview = msg.message_type === 'image' ? 'Photo' : msg.message_type === 'voice' ? '🎤 Voice message' : msg.message_type === 'mixed' ? `Photo · ${msg.content}` : msg.content;
               return {
                 ...c,
                 last_message: preview,
@@ -252,7 +262,6 @@ export default function MessagesPage() {
     setSelectedId(conv.id);
     setShowMobileChat(true);
     setMessages([]);
-    setTappedMsgId(null);
   }, []);
 
   // Load messages when selectedId changes
@@ -270,6 +279,7 @@ export default function MessagesPage() {
 
       if (messageChannelRef.current) { supabase.removeChannel(messageChannelRef.current); messageChannelRef.current = null; }
       if (typingChannelRef.current) { supabase.removeChannel(typingChannelRef.current); typingChannelRef.current = null; }
+      if (reactionsChannelRef.current) { supabase.removeChannel(reactionsChannelRef.current); reactionsChannelRef.current = null; }
 
       const result = await getMessages(selectedId as string);
 
@@ -287,13 +297,32 @@ export default function MessagesPage() {
       setLoadingMessages(false);
 
       await markConversationAsRead(selectedId as string);
+      // Mark all unseen/undelivered messages from others as delivered + seen
+      await markMessagesAsDelivered(selectedId as string);
+      const seenIds = await markMessagesAsSeen(selectedId as string);
+      if (seenIds.length > 0) {
+        setMessages(prev => prev.map(m => seenIds.includes(m.id) ? { ...m, seen_at: new Date().toISOString() } : m));
+      }
       setConversations(prev => prev.map(c => c.id === selectedId ? { ...c, unread_count: 0 } : c));
 
       const messageChannel = supabase
         .channel(`messages-${selectedId}`)
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${selectedId}` }, async (payload) => {
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'messages', filter: `conversation_id=eq.${selectedId}` }, async (payload) => {
+          // Handle UPDATE events for read receipts
+          if (payload.eventType === 'UPDATE') {
+            const updated = payload.new as { id: string; delivered_at?: string; seen_at?: string };
+            setMessages(prev => prev.map(m => {
+              if (m.id !== updated.id) return m;
+              const next = { ...m };
+              if (updated.delivered_at && !m.delivered_at) next.delivered_at = updated.delivered_at;
+              if (updated.seen_at && !m.seen_at) next.seen_at = updated.seen_at;
+              return next;
+            }));
+            return;
+          }
+          if (payload.eventType !== 'INSERT') return;
           if (cancelled) return;
-          const newMsg = payload.new as { id: string; content: string; sender_id: string; created_at: string; message_type?: string; media_url?: string; thumbnail_url?: string; mime_type?: string; file_size?: number; media_width?: number; media_height?: number };
+          const newMsg = payload.new as { id: string; content: string; sender_id: string; created_at: string; message_type?: string; media_url?: string; thumbnail_url?: string; mime_type?: string; file_size?: number; media_width?: number; media_height?: number; duration?: number };
           if (messagesRef.current.some(m => m.id === newMsg.id)) return;
           if (sentTempIdsRef.current.has(newMsg.id)) return;
 
@@ -331,11 +360,21 @@ export default function MessagesPage() {
             file_size: newMsg.file_size || null,
             media_width: newMsg.media_width || null,
             media_height: newMsg.media_height || null,
+            duration: newMsg.duration || null,
+            reactions: {},
+            my_reaction: null,
           };
           setMessages(prev => deduplicateMessages([...prev, formattedMessage]));
 
           if (newMsg.sender_id !== currentUserIdRef.current) {
             await markConversationAsRead(selectedIdRef.current!);
+            // Mark this message as delivered immediately
+            await markMessagesAsDelivered(selectedIdRef.current!);
+            // Mark as seen since conversation is open
+            const seenIds = await markMessagesAsSeen(selectedIdRef.current!);
+            if (seenIds.length > 0) {
+              setMessages(prev => prev.map(m => seenIds.includes(m.id) ? { ...m, seen_at: new Date().toISOString() } : m));
+            }
             setConversations(prev => prev.map(c => c.id === selectedIdRef.current ? { ...c, unread_count: 0 } : c));
           }
         })
@@ -373,6 +412,10 @@ export default function MessagesPage() {
           const data = payload.new as { message_id: string; user_id: string; emoji: string } | null;
           const oldData = payload.old as { message_id: string; user_id: string; emoji: string } | null;
 
+          // Guard: only process reactions for messages in current conversation
+          const targetId = (data?.message_id || oldData?.message_id);
+          if (!targetId || !messagesRef.current.some(m => m.id === targetId)) return;
+
           if (event === 'INSERT' && data) {
             setMessages(prev => prev.map(m => {
               if (m.id !== data.message_id) return m;
@@ -401,6 +444,8 @@ export default function MessagesPage() {
           }
         })
         .subscribe();
+
+      reactionsChannelRef.current = reactionsChannel;
     }
 
     loadMessagesAndSubscribe();
@@ -410,6 +455,7 @@ export default function MessagesPage() {
       isSubscribedRef.current = false;
       if (messageChannelRef.current) { supabase.removeChannel(messageChannelRef.current); messageChannelRef.current = null; }
       if (typingChannelRef.current) { supabase.removeChannel(typingChannelRef.current); typingChannelRef.current = null; }
+      if (reactionsChannelRef.current) { supabase.removeChannel(reactionsChannelRef.current); reactionsChannelRef.current = null; }
     };
   }, [selectedId, currentUserId, currentUserProfile, deduplicateMessages]);
 
@@ -453,13 +499,13 @@ export default function MessagesPage() {
 
     const error = validateRawFile(file);
     if (error) {
-      alert(error);
+      showToast(error);
       return;
     }
 
     const contentError = await verifyImageContent(file);
     if (contentError) {
-      alert(contentError);
+      showToast(contentError);
       return;
     }
 
@@ -557,6 +603,39 @@ export default function MessagesPage() {
 
     let media: MediaMetadata | undefined;
 
+    // Voice retry: re-upload blob
+    if (failedData.blob) {
+      const timestamp = Date.now();
+      const random = Math.random().toString(36).substring(2, 8);
+      const ext = failedData.blob.type.includes('webm') ? 'webm' : failedData.blob.type.includes('mp4') ? 'm4a' : 'webm';
+      const voicePath = `${uid}/conversations/${sid}/${timestamp}-${random}.${ext}`;
+
+      const uploadResult = await uploadWithProgress(voicePath, failedData.blob, failedData.blob.type, () => {});
+      if (uploadResult.error) {
+        setMessages(prev => prev.map(m => m.id === tempId ? { ...m, status: 'failed' as const } : m));
+        return;
+      }
+
+      media = {
+        path: voicePath,
+        mimeType: failedData.blob.type,
+        fileSize: failedData.blob.size,
+        duration: failedData.duration,
+      };
+
+      const signedMedia = await getOrRefreshSignedUrl(voicePath);
+      const result = await sendMessage(sid, '', media, undefined, undefined, failedData.duration);
+      if (result.success && result.message) {
+        setFailedMessages(prev => { const next = new Map(prev); next.delete(tempId); return next; });
+        setMessages(prev => prev.map(m => m.id === tempId ? {
+          ...m, id: result.message!.id, createdAt: result.message!.created_at, status: 'sent' as const, media_url: signedMedia || m.media_url,
+        } : m));
+      } else {
+        setMessages(prev => prev.map(m => m.id === tempId ? { ...m, status: 'failed' as const } : m));
+      }
+      return;
+    }
+
     if (failedData.file) {
       setUploadProgress(0);
       try {
@@ -592,7 +671,7 @@ export default function MessagesPage() {
     }
 
     const displayContent = failedData.content;
-    const result = await sendMessage(sid, displayContent, media);
+    const result = await sendMessage(sid, displayContent, media, failedData.replyToMessageId);
 
     if (result.success && result.message) {
       const [signedMedia, signedThumb] = await Promise.all([
@@ -656,7 +735,7 @@ export default function MessagesPage() {
   const handleDelete = useCallback(async (messageId: string, deleteForEveryone: boolean) => {
     const result = await deleteMessage(messageId, deleteForEveryone);
     if (result.error) {
-      alert(result.error);
+      showToast(result.error);
       return;
     }
     if (result.action === 'deleted_for_me') {
@@ -677,7 +756,31 @@ export default function MessagesPage() {
   const handleReport = useCallback(async (messageId: string) => {
     const result = await reportMessage(messageId);
     if (result.message) {
-      alert(result.message);
+      showToast(result.message, 'success');
+    }
+  }, []);
+
+  const handleSaveMedia = useCallback(async (mediaUrl: string, messageType: string, mediaPath?: string) => {
+    try {
+      let url = mediaUrl;
+      // Refresh signed URL if we have the path
+      if (mediaPath) {
+        const fresh = await getOrRefreshSignedUrl(mediaPath);
+        if (fresh) url = fresh;
+      }
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Fetch failed');
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = url.split('/').pop()?.split('?')[0] || 'media';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+    } catch {
+      showToast('Failed to save media');
     }
   }, []);
 
@@ -714,7 +817,7 @@ export default function MessagesPage() {
         const imgResult = await uploadWithProgress(imagePath, compressed.file, 'image/webp', setUploadProgress);
 
         if (imgResult.error) {
-          alert(imgResult.error);
+          showToast(imgResult.error);
           setUploadProgress(-1);
           setSending(false);
           return;
@@ -732,7 +835,7 @@ export default function MessagesPage() {
           height: compressed.height,
         };
       } catch (err) {
-        alert(err instanceof Error ? err.message : 'Failed to process image.');
+        showToast(err instanceof Error ? err.message : 'Failed to process image.');
         setUploadProgress(-1);
         setSending(false);
         return;
@@ -765,6 +868,8 @@ export default function MessagesPage() {
       file_size: media?.fileSize || null,
       media_width: media?.width || null,
       media_height: media?.height || null,
+      reactions: {},
+      my_reaction: null,
       status: 'sending',
       file: imageFile ?? undefined,
     };
@@ -782,6 +887,8 @@ export default function MessagesPage() {
         media?.path ? getOrRefreshSignedUrl(media.path) : Promise.resolve(null),
         media?.thumbnailPath ? getOrRefreshSignedUrl(media.thumbnailPath) : Promise.resolve(null),
       ]);
+      // Revoke blob URLs after replacing with signed URLs
+      if (tempMediaUrl) URL.revokeObjectURL(tempMediaUrl);
       setMessages(prev => deduplicateMessages(prev.map(m => m.id === tempId ? {
         ...m,
         id: result.message!.id,
@@ -789,15 +896,94 @@ export default function MessagesPage() {
         status: 'sent' as const,
         media_url: signedMedia || m.media_url,
         thumbnail_url: signedThumb || m.thumbnail_url,
+        delivered_at: (result.message as Record<string, unknown>).delivered_at as string | null || null,
+        seen_at: (result.message as Record<string, unknown>).seen_at as string | null || null,
       } : m)));
     } else {
       tid.delete(tempId);
       // Mark as failed instead of removing — user can retry
       setMessages(prev => prev.map(m => m.id === tempId ? { ...m, status: 'failed' as const } : m));
-      setFailedMessages(prev => new Map(prev).set(tempId, { content: displayContent, media, file: imageFile ?? undefined }));
+      setFailedMessages(prev => new Map(prev).set(tempId, { content: displayContent, media, file: imageFile ?? undefined, replyToMessageId: replyTo?.id }));
     }
     setSending(false);
   };
+
+  const handleVoiceSend = useCallback(async (blob: Blob, duration: number) => {
+    const sid = selectedIdRef.current;
+    const uid = currentUserIdRef.current;
+    const profile = currentUserProfileRef.current;
+    const tid = sentTempIdsRef.current;
+
+    if (!sid || !uid || !profile || blob.size < 100) {
+      setIsRecordingVoice(false);
+      return;
+    }
+
+    setIsRecordingVoice(false);
+    setSending(true);
+
+    // Upload voice blob
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substring(2, 8);
+    const ext = blob.type.includes('webm') ? 'webm' : blob.type.includes('mp4') ? 'm4a' : 'webm';
+    const voicePath = `${uid}/conversations/${sid}/${timestamp}-${random}.${ext}`;
+
+    const uploadResult = await uploadWithProgress(voicePath, blob, blob.type, () => {});
+    if (uploadResult.error) {
+      showToast(uploadResult.error);
+      setSending(false);
+      return;
+    }
+
+    const media: MediaMetadata = {
+      path: voicePath,
+      mimeType: blob.type,
+      fileSize: blob.size,
+      duration,
+    };
+
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    tid.add(tempId);
+
+    const tempMessage: Message = {
+      id: tempId,
+      content: '',
+      senderId: uid,
+      createdAt: new Date().toISOString(),
+      isMine: true,
+      sender: profile,
+      message_type: 'voice',
+      media_path: voicePath,
+      media_url: URL.createObjectURL(blob),
+      duration,
+      reactions: {},
+      my_reaction: null,
+      status: 'sending',
+    };
+    const voiceBlobUrl = tempMessage.media_url!;
+    setMessages(prev => deduplicateMessages([...prev, tempMessage]));
+
+    const result = await sendMessage(sid, '', media, undefined, undefined, duration);
+
+    if (result.success && result.message) {
+      tid.delete(tempId);
+      const signedMedia = await getOrRefreshSignedUrl(voicePath);
+      URL.revokeObjectURL(voiceBlobUrl);
+      setMessages(prev => deduplicateMessages(prev.map(m => m.id === tempId ? {
+        ...m,
+        id: result.message!.id,
+        createdAt: result.message!.created_at,
+        status: 'sent' as const,
+        media_url: signedMedia || m.media_url,
+        delivered_at: (result.message as Record<string, unknown>).delivered_at as string | null || null,
+      } : m)));
+    } else {
+      tid.delete(tempId);
+      setMessages(prev => prev.map(m => m.id === tempId ? { ...m, status: 'failed' as const } : m));
+      setFailedMessages(prev => new Map(prev).set(tempId, { content: '', blob, duration }));
+    }
+    setSending(false);
+  }, [uploadWithProgress, showToast, deduplicateMessages]);
 
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -809,10 +995,6 @@ export default function MessagesPage() {
     if (hours < 24) return `${hours}h`;
     if (days < 7) return `${days}d`;
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  };
-
-  const handleMessageTap = (msgId: string) => {
-    setTappedMsgId(prev => prev === msgId ? null : msgId);
   };
 
   const selectedConversation = conversations.find(c => c.id === selectedId);
@@ -991,6 +1173,9 @@ export default function MessagesPage() {
                             onDelete={handleDelete}
                             onCopy={handleCopy}
                             onReport={handleReport}
+                            onSaveMedia={handleSaveMedia}
+                            onImageClick={setEnlargedImage}
+                            onRefreshUrl={getOrRefreshSignedUrl}
                           />
                         </div>
                       );
@@ -1008,85 +1193,112 @@ export default function MessagesPage() {
               </div>
 
               {/* Message Input */}
-              <form onSubmit={handleSend} className="p-3 border-t border-[var(--border-subtle)] shrink-0">
+              <form onSubmit={handleSend} className="border-t border-[var(--border-subtle)] shrink-0">
                 {/* Reply preview */}
                 {replyTo && (
-                  <ReplyPreview
-                    senderName={replyTo.sender?.display_name || 'Unknown'}
-                    content={replyTo.content}
-                    messageType={replyTo.message_type}
-                    mediaUrl={replyTo.thumbnail_url || replyTo.media_url}
-                    onCancel={() => setReplyTo(null)}
-                  />
+                  <div className="px-3 pt-3 pb-0">
+                    <ReplyPreview
+                      senderName={replyTo.sender?.display_name || 'Unknown'}
+                      content={replyTo.content}
+                      messageType={replyTo.message_type}
+                      mediaUrl={replyTo.thumbnail_url || replyTo.media_url}
+                      onCancel={() => setReplyTo(null)}
+                    />
+                  </div>
                 )}
 
                 {/* Image preview */}
                 {imagePreview && (
-                  <div className="mb-2 relative inline-block">
-                    <img src={imagePreview} alt="Preview" className="max-h-[120px] rounded-lg object-cover" />
-                    <button
-                      type="button"
-                      onClick={clearImagePreview}
-                      aria-label="Remove image"
-                      className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-[var(--bg-tertiary)] border border-[var(--border-subtle)] text-[var(--text-muted)] flex items-center justify-center text-xs hover:text-[var(--text-primary)]"
-                    >
-                      &times;
-                    </button>
-                    {uploadProgress >= 0 && (
-                      <div className="absolute inset-0 bg-black/50 rounded-lg flex flex-col items-center justify-center gap-1">
-                        <span className="text-white text-xs font-medium">{uploadProgress}%</span>
-                        <div className="w-3/4 h-1 bg-white/30 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-white rounded-full transition-all duration-200"
-                            style={{ width: `${uploadProgress}%` }}
-                          />
+                  <div className="px-3 pt-3 pb-0">
+                    <div className="relative inline-block">
+                      <img src={imagePreview} alt="Preview" className="max-h-[120px] rounded-lg object-cover" />
+                      <button
+                        type="button"
+                        onClick={clearImagePreview}
+                        aria-label="Remove image"
+                        className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-[var(--bg-tertiary)] border border-[var(--border-subtle)] text-[var(--text-muted)] flex items-center justify-center text-xs hover:text-[var(--text-primary)]"
+                      >
+                        &times;
+                      </button>
+                      {uploadProgress >= 0 && (
+                        <div className="absolute inset-0 bg-black/50 rounded-lg flex flex-col items-center justify-center gap-1">
+                          <span className="text-white text-xs font-medium">{uploadProgress}%</span>
+                          <div className="w-3/4 h-1 bg-white/30 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-white rounded-full transition-all duration-200"
+                              style={{ width: `${uploadProgress}%` }}
+                            />
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 )}
-                <div className="flex items-center gap-2">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,image/avif"
-                    onChange={handleImageSelect}
-                    className="hidden"
-                    aria-label="Upload image"
+
+                {/* Voice recorder or normal input */}
+                {isRecordingVoice ? (
+                  <VoiceRecorder
+                    onSend={handleVoiceSend}
+                    onCancel={() => setIsRecordingVoice(false)}
                   />
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={sending || uploadProgress >= 0 || !currentUserProfile}
-                    aria-label="Attach image"
-                    className="p-2.5 rounded-full text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] transition-colors-fast disabled:opacity-30"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <rect width="18" height="18" x="3" y="3" rx="2" ry="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
-                    </svg>
-                  </button>
-                  <label htmlFor="message-input" className="sr-only">Type a message</label>
-                  <input
-                    id="message-input"
-                    type="text"
-                    value={newMessage}
-                    onChange={(e) => { setNewMessage(e.target.value); handleTyping(); }}
-                    placeholder="Message..."
-                    aria-label="Type a message"
-                    disabled={!currentUserProfile}
-                    className="flex-1 px-4 py-2.5 rounded-full bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-strong)] disabled:opacity-50 text-sm"
-                  />
-                  <button
-                    type="submit"
-                    disabled={(!newMessage.trim() && !imageFile) || sending || !currentUserProfile}
-                    aria-label="Send message"
-                    className="p-2.5 rounded-full bg-[var(--accent-primary)] text-[var(--text-inverse)] disabled:opacity-30 hover:opacity-90 transition-all active:scale-95"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" />
-                    </svg>
-                  </button>
-                </div>
+                ) : (
+                  <div className="p-3 flex items-center gap-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/avif"
+                      onChange={handleImageSelect}
+                      className="hidden"
+                      aria-label="Upload image"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={sending || uploadProgress >= 0 || !currentUserProfile}
+                      aria-label="Attach image"
+                      className="p-2.5 rounded-full text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] transition-colors-fast disabled:opacity-30"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <rect width="18" height="18" x="3" y="3" rx="2" ry="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+                      </svg>
+                    </button>
+                    <label htmlFor="message-input" className="sr-only">Type a message</label>
+                    <input
+                      id="message-input"
+                      type="text"
+                      value={newMessage}
+                      onChange={(e) => { setNewMessage(e.target.value); handleTyping(); }}
+                      placeholder="Message..."
+                      aria-label="Type a message"
+                      disabled={!currentUserProfile}
+                      className="flex-1 px-4 py-2.5 rounded-full bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-strong)] disabled:opacity-50 text-sm"
+                    />
+                    {newMessage.trim() || imageFile ? (
+                      <button
+                        type="submit"
+                        disabled={sending || !currentUserProfile}
+                        aria-label="Send message"
+                        className="p-2.5 rounded-full bg-[var(--accent-primary)] text-[var(--text-inverse)] disabled:opacity-30 hover:opacity-90 transition-all active:scale-95"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" />
+                        </svg>
+                      </button>
+                    ) : typeof MediaRecorder !== 'undefined' ? (
+                      <button
+                        type="button"
+                        onClick={() => setIsRecordingVoice(true)}
+                        disabled={sending || !currentUserProfile}
+                        aria-label="Record voice message"
+                        className="p-2.5 rounded-full text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] transition-colors-fast disabled:opacity-30"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" x2="12" y1="19" y2="22" />
+                        </svg>
+                      </button>
+                    ) : null}
+                  </div>
+                )}
               </form>
             </>
           ) : (
@@ -1106,8 +1318,11 @@ export default function MessagesPage() {
         <div
           role="dialog"
           aria-label="Image preview"
-          className="fixed inset-0 z-[100] bg-[var(--story-overlay)] flex items-center justify-center p-4"
+          className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4"
           onClick={() => setEnlargedImage(null)}
+          onKeyDown={(e) => e.key === 'Escape' && setEnlargedImage(null)}
+          tabIndex={0}
+          ref={(el) => { if (el) el.focus(); }}
         >
           <button
             onClick={() => setEnlargedImage(null)}
@@ -1118,6 +1333,7 @@ export default function MessagesPage() {
               <path d="M18 6 6 18" /><path d="m6 6 12 12" />
             </svg>
           </button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={enlargedImage}
             alt="Full size image"

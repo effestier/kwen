@@ -1,0 +1,356 @@
+'use client';
+
+import { useState, useRef, useCallback, useEffect } from 'react';
+import { cn } from '@/lib/utils';
+
+interface VoiceRecorderProps {
+  onSend: (blob: Blob, duration: number) => void;
+  onCancel: () => void;
+  /** If true, recording starts immediately (called from hold-to-record). If false, wait for explicit start. */
+  autoStart?: boolean;
+}
+
+export function VoiceRecorder({ onSend, onCancel, autoStart = true }: VoiceRecorderProps) {
+  const [isRecording, setIsRecording] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
+  const [duration, setDuration] = useState(0);
+  const [waveform, setWaveform] = useState<number[]>(new Array(40).fill(0));
+  const [slideCancelled, setSlideCancelled] = useState(false);
+  const [isUnsupported, setIsUnsupported] = useState(false);
+
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const animFrameRef = useRef<number | null>(null);
+  const durationTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pausedAtRef = useRef<number>(0);
+  const totalPausedMsRef = useRef<number>(0);
+  const durationRef = useRef<number>(0);
+  const cancelledRef = useRef<boolean>(false);
+  const sentRef = useRef<boolean>(false);
+  const mimeTypeRef = useRef<string>('audio/webm');
+  const touchStartXRef = useRef<number>(0);
+  const touchStartYRef = useRef<number>(0);
+
+  const cleanup = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    }
+    if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
+      audioCtxRef.current.close().catch(() => {});
+      audioCtxRef.current = null;
+    }
+    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    if (durationTimerRef.current) clearInterval(durationTimerRef.current);
+    analyserRef.current = null;
+    mediaRecorderRef.current = null;
+  }, []);
+
+  // Single authoritative send
+  const stopAndSend = useCallback(() => {
+    if (sentRef.current || cancelledRef.current) return;
+
+    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    if (durationTimerRef.current) clearInterval(durationTimerRef.current);
+
+    const recorder = mediaRecorderRef.current;
+    if (recorder && (recorder.state === 'recording' || recorder.state === 'paused')) {
+      sentRef.current = true; // prevent re-entry; onstop will call onSend
+      recorder.stop();
+    } else {
+      // No recorder or already stopped — send directly
+      sentRef.current = true;
+      cleanup();
+      const blob = new Blob(chunksRef.current, { type: mimeTypeRef.current });
+      onSend(blob, durationRef.current);
+    }
+  }, [onSend, cleanup]);
+
+  // Single authoritative cancel
+  const doCancel = useCallback(() => {
+    if (sentRef.current) return;
+    cancelledRef.current = true;
+
+    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    if (durationTimerRef.current) clearInterval(durationTimerRef.current);
+
+    const recorder = mediaRecorderRef.current;
+    if (recorder && (recorder.state === 'recording' || recorder.state === 'paused')) {
+      recorder.ondataavailable = null; // prevent any further data
+      recorder.stop();
+    }
+    cleanup();
+    onCancel();
+  }, [onCancel, cleanup]);
+
+  // Start recording
+  const startRecording = useCallback(async () => {
+    try {
+      if (typeof MediaRecorder === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+        setIsUnsupported(true);
+        return;
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+
+      const audioCtx = new AudioContext();
+      audioCtxRef.current = audioCtx;
+      const source = audioCtx.createMediaStreamSource(stream);
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 128;
+      source.connect(analyser);
+      analyserRef.current = analyser;
+
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')
+        ? 'audio/ogg;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/mp4')
+        ? 'audio/mp4'
+        : 'audio/webm';
+      mimeTypeRef.current = mimeType;
+
+      const recorder = new MediaRecorder(stream, { mimeType });
+      chunksRef.current = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+
+      recorder.onstop = () => {
+        stream.getTracks().forEach(t => t.stop());
+        if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
+          audioCtxRef.current.close().catch(() => {});
+        }
+        if (!cancelledRef.current) {
+          const blob = new Blob(chunksRef.current, { type: mimeType });
+          onSend(blob, durationRef.current);
+        }
+      };
+
+      mediaRecorderRef.current = recorder;
+      recorder.start(100);
+      totalPausedMsRef.current = 0;
+      pausedAtRef.current = 0;
+      setIsRecording(true);
+
+      // Duration timer
+      const startTime = Date.now();
+      durationTimerRef.current = setInterval(() => {
+        const elapsed = Date.now() - startTime - totalPausedMsRef.current;
+        const d = Math.floor(elapsed / 1000);
+        durationRef.current = d;
+        setDuration(d);
+      }, 200);
+
+      // Waveform animation
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      const updateWaveform = () => {
+        analyser.getByteFrequencyData(dataArray);
+        const normalized = Array.from(dataArray.slice(0, 40)).map(v => v / 255);
+        setWaveform(normalized);
+        animFrameRef.current = requestAnimationFrame(updateWaveform);
+      };
+      animFrameRef.current = requestAnimationFrame(updateWaveform);
+    } catch {
+      doCancel();
+    }
+  }, [doCancel, onSend]);
+
+  // Auto-start on mount
+  useEffect(() => {
+    if (autoStart) startRecording();
+    return () => {
+      cancelledRef.current = true;
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+      if (durationTimerRef.current) clearInterval(durationTimerRef.current);
+      if (mediaRecorderRef.current?.state === 'recording' || mediaRecorderRef.current?.state === 'paused') {
+        mediaRecorderRef.current.ondataavailable = null;
+        mediaRecorderRef.current.stop();
+      }
+      cleanup();
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Pause/resume
+  const togglePause = useCallback(() => {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder) return;
+
+    if (recorder.state === 'recording') {
+      recorder.pause();
+      pausedAtRef.current = Date.now();
+      setIsPaused(true);
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    } else if (recorder.state === 'paused') {
+      totalPausedMsRef.current += Date.now() - pausedAtRef.current;
+      recorder.resume();
+      setIsPaused(false);
+      // Restart waveform animation
+      if (analyserRef.current) {
+        const analyser = analyserRef.current;
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        const updateWaveform = () => {
+          analyser.getByteFrequencyData(dataArray);
+          const normalized = Array.from(dataArray.slice(0, 40)).map(v => v / 255);
+          setWaveform(normalized);
+          animFrameRef.current = requestAnimationFrame(updateWaveform);
+        };
+        animFrameRef.current = requestAnimationFrame(updateWaveform);
+      }
+    }
+  }, []);
+
+  // Touch handlers — slide left to cancel, slide up to lock
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartXRef.current = e.touches[0].clientX;
+    touchStartYRef.current = e.touches[0].clientY;
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    const dx = touchStartXRef.current - e.touches[0].clientX;
+    const dy = touchStartYRef.current - e.touches[0].clientY;
+
+    // Slide left to cancel
+    if (dx > 80 && !isLocked) {
+      if (!slideCancelled) {
+        cancelledRef.current = true;
+        setSlideCancelled(true);
+      }
+    } else if (slideCancelled) {
+      cancelledRef.current = false;
+      setSlideCancelled(false);
+    }
+
+    // Slide up to lock
+    if (dy > 80 && !isLocked) {
+      setIsLocked(true);
+    }
+  }, [isLocked, slideCancelled]);
+
+  const handleTouchEnd = useCallback(() => {
+    if (isLocked) return; // Locked mode — don't auto-send
+    if (cancelledRef.current) {
+      doCancel();
+    } else {
+      stopAndSend();
+    }
+  }, [doCancel, stopAndSend, isLocked]);
+
+  const formatDuration = (sec: number) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
+  if (isUnsupported) {
+    return (
+      <div className="flex items-center gap-3 px-4 py-3 bg-[var(--bg-secondary)]">
+        <button
+          type="button"
+          onClick={onCancel}
+          aria-label="Cancel"
+          className="p-2 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+          </svg>
+        </button>
+        <p className="flex-1 text-sm text-[var(--text-muted)]">Voice recording not supported in this browser</p>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={cn(
+        'flex items-center gap-3 px-4 py-3 transition-all touch-none select-none',
+        slideCancelled ? 'bg-[var(--bg-tertiary)]' : 'bg-[var(--bg-secondary)]'
+      )}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Left controls: cancel (locked) or recording indicator */}
+      {isLocked ? (
+        <button
+          type="button"
+          onClick={doCancel}
+          aria-label="Cancel recording"
+          className="p-2 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+          </svg>
+        </button>
+      ) : (
+        <div className="flex items-center gap-2">
+          <div className={cn(
+            'w-3 h-3 rounded-full animate-pulse',
+            slideCancelled ? 'bg-[var(--text-muted)]' : 'bg-white'
+          )} />
+          <span className="text-sm font-mono text-[var(--text-primary)] min-w-[36px]">
+            {formatDuration(duration)}
+          </span>
+        </div>
+      )}
+
+      {/* Waveform visualization */}
+      <div className="flex-1 flex items-center gap-0.5 h-8">
+        {waveform.map((v, i) => (
+          <div
+            key={i}
+            className={cn(
+              'flex-1 rounded-full transition-all duration-75',
+              slideCancelled ? 'bg-[var(--text-muted)]/50' : isPaused ? 'bg-white/30' : 'bg-white/80'
+            )}
+            style={{ height: `${Math.max(4, v * 32)}px` }}
+          />
+        ))}
+      </div>
+
+      {/* Right controls */}
+      {isLocked ? (
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={togglePause}
+            aria-label={isPaused ? 'Resume recording' : 'Pause recording'}
+            className="p-2 text-white/70 hover:text-white transition-colors"
+          >
+            {isPaused ? (
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="5 3 19 12 5 21 5 3" />
+              </svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" />
+              </svg>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={stopAndSend}
+            aria-label="Send voice message"
+            className="p-2 rounded-full bg-white text-black transition-all active:scale-90"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" />
+            </svg>
+          </button>
+        </div>
+      ) : (
+        slideCancelled ? (
+          <span className="text-[var(--text-muted)] text-xs font-medium">Release to cancel</span>
+        ) : (
+          <span className="text-[var(--text-muted)] text-xs">← Cancel · ↑ Lock</span>
+        )
+      )}
+    </div>
+  );
+}

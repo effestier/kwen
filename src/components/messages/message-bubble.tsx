@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
+import { cn } from '@/lib/utils';
 import { ReactionPicker } from './reaction-picker';
 import { MessageActionsMenu, type ActionKind } from './message-actions-menu';
+import { VoiceMessage } from './voice-message';
 
 export interface MessageBubbleData {
   id: string;
@@ -27,6 +29,9 @@ export interface MessageBubbleData {
   delivered_at?: string | null;
   seen_at?: string | null;
   story_id?: string | null;
+  duration?: number | null;
+  forwarded_from?: string | null;
+  media_path?: string | null;
 }
 
 interface MessageBubbleProps {
@@ -37,6 +42,9 @@ interface MessageBubbleProps {
   onDelete: (messageId: string, deleteForEveryone: boolean) => void;
   onCopy: (text: string) => void;
   onReport: (messageId: string) => void;
+  onSaveMedia?: (mediaUrl: string, messageType: string, mediaPath?: string) => void;
+  onImageClick?: (url: string) => void;
+  onRefreshUrl?: (mediaPath: string) => Promise<string | null>;
 }
 
 function formatTime(dateStr: string): string {
@@ -44,7 +52,7 @@ function formatTime(dateStr: string): string {
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-export function MessageBubble({ message, showAvatar, onReact, onReply, onDelete, onCopy, onReport }: MessageBubbleProps) {
+export function MessageBubble({ message, showAvatar, onReact, onReply, onDelete, onCopy, onReport, onSaveMedia, onImageClick, onRefreshUrl }: MessageBubbleProps) {
   const [showActions, setShowActions] = useState(false);
   const [showReactionPicker, setShowReactionPicker] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -52,7 +60,8 @@ export function MessageBubble({ message, showAvatar, onReact, onReply, onDelete,
   const bubbleRef = useRef<HTMLDivElement>(null);
 
   const isText = message.message_type === 'text' || message.message_type === 'mixed' || message.message_type === 'story_reply';
-  const hasReactions = message.reactions ? Object.keys(message.reactions).length > 0 : false;
+  const reactions = message.reactions ?? {};
+  const hasReactions = Object.keys(reactions).length > 0;
 
   // Long press handlers (mobile)
   const handleTouchStart = useCallback(() => {
@@ -88,11 +97,11 @@ export function MessageBubble({ message, showAvatar, onReact, onReply, onDelete,
       case 'report':
         onReport(message.id);
         break;
-      case 'forward':
-        // Stub
+      case 'save':
+        if (message.media_url) onSaveMedia?.(message.media_url, message.message_type, message.media_path || undefined);
         break;
     }
-  }, [message, onReply, onCopy, onDelete, onReport]);
+  }, [message, onReply, onCopy, onDelete, onReport, onSaveMedia]);
 
   const handleReactionSelect = useCallback((emoji: string) => {
     onReact(message.id, emoji);
@@ -175,7 +184,10 @@ export function MessageBubble({ message, showAvatar, onReact, onReply, onDelete,
 
           {/* Image (image-only or mixed text+image) */}
           {(message.message_type === 'image' || message.message_type === 'mixed') && message.media_url && (
-            <div className="rounded-lg overflow-hidden mb-1 max-w-[280px]">
+            <div
+              className="rounded-lg overflow-hidden mb-1 max-w-[280px] cursor-pointer"
+              onClick={() => onImageClick?.(message.media_url!)}
+            >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={message.media_url}
@@ -186,9 +198,34 @@ export function MessageBubble({ message, showAvatar, onReact, onReply, onDelete,
             </div>
           )}
 
+          {/* Forwarded label */}
+          {message.forwarded_from && (
+            <p className={`text-[10px] italic mb-1 ${message.isMine ? 'text-white/50' : 'text-[var(--text-muted)]'}`}>
+              ↪ Forwarded
+            </p>
+          )}
+
+          {/* Voice message */}
+          {message.message_type === 'voice' && message.media_url && message.media_path && (
+            <VoiceMessage
+              mediaUrl={message.media_url}
+              duration={message.duration || 0}
+              isMine={message.isMine}
+              onRefreshUrl={onRefreshUrl ? () => onRefreshUrl(message.media_path!) : undefined}
+            />
+          )}
+
           {/* Text content */}
-          {message.content && message.content !== 'Photo' && (
-            <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+          {message.content && message.content !== 'Photo' && message.message_type !== 'voice' && (
+            <p className={cn(
+              'whitespace-pre-wrap break-words',
+              // Large emoji: if content is only emoji (1-3 emoji), show big
+              /^[\p{Emoji_Presentation}\p{Emoji}\u200d\ufe0f]{1,12}$/u.test(message.content)
+                ? 'text-4xl'
+                : 'text-sm'
+            )}>
+              {message.content}
+            </p>
           )}
 
           {/* Timestamp + Read receipt */}
@@ -199,11 +236,11 @@ export function MessageBubble({ message, showAvatar, onReact, onReply, onDelete,
             {message.isMine && (
               <span className="text-[10px]" title={message.seen_at ? `Seen at ${new Date(message.seen_at).toLocaleTimeString()}` : message.delivered_at ? 'Delivered' : 'Sent'}>
                 {message.seen_at ? (
-                  <span className="text-[var(--accent-primary)]">✓✓</span>
+                  <span className="text-white">✓✓</span>
                 ) : message.delivered_at ? (
-                  <span className="text-[var(--text-muted)]">✓✓</span>
+                  <span className="text-white/60">✓✓</span>
                 ) : (
-                  <span className="text-[var(--text-muted)]/60">✓</span>
+                  <span className="text-white/40">✓</span>
                 )}
               </span>
             )}
@@ -213,7 +250,7 @@ export function MessageBubble({ message, showAvatar, onReact, onReply, onDelete,
         {/* Reactions pill */}
         {hasReactions && (
           <div className={`flex flex-wrap gap-1 mt-1 ${message.isMine ? 'justify-end' : 'justify-start'}`}>
-            {Object.entries(message.reactions).map(([emoji, data]) => (
+            {Object.entries(reactions).map(([emoji, data]) => (
               <button
                 key={emoji}
                 onClick={() => onReact(message.id, emoji)}

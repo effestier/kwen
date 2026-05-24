@@ -7,6 +7,7 @@ export interface MediaMetadata {
   fileSize?: number;
   width?: number;
   height?: number;
+  duration?: number;
 }
 
 const SIGNED_URL_EXPIRY = 900; // 15 minutes
@@ -51,7 +52,7 @@ export async function getSignedUrl(storagePath: string): Promise<{ url?: string;
   }
 }
 
-export async function sendMessage(conversationId: string, content: string, media?: MediaMetadata, replyToMessageId?: string, storyId?: string) {
+export async function sendMessage(conversationId: string, content: string, media?: MediaMetadata, replyToMessageId?: string, storyId?: string, voiceDuration?: number) {
   try {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -75,12 +76,14 @@ export async function sendMessage(conversationId: string, content: string, media
     let messageType: string;
     if (storyId) {
       messageType = 'story_reply';
+    } else if (voiceDuration != null && media?.path) {
+      messageType = 'voice';
     } else if (media?.path) {
       messageType = cleanContent ? 'mixed' : 'image';
     } else {
       messageType = 'text';
     }
-    const messageContent = cleanContent || (media?.path ? 'Photo' : storyId ? '' : '');
+    const messageContent = cleanContent || (voiceDuration != null ? '' : media?.path ? 'Photo' : storyId ? '' : '');
 
     const insertData: Record<string, unknown> = {
       conversation_id: conversationId,
@@ -94,6 +97,10 @@ export async function sendMessage(conversationId: string, content: string, media
       media_width: media?.width || null,
       media_height: media?.height || null,
     };
+
+    if (voiceDuration != null) {
+      insertData.duration = voiceDuration;
+    }
 
     if (replyToMessageId) {
       insertData.reply_to_message_id = replyToMessageId;
@@ -210,7 +217,7 @@ export async function getMessages(conversationId: string) {
 
     const { data: messages, error } = await supabase
       .from('messages')
-      .select('id, content, sender_id, created_at, message_type, media_url, thumbnail_url, mime_type, file_size, media_width, media_height, reply_to_message_id, deleted_for, story_id')
+      .select('id, content, sender_id, created_at, message_type, media_url, thumbnail_url, mime_type, file_size, media_width, media_height, reply_to_message_id, deleted_for, story_id, duration, forwarded_from, delivered_at, seen_at')
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: true })
       .limit(200);
@@ -323,6 +330,10 @@ export async function getMessages(conversationId: string) {
         reactions: reactionCounts,
         my_reaction: reactions.find(r => r.userId === user.id)?.emoji || null,
         story_id: (msg as Record<string, unknown>).story_id || null,
+        duration: ((msg as Record<string, unknown>).duration as number) || null,
+        forwarded_from: (msg as Record<string, unknown>).forwarded_from || null,
+        delivered_at: (msg as Record<string, unknown>).delivered_at as string | null || null,
+        seen_at: (msg as Record<string, unknown>).seen_at as string | null || null,
       };
     });
 
@@ -346,6 +357,45 @@ export async function markConversationAsRead(conversationId: string) {
       .eq('user_id', user.id);
   } catch {
     // Silent fail
+  }
+}
+
+export async function markMessagesAsDelivered(conversationId: string) {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user || !conversationId) return;
+
+    // Mark messages from others as delivered (not sent by me, not yet delivered)
+    await supabase
+      .from('messages')
+      .update({ delivered_at: new Date().toISOString() })
+      .eq('conversation_id', conversationId)
+      .neq('sender_id', user.id)
+      .is('delivered_at', null);
+  } catch {
+    // Silent fail
+  }
+}
+
+export async function markMessagesAsSeen(conversationId: string) {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user || !conversationId) return [];
+
+    // Mark messages from others as seen (not sent by me, not yet seen)
+    const { data: updated } = await supabase
+      .from('messages')
+      .update({ seen_at: new Date().toISOString() })
+      .eq('conversation_id', conversationId)
+      .neq('sender_id', user.id)
+      .is('seen_at', null)
+      .select('id');
+
+    return updated?.map(m => m.id) || [];
+  } catch {
+    return [];
   }
 }
 

@@ -4,11 +4,11 @@ export interface User {
   username: string;
   displayName: string;
   avatar: string;
-  bio: string;
-  followers: number;
-  following: number;
-  posts: number;
-  isVerified: boolean;
+  bio?: string;
+  followers?: number;
+  following?: number;
+  posts?: number;
+  isVerified?: boolean;
   isOnline?: boolean;
 }
 
@@ -30,6 +30,7 @@ export interface Post {
   likes: number;
   comments: number;
   shares: number;
+  saves?: number;
   isLiked: boolean;
   isSaved: boolean;
   createdAt: string;

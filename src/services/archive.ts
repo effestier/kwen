@@ -78,3 +78,85 @@ export async function deleteArchivedStory(storyId: string): Promise<{ success?: 
   if (error) return { error: 'Failed to delete' }
   return { success: true }
 }
+
+/**
+ * Restore an archived story as a new active story
+ */
+export async function restoreArchivedStory(archiveId: string): Promise<{ success?: boolean; error?: string }> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  // Fetch the archived story
+  const { data: archived, error: fetchError } = await supabase
+    .from('story_archive')
+    .select('*')
+    .eq('id', archiveId)
+    .eq('user_id', user.id)
+    .single()
+
+  if (fetchError || !archived) return { error: 'Archived story not found' }
+
+  // Create new active story from archive
+  const { data: newStory, error: insertError } = await supabase
+    .from('stories')
+    .insert({
+      user_id: user.id,
+      media_url: archived.media_url,
+      media_type: archived.media_type || 'image',
+      visibility: archived.visibility || 'public',
+      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    })
+    .select()
+    .single()
+
+  if (insertError || !newStory) return { error: 'Failed to restore story' }
+
+  // Restore overlays if they exist
+  if (archived.overlays && Array.isArray(archived.overlays) && archived.overlays.length > 0) {
+    const overlayRecords = archived.overlays.map((o: { overlay_type: string; payload: Record<string, unknown>; z_index: number }) => ({
+      story_id: newStory.id,
+      overlay_type: o.overlay_type,
+      payload: JSON.stringify(o.payload),
+      z_index: o.z_index || 0,
+    }))
+
+    await supabase.from('story_overlays').insert(overlayRecords)
+  }
+
+  return { success: true }
+}
+
+/**
+ * Download an archived story's media
+ */
+export async function downloadArchivedStory(archiveId: string): Promise<{ success?: boolean; error?: string }> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { data: archived, error: fetchError } = await supabase
+    .from('story_archive')
+    .select('media_url, media_type')
+    .eq('id', archiveId)
+    .eq('user_id', user.id)
+    .single()
+
+  if (fetchError || !archived) return { error: 'Archived story not found' }
+
+  try {
+    const response = await fetch(archived.media_url)
+    const blob = await response.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = archived.media_type === 'video' ? 'story-video.mp4' : 'story-image.jpg'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    return { success: true }
+  } catch {
+    return { error: 'Failed to download' }
+  }
+}

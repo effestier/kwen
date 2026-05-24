@@ -7,6 +7,7 @@ import { PostCard } from '@/components/post/post-card';
 import { Avatar } from '@/components/ui/avatar';
 import { createClient } from '@/lib/supabase/client';
 import { CardSkeleton } from '@/components/design-system/skeleton';
+import { SuggestedUsers } from '@/components/explore/suggested-users';
 import { usePullToRefresh, useScrollPreservation } from '@/lib/hooks/use-pull-to-refresh';
 import Link from 'next/link';
 
@@ -18,11 +19,14 @@ interface FeedPost {
   created_at: string;
   like_count: number;
   comment_count: number;
+  save_count: number;
+  share_count: number;
   is_liked: boolean;
   is_saved: boolean;
   display_name: string;
   username: string;
   avatar_url: string | null;
+  is_verified: boolean;
   media: Array<{ id: string; storage_path: string; media_type: string; sort_order: number }>;
   tier: string;
 }
@@ -51,34 +55,40 @@ export default function FeedPage() {
   const [stories, setStories] = useState<Story[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [cursor, setCursor] = useState<string | null>(null);
+  const [cursor, setCursor] = useState<{ time: string; id: string } | null>(null);
   const [hasMore, setHasMore] = useState(true);
-  const [verifiedMap, setVerifiedMap] = useState<Map<string, boolean>>(new Map());
+  const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
+  const [followingCount, setFollowingCount] = useState(0);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const postsRef = useRef<FeedPost[]>([]);
   const userRef = useRef<Profile | null>(null);
+  const seenIdsRef = useRef<Set<string>>(new Set());
   const supabase = createClient();
 
-  // Scroll preservation
   useScrollPreservation({ key: 'feed' });
 
-  const loadPosts = useCallback(async (userId: string, cursorVal: string | null) => {
+  const loadPosts = useCallback(async (userId: string, cursorTime: string | null, cursorId: string | null) => {
     const { data: feedPosts } = await supabase.rpc('get_discovery_feed', {
       p_user_id: userId,
       p_limit: 20,
-      p_cursor: cursorVal,
+      p_cursor_time: cursorTime,
+      p_cursor_id: cursorId,
     });
     return feedPosts || [];
   }, [supabase]);
 
-  // Pull-to-refresh
   const handleRefresh = useCallback(async () => {
     const { data: { user: authUser } } = await supabase.auth.getUser();
     if (!authUser) return;
-    const freshPosts = await loadPosts(authUser.id, null);
+    const freshPosts = await loadPosts(authUser.id, null, null);
+    const unique = freshPosts.filter((p: FeedPost) => !seenIdsRef.current.has(p.id));
+    seenIdsRef.current = new Set(freshPosts.map((p: FeedPost) => p.id));
     setPosts(freshPosts);
     postsRef.current = freshPosts;
-    if (freshPosts.length > 0) setCursor(freshPosts[freshPosts.length - 1].created_at);
+    if (freshPosts.length > 0) {
+      const last = freshPosts[freshPosts.length - 1];
+      setCursor({ time: last.created_at, id: last.id });
+    }
     setHasMore(freshPosts.length >= 20);
   }, [loadPosts, supabase]);
 
@@ -111,33 +121,27 @@ export default function FeedPage() {
       setUser(profile);
       userRef.current = profile;
 
-      const feedPosts = await loadPosts(authUser.id, null);
+      // Fetch following list
+      const { data: following } = await supabase
+        .from('follows')
+        .select('following_id')
+        .eq('follower_id', authUser.id);
+      const fIds = new Set(following?.map(f => f.following_id) || []);
+      setFollowingIds(fIds);
+      setFollowingCount(fIds.size);
+
+      const feedPosts = await loadPosts(authUser.id, null, null);
+      seenIdsRef.current = new Set(feedPosts.map((p: FeedPost) => p.id));
       setPosts(feedPosts);
       postsRef.current = feedPosts;
       if (feedPosts.length > 0) {
-        setCursor(feedPosts[feedPosts.length - 1].created_at);
+        const last = feedPosts[feedPosts.length - 1];
+        setCursor({ time: last.created_at, id: last.id });
       }
       if (feedPosts.length < 20) setHasMore(false);
 
-      // Fetch is_verified for post authors
-      const authorIds = [...new Set(feedPosts.map((p: any) => p.user_id))];
-      if (authorIds.length > 0) {
-        const { data: authorProfiles } = await supabase
-          .from('profiles')
-          .select('id, is_verified')
-          .in('id', authorIds);
-        if (authorProfiles) {
-          const vMap = new Map<string, boolean>();
-          authorProfiles.forEach((p: any) => vMap.set(p.id, !!p.is_verified));
-          setVerifiedMap(vMap);
-        }
-      }
-
       // Stories
-      const { data: following } = await supabase.from('follows').select('following_id').eq('follower_id', authUser.id);
-      const followingIds = following?.map(f => f.following_id) || [];
-      const allUserIds = [authUser.id, ...followingIds];
-
+      const allUserIds = [authUser.id, ...Array.from(fIds)];
       const { data: userStories } = await supabase
         .from('stories')
         .select('id, user_id, media_url, media_type, visibility, expires_at, created_at, user:profiles!inner(id, username, display_name, avatar_url, is_verified)')
@@ -146,10 +150,8 @@ export default function FeedPage() {
         .order('created_at', { ascending: false })
         .limit(50);
 
-      // Filter by visibility
       let filteredStories = userStories || [];
 
-      // Get close friends list for current user (to check who added me as close friend)
       const closeFriendOwnerIds = filteredStories
         .filter((s: any) => s.visibility === 'close_friends' && s.user_id !== authUser.id)
         .map((s: any) => s.user_id);
@@ -160,17 +162,11 @@ export default function FeedPage() {
           .select('user_id')
           .in('user_id', [...new Set(closeFriendOwnerIds)])
           .eq('friend_id', authUser.id);
-
         const closeFriendSet = new Set(closeFriendRows?.map(r => r.user_id) || []);
-
         filteredStories = filteredStories.filter((s: any) => {
-          // Own stories always visible
           if (s.user_id === authUser.id) return true;
-          // Public stories visible to all
           if (!s.visibility || s.visibility === 'public') return true;
-          // Followers stories visible to followers (already filtered by followingIds)
           if (s.visibility === 'followers') return true;
-          // Close friends stories: only if I'm in their close friends list
           if (s.visibility === 'close_friends') return closeFriendSet.has(s.user_id);
           return true;
         });
@@ -179,7 +175,6 @@ export default function FeedPage() {
       const { data: views } = await supabase.from('story_views').select('story_id').eq('user_id', authUser.id);
       const viewedSet = new Set(views?.map(v => v.story_id) || []);
 
-      // Filter out muted users' stories
       const mutedUsers = JSON.parse(localStorage.getItem('kw-muted-users') || '[]') as string[];
       if (mutedUsers.length > 0) {
         const mutedSet = new Set(mutedUsers);
@@ -207,47 +202,48 @@ export default function FeedPage() {
         setLoadingMore(true);
         const { data: { user: authUser } } = await supabase.auth.getUser();
         if (authUser) {
-          const morePosts = await loadPosts(authUser.id, cursor);
-          setPosts(prev => [...prev, ...morePosts]);
+          const morePosts = await loadPosts(authUser.id, cursor.time, cursor.id);
+          const freshPosts = morePosts.filter((p: FeedPost) => !seenIdsRef.current.has(p.id));
+          freshPosts.forEach((p: FeedPost) => seenIdsRef.current.add(p.id));
+          setPosts(prev => [...prev, ...freshPosts]);
           if (morePosts.length > 0) {
-            setCursor(morePosts[morePosts.length - 1].created_at);
+            const last = morePosts[morePosts.length - 1];
+            setCursor({ time: last.created_at, id: last.id });
           }
           if (morePosts.length < 20) setHasMore(false);
         }
         setLoadingMore(false);
       }
-    }, { rootMargin: '200px' });
+    }, { rootMargin: '400px' });
 
     observer.observe(sentinel);
     return () => observer.disconnect();
   }, [cursor, hasMore, loading, loadingMore]);
 
-  // Realtime: new post insert (without full reload)
+  // Realtime: new post insert
   useEffect(() => {
     const channel = supabase
       .channel('feed-updates')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, async (payload) => {
-        const newPost = payload.new as { id: string; user_id: string; content: string; created_at: string };
-        const currentUser = userRef.current;
-        if (!currentUser) return;
-        // Don't duplicate
-        if (postsRef.current.some(p => p.id === newPost.id)) return;
-        // Fetch full post data
-        const { data: fullPost } = await supabase.rpc('get_discovery_feed', {
-          p_user_id: currentUser.id,
-          p_limit: 1,
-          p_cursor: null,
-        });
-        // Only insert if it's from a followed user or high engagement
-        if (fullPost && fullPost.length > 0) {
-          setPosts(prev => [fullPost[0], ...prev]);
-          postsRef.current = [fullPost[0], ...postsRef.current];
+        const newPost = payload.new as { id: string; user_id: string };
+        if (seenIdsRef.current.has(newPost.id)) return;
+        // Only show if from a followed user
+        if (!followingIds.has(newPost.user_id) && newPost.user_id !== userRef.current?.id) return;
+
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (!authUser) return;
+        const freshPosts = await loadPosts(authUser.id, null, null);
+        const newPost2 = freshPosts.find((p: FeedPost) => p.id === newPost.id);
+        if (newPost2 && !seenIdsRef.current.has(newPost2.id)) {
+          seenIdsRef.current.add(newPost2.id);
+          setPosts(prev => [newPost2, ...prev]);
+          postsRef.current = [newPost2, ...postsRef.current];
         }
       })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [followingIds]);
 
   if (loading) {
     return (
@@ -264,12 +260,12 @@ export default function FeedPage() {
   return (
     <MainLayout>
       <div className="min-h-screen" {...pullHandlers} style={{ transform: pullDistance > 0 ? `translateY(${pullDistance}px)` : undefined, transition: pullDistance === 0 ? 'transform 0.3s ease' : undefined }}>
-        {/* Pull-to-refresh indicator */}
         {pullDistance > 0 && (
           <div className="flex items-center justify-center py-3 text-sm text-[var(--text-muted)]" style={{ marginTop: -pullDistance }}>
             {isRefreshing ? 'Refreshing...' : pullDistance > 60 ? 'Release to refresh' : 'Pull to refresh'}
           </div>
         )}
+
         {/* Mobile Header */}
         <div className="lg:hidden sticky top-0 z-20 bg-[var(--bg-primary)]/90 backdrop-blur-xl border-b border-[var(--border-subtle)] px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
           <div className="flex items-center justify-between">
@@ -315,26 +311,29 @@ export default function FeedPage() {
             </div>
           )}
 
+          {/* Suggested Users (when following < 20) */}
+          {followingCount < 20 && !loading && <SuggestedUsers />}
+
           {/* Posts */}
           {posts.length > 0 ? (
             <div>
               {posts.map((post) => (
                 <PostCard key={post.id} post={{
                   id: post.id,
-                  user: { id: post.user_id, username: post.username, displayName: post.display_name, avatar: post.avatar_url || '', isVerified: verifiedMap.get(post.user_id) || false, bio: '', followers: 0, following: 0, posts: 0 },
+                  user: { id: post.user_id, username: post.username, displayName: post.display_name, avatar: post.avatar_url || '', isVerified: post.is_verified },
                   content: post.content || '',
                   images: post.media?.map(m => m.storage_path) || [],
                   mediaTypes: post.media?.map(m => m.media_type) || [],
                   likes: post.like_count,
                   comments: post.comment_count,
-                  shares: 0,
+                  shares: post.share_count || 0,
+                  saves: post.save_count || 0,
                   isLiked: post.is_liked,
                   isSaved: post.is_saved,
                   createdAt: post.created_at,
                   location: post.location || undefined,
                 }} />
               ))}
-              {/* Infinite scroll sentinel */}
               <div ref={sentinelRef} className="h-1" />
               {loadingMore && (
                 <div className="py-8 flex justify-center">

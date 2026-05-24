@@ -59,6 +59,7 @@ export function ProfileClient({ username }: { username: string }) {
   const [stats, setStats] = useState({ posts: 0, followers: 0, following: 0 });
   const [activeTab, setActiveTab] = useState('posts');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [messaging, setMessaging] = useState(false);
   const [showFollowers, setShowFollowers] = useState(false);
   const [showFollowing, setShowFollowing] = useState(false);
@@ -74,170 +75,202 @@ export function ProfileClient({ username }: { username: string }) {
   const router = useRouter();
 
   useEffect(() => {
-    async function loadData() {
-      let { data: targetProfile, error: profileError } = await supabase
-        .from('profiles')
-        .select('id, username, display_name, avatar_url, bio, is_verified')
-        .eq('username', username)
-        .single();
+    let cancelled = false;
 
-      if (profileError || !targetProfile) {
+    async function loadData() {
+      try {
+        setError(null);
+
+        let { data: targetProfile, error: profileError } = await supabase
+          .from('profiles')
+          .select('id, username, display_name, avatar_url, bio, is_verified')
+          .eq('username', username)
+          .single();
+
+        if (profileError || !targetProfile) {
+          // Profile not found — check if it's the logged-in user's own profile
+          const { data: { user: authUser } } = await supabase.auth.getUser();
+          if (authUser) {
+            const { data: ownProfile } = await supabase
+              .from('profiles')
+              .select('id, username, display_name, avatar_url, bio, is_verified')
+              .eq('id', authUser.id)
+              .single();
+
+            if (ownProfile) {
+              if (ownProfile.username !== username) {
+                // Username doesn't match — show "not found" instead of silent redirect
+                if (!cancelled) {
+                  setError('User not found');
+                  setLoading(false);
+                }
+                return;
+              }
+              targetProfile = ownProfile;
+            } else {
+              const tempUsername = `user_${authUser.id.slice(0, 8)}`;
+              const { data: newProfile } = await supabase
+                .from('profiles')
+                .upsert({
+                  id: authUser.id,
+                  username: tempUsername,
+                  display_name: authUser.email?.split('@')[0] || 'User',
+                }, { onConflict: 'id' })
+                .select('id, username, display_name, avatar_url, bio, is_verified')
+                .single();
+
+              if (newProfile) {
+                if (newProfile.username !== username) {
+                  if (!cancelled) {
+                    setError('User not found');
+                    setLoading(false);
+                  }
+                  return;
+                }
+                targetProfile = newProfile;
+              }
+            }
+          }
+
+          if (!targetProfile) {
+            if (!cancelled) {
+              setError('User not found');
+              setLoading(false);
+            }
+            return;
+          }
+        }
+
+        if (cancelled) return;
+        setProfile(targetProfile);
+
         const { data: { user: authUser } } = await supabase.auth.getUser();
+
         if (authUser) {
-          const { data: ownProfile } = await supabase
+          const { data: currentProfile } = await supabase
             .from('profiles')
             .select('id, username, display_name, avatar_url, bio, is_verified')
             .eq('id', authUser.id)
             .single();
 
-          if (ownProfile) {
-            if (ownProfile.username !== username) {
-              window.location.replace(`/profile/${ownProfile.username}`);
-              return;
-            }
-            targetProfile = ownProfile;
-          } else {
-            const tempUsername = `user_${authUser.id.slice(0, 8)}`;
-            const { data: newProfile } = await supabase
-              .from('profiles')
-              .upsert({
-                id: authUser.id,
-                username: tempUsername,
-                display_name: authUser.email?.split('@')[0] || 'User',
-              }, { onConflict: 'id' })
-              .select('id, username, display_name, avatar_url, bio, is_verified')
+          if (cancelled) return;
+          setCurrentUser(currentProfile);
+
+          if (targetProfile.id !== authUser.id) {
+            const { data: follow } = await supabase
+              .from('follows')
+              .select('id')
+              .eq('follower_id', authUser.id)
+              .eq('following_id', targetProfile.id)
               .single();
 
-            if (newProfile) {
-              if (newProfile.username !== username) {
-                window.location.replace(`/profile/${newProfile.username}`);
-                return;
-              }
-              targetProfile = newProfile;
-            }
+            if (cancelled) return;
+            setIsFollowing(!!follow);
           }
         }
 
-        if (!targetProfile) {
-          setLoading(false);
-          return;
-        }
-      }
-
-      setProfile(targetProfile);
-
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-
-      if (authUser) {
-        const { data: currentProfile } = await supabase
-          .from('profiles')
-          .select('id, username, display_name, avatar_url, bio, is_verified')
-          .eq('id', authUser.id)
-          .single();
-
-        setCurrentUser(currentProfile);
-
-        if (targetProfile.id !== authUser.id) {
-          const { data: follow } = await supabase
-            .from('follows')
-            .select('id')
-            .eq('follower_id', authUser.id)
-            .eq('following_id', targetProfile.id)
-            .single();
-
-          setIsFollowing(!!follow);
-        }
-      }
-
-      const [{ count: postsCount }, { count: followersCount }, { count: followingCount }] = await Promise.all([
-        supabase.from('posts').select('id', { count: 'exact', head: true }).eq('user_id', targetProfile.id).is('deleted_at', null),
-        supabase.from('follows').select('id', { count: 'exact', head: true }).eq('following_id', targetProfile.id),
-        supabase.from('follows').select('id', { count: 'exact', head: true }).eq('follower_id', targetProfile.id),
-      ]);
-
-      setStats({
-        posts: postsCount || 0,
-        followers: followersCount || 0,
-        following: followingCount || 0,
-      });
-
-      // Load highlights
-      const userHighlights = await getUserHighlights(targetProfile.id);
-      setHighlights(userHighlights);
-
-      const { data: userPosts } = await supabase
-        .from('posts')
-        .select('id, user_id, content, location, created_at')
-        .eq('user_id', targetProfile.id)
-        .is('deleted_at', null)
-        .order('created_at', { ascending: false })
-        .limit(9);
-
-      if (userPosts && userPosts.length > 0) {
-        const postIds = userPosts.map(p => p.id);
-
-        const { data: media } = await supabase
-          .from('post_media')
-          .select('post_id, storage_path, sort_order')
-          .in('post_id', postIds)
-          .order('sort_order', { ascending: true });
-
-        const mediaMap = new Map<string, string>();
-        media?.forEach(m => {
-          if (!mediaMap.has(m.post_id)) {
-            mediaMap.set(m.post_id, m.storage_path);
-          }
-        });
-
-        const [{ data: likes }, { data: comments }] = await Promise.all([
-          supabase.from('post_likes').select('post_id').in('post_id', postIds),
-          supabase.from('comments').select('post_id').in('post_id', postIds),
+        const [{ count: postsCount }, { count: followersCount }, { count: followingCount }] = await Promise.all([
+          supabase.from('posts').select('id', { count: 'exact', head: true }).eq('user_id', targetProfile.id).is('deleted_at', null),
+          supabase.from('follows').select('id', { count: 'exact', head: true }).eq('following_id', targetProfile.id),
+          supabase.from('follows').select('id', { count: 'exact', head: true }).eq('follower_id', targetProfile.id),
         ]);
 
-        const likesMap = new Map<string, number>();
-        likes?.forEach(l => {
-          likesMap.set(l.post_id, (likesMap.get(l.post_id) || 0) + 1);
+        if (cancelled) return;
+        setStats({
+          posts: postsCount || 0,
+          followers: followersCount || 0,
+          following: followingCount || 0,
         });
 
-        const commentsMap = new Map<string, number>();
-        comments?.forEach(c => {
-          commentsMap.set(c.post_id, (commentsMap.get(c.post_id) || 0) + 1);
-        });
+        // Load highlights
+        const userHighlights = await getUserHighlights(targetProfile.id);
+        if (!cancelled) setHighlights(userHighlights);
 
-        setPosts(userPosts.map(p => ({
-          id: p.id,
-          content: p.content,
-          images: mediaMap.get(p.id) ? [mediaMap.get(p.id)!] : [],
-          likes: likesMap.get(p.id) || 0,
-          comments: commentsMap.get(p.id) || 0,
-        })));
-      } else {
-        setPosts([]);
+        const { data: userPosts } = await supabase
+          .from('posts')
+          .select('id, user_id, content, location, created_at')
+          .eq('user_id', targetProfile.id)
+          .is('deleted_at', null)
+          .order('created_at', { ascending: false })
+          .limit(9);
+
+        if (cancelled) return;
+
+        if (userPosts && userPosts.length > 0) {
+          const postIds = userPosts.map(p => p.id);
+
+          const { data: media } = await supabase
+            .from('post_media')
+            .select('post_id, storage_path, sort_order')
+            .in('post_id', postIds)
+            .order('sort_order', { ascending: true });
+
+          const mediaMap = new Map<string, string>();
+          media?.forEach(m => {
+            if (!mediaMap.has(m.post_id)) {
+              mediaMap.set(m.post_id, m.storage_path);
+            }
+          });
+
+          const [{ data: likes }, { data: comments }] = await Promise.all([
+            supabase.from('post_likes').select('post_id').in('post_id', postIds),
+            supabase.from('comments').select('post_id').in('post_id', postIds),
+          ]);
+
+          const likesMap = new Map<string, number>();
+          likes?.forEach(l => {
+            likesMap.set(l.post_id, (likesMap.get(l.post_id) || 0) + 1);
+          });
+
+          const commentsMap = new Map<string, number>();
+          comments?.forEach(c => {
+            commentsMap.set(c.post_id, (commentsMap.get(c.post_id) || 0) + 1);
+          });
+
+          if (!cancelled) {
+            setPosts(userPosts.map(p => ({
+              id: p.id,
+              content: p.content,
+              images: mediaMap.get(p.id) ? [mediaMap.get(p.id)!] : [],
+              likes: likesMap.get(p.id) || 0,
+              comments: commentsMap.get(p.id) || 0,
+            })));
+          }
+        } else {
+          if (!cancelled) setPosts([]);
+        }
+
+        if (!cancelled) setLoading(false);
+      } catch {
+        if (!cancelled) {
+          setError('Failed to load profile');
+          setLoading(false);
+        }
       }
-
-      setLoading(false);
     }
 
     loadData();
-  }, [username]);
+    return () => { cancelled = true; };
+  }, [username, supabase]);
 
   const handleFollow = async () => {
     if (!profile || !currentUser) return;
 
     if (!isFollowing) hapticMedium();
-    setIsFollowing(!isFollowing);
+    const wasFollowing = isFollowing;
+    setIsFollowing(!wasFollowing);
     setStats(prev => ({
       ...prev,
-      followers: isFollowing ? prev.followers - 1 : prev.followers + 1,
+      followers: wasFollowing ? prev.followers - 1 : prev.followers + 1,
     }));
 
     try {
       await toggleFollow(profile.id);
     } catch {
-      setIsFollowing(isFollowing);
+      setIsFollowing(wasFollowing);
       setStats(prev => ({
         ...prev,
-        followers: isFollowing ? prev.followers + 1 : prev.followers - 1,
+        followers: wasFollowing ? prev.followers + 1 : prev.followers - 1,
       }));
     }
   };
@@ -272,6 +305,24 @@ export function ProfileClient({ username }: { username: string }) {
             {Array.from({ length: 6 }).map((_, i) => (
               <Skeleton key={i} className="aspect-square" />
             ))}
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <MainLayout>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-[var(--text-muted)] mb-4">{error}</p>
+            <button
+              onClick={() => router.push('/feed')}
+              className="px-4 py-2 bg-[var(--accent-primary)] text-[var(--text-inverse)] rounded-lg text-sm font-medium"
+            >
+              Go to Feed
+            </button>
           </div>
         </div>
       </MainLayout>

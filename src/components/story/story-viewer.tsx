@@ -545,6 +545,7 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
         setSwipeDownDistance(0);
         return;
       }
+    } else if (isVertical && dy < 0) {
       // Upward swipe — reply
       if (dy < -80 || (fastSwipe && dy < -30)) {
         if (!isOwner) {

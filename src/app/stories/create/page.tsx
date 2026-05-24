@@ -89,30 +89,27 @@ export default function CreateStoryPage() {
     }, 1000);
   }, []);
 
-  // Restore draft from localStorage on mount
+  // Restore draft overlays/filters from localStorage on mount (media file cannot be restored)
   useEffect(() => {
     try {
       const saved = localStorage.getItem('kw-story-draft');
       if (saved) {
         const draft = JSON.parse(saved);
-        if (draft.media && Date.now() - draft.timestamp < 24 * 60 * 60 * 1000) {
-          // Draft is less than 24h old — offer restore
-          if (confirm('Restore your unfinished story?')) {
-            setMedia(draft.media);
+        if (Date.now() - draft.timestamp < 24 * 60 * 60 * 1000) {
+          // Restore overlay/filters/music only — media file can't be serialized
+          if (draft.overlays?.length || draft.drawingData || draft.selectedMusic) {
             setOverlays(draft.overlays || []);
             setDrawingData(draft.drawingData || null);
             setFilters(draft.filters || { brightness: 100, contrast: 100, saturation: 100, blur: 0, grayscale: false, warmth: 0 });
             setVisibility(draft.visibility || 'public');
             setSelectedMusic(draft.selectedMusic || null);
-          } else {
-            localStorage.removeItem('kw-story-draft');
+            // Media file can't be restored from localStorage — user must re-select
           }
-        } else {
-          localStorage.removeItem('kw-story-draft');
         }
+        localStorage.removeItem('kw-story-draft');
       }
     } catch {
-      // ignore
+      localStorage.removeItem('kw-story-draft');
     }
   }, []);
 
@@ -460,7 +457,7 @@ export default function CreateStoryPage() {
             </button>
             <button
               onClick={handlePost}
-              disabled={isUploading}
+              disabled={isUploading || !media}
               className="px-5 py-2 rounded-full bg-white text-black text-sm font-semibold hover:opacity-90 disabled:opacity-50"
             >
               {isUploading ? 'Posting...' : 'Share'}

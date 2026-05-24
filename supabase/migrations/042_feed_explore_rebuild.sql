@@ -43,7 +43,8 @@ CREATE OR REPLACE FUNCTION public.get_discovery_feed(
   p_user_id uuid,
   p_limit int DEFAULT 20,
   p_cursor_time timestamptz DEFAULT NULL,
-  p_cursor_id uuid DEFAULT NULL
+  p_cursor_id uuid DEFAULT NULL,
+  p_exclude_ids uuid[] DEFAULT ARRAY[]::uuid[]
 )
 RETURNS TABLE (
   id uuid,
@@ -104,7 +105,7 @@ BEGIN
       OR (p.visibility = 'followers' AND EXISTS (SELECT 1 FROM follows WHERE following_id = p.user_id AND follower_id = p_user_id)))
     AND (v_blocked IS NULL OR NOT (p.user_id = ANY(v_blocked)))
     AND (v_muted IS NULL OR NOT (p.user_id = ANY(v_muted)))
-    AND (p_cursor_time IS NULL OR (p.created_at, p.id) < (p_cursor_time, p_cursor_id))
+    AND (p_exclude_ids IS NULL OR array_length(p_exclude_ids, 1) IS NULL OR NOT (p.id = ANY(p_exclude_ids)))
   ORDER BY p.created_at DESC, p.id DESC
   LIMIT v_t1;
 
@@ -131,7 +132,7 @@ BEGIN
     AND (v_following IS NULL OR NOT (p.user_id = ANY(v_following)))
     AND (v_blocked IS NULL OR NOT (p.user_id = ANY(v_blocked)))
     AND (v_muted IS NULL OR NOT (p.user_id = ANY(v_muted)))
-    AND (p_cursor_time IS NULL OR (p.created_at, p.id) < (p_cursor_time, p_cursor_id))
+    AND (p_exclude_ids IS NULL OR array_length(p_exclude_ids, 1) IS NULL OR NOT (p.id = ANY(p_exclude_ids)))
   ORDER BY p.engagement_score DESC NULLS LAST, p.created_at DESC, p.id DESC
   LIMIT v_t2;
 
@@ -158,7 +159,7 @@ BEGIN
     AND (v_blocked IS NULL OR NOT (p.user_id = ANY(v_blocked)))
     AND (v_muted IS NULL OR NOT (p.user_id = ANY(v_muted)))
     AND p.created_at > now() - interval '30 days'
-    AND (p_cursor_time IS NULL OR (p.created_at, p.id) < (p_cursor_time, p_cursor_id))
+    AND (p_exclude_ids IS NULL OR array_length(p_exclude_ids, 1) IS NULL OR NOT (p.id = ANY(p_exclude_ids)))
   ORDER BY random()
   LIMIT v_t3;
 
@@ -183,7 +184,7 @@ BEGIN
     AND (pr.is_private IS NULL OR pr.is_private = false)
     AND (v_blocked IS NULL OR NOT (p.user_id = ANY(v_blocked)))
     AND (v_muted IS NULL OR NOT (p.user_id = ANY(v_muted)))
-    AND (p_cursor_time IS NULL OR (p.created_at, p.id) < (p_cursor_time, p_cursor_id))
+    AND (p_exclude_ids IS NULL OR array_length(p_exclude_ids, 1) IS NULL OR NOT (p.id = ANY(p_exclude_ids)))
   ORDER BY p.created_at DESC, p.id DESC
   LIMIT v_t4;
 END;
@@ -200,7 +201,8 @@ CREATE OR REPLACE FUNCTION public.get_explore_feed(
   p_user_id uuid,
   p_limit int DEFAULT 30,
   p_cursor_time timestamptz DEFAULT NULL,
-  p_cursor_id uuid DEFAULT NULL
+  p_cursor_id uuid DEFAULT NULL,
+  p_exclude_ids uuid[] DEFAULT ARRAY[]::uuid[]
 )
 RETURNS TABLE (
   id uuid,
@@ -246,7 +248,8 @@ BEGIN
       AND p.user_id != p_user_id
       AND NOT EXISTS (SELECT 1 FROM blocks b WHERE b.blocker_id = p_user_id AND b.blocked_id = p.user_id)
       AND NOT EXISTS (SELECT 1 FROM mutes m WHERE m.muter_id = p_user_id AND m.muted_id = p.user_id)
-      AND (p_cursor_time IS NULL OR (p.created_at, p.id) < (p_cursor_time, p_cursor_id))
+      -- Exclude already-seen posts for pagination
+      AND (p_exclude_ids IS NULL OR array_length(p_exclude_ids, 1) IS NULL OR NOT (p.id = ANY(p_exclude_ids)))
   )
   SELECT
     r.id, r.user_id, r.content, r.location, r.created_at,

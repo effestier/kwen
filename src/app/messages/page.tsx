@@ -262,14 +262,17 @@ export default function MessagesPage() {
 
     const convChannel = supabase
       .channel('conversations-updates')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, async (payload) => {
         const msg = payload.new as { id: string; conversation_id: string; content: string; sender_id: string; created_at: string; message_type?: string };
+        const preview = msg.message_type === 'image' ? 'Photo' : msg.message_type === 'voice' ? '🎤 Voice message' : msg.message_type === 'mixed' ? `Photo · ${msg.content}` : msg.content;
+
+        // Try to update existing conversation first
+        let found = false;
         setConversations(prev => {
-          const exists = prev.some(c => c.id === msg.conversation_id);
-          if (!exists) return prev;
+          found = prev.some(c => c.id === msg.conversation_id);
+          if (!found) return prev;
           return prev.map(c => {
             if (c.id === msg.conversation_id) {
-              const preview = msg.message_type === 'image' ? 'Photo' : msg.message_type === 'voice' ? '🎤 Voice message' : msg.message_type === 'mixed' ? `Photo · ${msg.content}` : msg.content;
               return {
                 ...c,
                 last_message: preview,
@@ -280,6 +283,32 @@ export default function MessagesPage() {
             return c;
           }).sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
         });
+
+        // If conversation not in list and message is from another user, fetch and add it
+        if (!found && msg.sender_id !== currentUserIdRef.current) {
+          const { data: convData } = await supabase.from('conversations').select('id, created_at, updated_at').eq('id', msg.conversation_id).single();
+          if (convData) {
+            const { data: profile } = await supabase.from('profiles').select('id, username, display_name, avatar_url').eq('id', msg.sender_id).single();
+            const newConv: Conversation = {
+              id: convData.id,
+              updated_at: convData.updated_at || convData.created_at,
+              last_message: preview,
+              unread_count: 1,
+              other_user: profile || null,
+            };
+            setConversations(prev => [newConv, ...prev].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()));
+          }
+        }
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, (payload) => {
+        // Handle unsend: update conversation preview when message content changes
+        const updated = payload.new as { id: string; conversation_id: string; content: string; message_type: string };
+        setConversations(prev => prev.map(c => {
+          if (c.id !== updated.conversation_id) return c;
+          const isDeleted = updated.content === 'This message was deleted';
+          const preview = isDeleted ? '🚫 Message deleted' : updated.message_type === 'image' ? 'Photo' : updated.message_type === 'voice' ? '🎤 Voice message' : updated.content;
+          return { ...c, last_message: preview };
+        }));
       })
       .subscribe();
 
@@ -338,14 +367,23 @@ export default function MessagesPage() {
       const messageChannel = supabase
         .channel(`messages-${selectedId}`)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'messages', filter: `conversation_id=eq.${selectedId}` }, async (payload) => {
-          // Handle UPDATE events for read receipts
+          // Handle UPDATE events for read receipts + unsend/content changes
           if (payload.eventType === 'UPDATE') {
-            const updated = payload.new as { id: string; delivered_at?: string; seen_at?: string };
+            const updated = payload.new as { id: string; content?: string; message_type?: string; media_url?: string | null; thumbnail_url?: string | null; delivered_at?: string; seen_at?: string };
             setMessages(prev => prev.map(m => {
               if (m.id !== updated.id) return m;
               const next = { ...m };
               if (updated.delivered_at && !m.delivered_at) next.delivered_at = updated.delivered_at;
               if (updated.seen_at && !m.seen_at) next.seen_at = updated.seen_at;
+              // Handle unsend: content/message_type/media changed
+              if (updated.content !== undefined) next.content = updated.content;
+              if (updated.message_type !== undefined) next.message_type = updated.message_type;
+              if ('media_url' in updated && updated.media_url === null) {
+                next.media_url = null;
+                next.media_path = null;
+                next.thumbnail_url = null;
+                next.thumbnail_path = null;
+              }
               return next;
             }));
             return;
@@ -453,6 +491,29 @@ export default function MessagesPage() {
               if (!reactions[data.emoji]) reactions[data.emoji] = { count: 0, userIds: [] };
               if (!reactions[data.emoji].userIds.includes(data.user_id)) {
                 reactions[data.emoji] = { count: reactions[data.emoji].count + 1, userIds: [...reactions[data.emoji].userIds, data.user_id] };
+              }
+              const myReaction = data.user_id === currentUserIdRef.current ? data.emoji : m.my_reaction;
+              return { ...m, reactions, my_reaction: myReaction };
+            }));
+          } else if (event === 'UPDATE' && data && oldData) {
+            // Reaction swap (e.g., changing emoji)
+            setMessages(prev => prev.map(m => {
+              if (m.id !== data.message_id) return m;
+              const reactions = { ...m.reactions };
+              // Remove old emoji
+              if (oldData.emoji && reactions[oldData.emoji]) {
+                reactions[oldData.emoji] = {
+                  count: Math.max(0, reactions[oldData.emoji].count - 1),
+                  userIds: reactions[oldData.emoji].userIds.filter(id => id !== oldData.user_id),
+                };
+                if (reactions[oldData.emoji].count <= 0) delete reactions[oldData.emoji];
+              }
+              // Add new emoji
+              if (data.emoji) {
+                if (!reactions[data.emoji]) reactions[data.emoji] = { count: 0, userIds: [] };
+                if (!reactions[data.emoji].userIds.includes(data.user_id)) {
+                  reactions[data.emoji] = { count: reactions[data.emoji].count + 1, userIds: [...reactions[data.emoji].userIds, data.user_id] };
+                }
               }
               const myReaction = data.user_id === currentUserIdRef.current ? data.emoji : m.my_reaction;
               return { ...m, reactions, my_reaction: myReaction };

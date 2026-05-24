@@ -3,6 +3,25 @@ import { hasOverlay, dismissTopOverlay } from './overlay-stack';
 
 let lastBackTime = 0;
 
+/**
+ * Request microphone permission on native platform.
+ * Returns true if granted, false if denied.
+ * On web, always returns true (browser handles its own permission prompt).
+ */
+export async function requestMicrophonePermission(): Promise<boolean> {
+  if (!isNativePlatform()) return true;
+
+  try {
+    // Request permission via getUserMedia — works on both web and Capacitor
+    // with RECORD_AUDIO in AndroidManifest.xml
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach(t => t.stop());
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function initCapacitor() {
   if (!isNativePlatform()) return;
 

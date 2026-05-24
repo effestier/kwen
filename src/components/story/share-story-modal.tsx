@@ -81,7 +81,8 @@ export function ShareStoryModal({
   const handleShare = async (conversationId: string) => {
     setSending(conversationId)
 
-    const message = `Check out ${storyUsername}'s story: ${window.location.origin}/stories/view/${storyId}`
+    const { data: { user } } = await supabase.auth.getUser()
+    const message = `Check out ${storyUsername}'s story: ${window.location.origin}/${storyUsername}`
 
     const { error } = await supabase
       .from('messages')
@@ -89,6 +90,7 @@ export function ShareStoryModal({
         conversation_id: conversationId,
         content: message,
         message_type: 'text',
+        sender_id: user?.id,
       })
 
     if (!error) {

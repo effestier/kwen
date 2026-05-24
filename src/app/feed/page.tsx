@@ -55,7 +55,7 @@ export default function FeedPage() {
   const [stories, setStories] = useState<Story[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [cursor, setCursor] = useState<{ time: string; id: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
   const [followingCount, setFollowingCount] = useState(0);
@@ -67,12 +67,11 @@ export default function FeedPage() {
 
   useScrollPreservation({ key: 'feed' });
 
-  const loadPosts = useCallback(async (userId: string, cursorTime: string | null, cursorId: string | null) => {
+  const loadPosts = useCallback(async (userId: string, excludeIds: string[]) => {
     const { data: feedPosts } = await supabase.rpc('get_discovery_feed', {
       p_user_id: userId,
       p_limit: 20,
-      p_cursor_time: cursorTime,
-      p_cursor_id: cursorId,
+      p_exclude_ids: excludeIds.length > 0 ? excludeIds : null,
     });
     return feedPosts || [];
   }, [supabase]);
@@ -80,15 +79,10 @@ export default function FeedPage() {
   const handleRefresh = useCallback(async () => {
     const { data: { user: authUser } } = await supabase.auth.getUser();
     if (!authUser) return;
-    const freshPosts = await loadPosts(authUser.id, null, null);
-    const unique = freshPosts.filter((p: FeedPost) => !seenIdsRef.current.has(p.id));
+    const freshPosts = await loadPosts(authUser.id, []);
     seenIdsRef.current = new Set(freshPosts.map((p: FeedPost) => p.id));
     setPosts(freshPosts);
     postsRef.current = freshPosts;
-    if (freshPosts.length > 0) {
-      const last = freshPosts[freshPosts.length - 1];
-      setCursor({ time: last.created_at, id: last.id });
-    }
     setHasMore(freshPosts.length >= 20);
   }, [loadPosts, supabase]);
 
@@ -99,6 +93,8 @@ export default function FeedPage() {
   // Initial load
   useEffect(() => {
     async function loadData() {
+      try {
+        setError(null);
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) { setLoading(false); return; }
 
@@ -130,14 +126,10 @@ export default function FeedPage() {
       setFollowingIds(fIds);
       setFollowingCount(fIds.size);
 
-      const feedPosts = await loadPosts(authUser.id, null, null);
+      const feedPosts = await loadPosts(authUser.id, []);
       seenIdsRef.current = new Set(feedPosts.map((p: FeedPost) => p.id));
       setPosts(feedPosts);
       postsRef.current = feedPosts;
-      if (feedPosts.length > 0) {
-        const last = feedPosts[feedPosts.length - 1];
-        setCursor({ time: last.created_at, id: last.id });
-      }
       if (feedPosts.length < 20) setHasMore(false);
 
       // Stories
@@ -187,13 +179,17 @@ export default function FeedPage() {
       })));
 
       setLoading(false);
+      } catch (e) {
+        setError('Failed to load your feed. Please try again.');
+        setLoading(false);
+      }
     }
     loadData();
   }, []);
 
   // Infinite scroll
   useEffect(() => {
-    if (!hasMore || loading || !cursor) return;
+    if (!hasMore || loading || seenIdsRef.current.size === 0) return;
     const sentinel = sentinelRef.current;
     if (!sentinel) return;
 
@@ -202,14 +198,11 @@ export default function FeedPage() {
         setLoadingMore(true);
         const { data: { user: authUser } } = await supabase.auth.getUser();
         if (authUser) {
-          const morePosts = await loadPosts(authUser.id, cursor.time, cursor.id);
+          const excludeIds = Array.from(seenIdsRef.current);
+          const morePosts = await loadPosts(authUser.id, excludeIds);
           const freshPosts = morePosts.filter((p: FeedPost) => !seenIdsRef.current.has(p.id));
           freshPosts.forEach((p: FeedPost) => seenIdsRef.current.add(p.id));
           setPosts(prev => [...prev, ...freshPosts]);
-          if (morePosts.length > 0) {
-            const last = morePosts[morePosts.length - 1];
-            setCursor({ time: last.created_at, id: last.id });
-          }
           if (morePosts.length < 20) setHasMore(false);
         }
         setLoadingMore(false);
@@ -218,7 +211,7 @@ export default function FeedPage() {
 
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [cursor, hasMore, loading, loadingMore]);
+  }, [hasMore, loading, loadingMore, loadPosts, supabase]);
 
   // Realtime: new post insert
   useEffect(() => {
@@ -232,7 +225,7 @@ export default function FeedPage() {
 
         const { data: { user: authUser } } = await supabase.auth.getUser();
         if (!authUser) return;
-        const freshPosts = await loadPosts(authUser.id, null, null);
+        const freshPosts = await loadPosts(authUser.id, []);
         const newPost2 = freshPosts.find((p: FeedPost) => p.id === newPost.id);
         if (newPost2 && !seenIdsRef.current.has(newPost2.id)) {
           seenIdsRef.current.add(newPost2.id);
@@ -252,6 +245,22 @@ export default function FeedPage() {
           {Array.from({ length: 4 }).map((_, i) => (
             <CardSkeleton key={i} />
           ))}
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <MainLayout>
+        <div className="feed-container py-16 text-center">
+          <p className="text-[var(--text-muted)] mb-4">{error}</p>
+          <button
+            onClick={() => { setError(null); setLoading(true); window.location.reload(); }}
+            className="px-4 py-2 bg-[var(--accent-primary)] text-[var(--text-inverse)] rounded-lg text-sm font-medium"
+          >
+            Try Again
+          </button>
         </div>
       </MainLayout>
     );

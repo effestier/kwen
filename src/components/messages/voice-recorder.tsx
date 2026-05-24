@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { cn } from '@/lib/utils';
+import { requestMicrophonePermission } from '@/lib/capacitor';
 
 interface VoiceRecorderProps {
   onSend: (blob: Blob, duration: number) => void;
@@ -21,6 +22,7 @@ export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
   const [waveform, setWaveform] = useState<number[]>(new Array(40).fill(0));
   const [slideCancelled, setSlideCancelled] = useState(false);
   const [isUnsupported, setIsUnsupported] = useState(false);
+  const [permissionDenied, setPermissionDenied] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -104,6 +106,17 @@ export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
         // eslint-disable-next-line no-console
         console.warn('[VOICE] unsupported -> setIsUnsupported(true)');
         setIsUnsupported(true);
+        return;
+      }
+
+      // Request microphone permission (handles native + web)
+      // eslint-disable-next-line no-console
+      console.log('[VOICE] requesting microphone permission...');
+      const hasPermission = await requestMicrophonePermission();
+      if (!hasPermission) {
+        // eslint-disable-next-line no-console
+        console.warn('[VOICE] permission denied');
+        setPermissionDenied(true);
         return;
       }
 
@@ -302,6 +315,24 @@ export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
           </svg>
         </button>
         <p className="flex-1 text-sm text-[var(--text-muted)]">Voice recording not supported in this browser</p>
+      </div>
+    );
+  }
+
+  if (permissionDenied) {
+    return (
+      <div className="flex items-center gap-3 px-4 py-3 bg-[var(--bg-secondary)]">
+        <button
+          type="button"
+          onClick={onCancel}
+          aria-label="Cancel"
+          className="p-2 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+          </svg>
+        </button>
+        <p className="flex-1 text-sm text-[var(--text-muted)]">Microphone access denied. Enable it in Settings to record voice messages.</p>
       </div>
     );
   }

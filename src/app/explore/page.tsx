@@ -29,10 +29,6 @@ interface ExplorePost {
   media: Array<{ id: string; storage_path: string; media_type: string; sort_order: number }>;
 }
 
-interface FeedCursor {
-  created_at: string;
-  id: string;
-}
 
 interface Profile {
   id: string;
@@ -48,7 +44,7 @@ export default function ExplorePage() {
   const [posts, setPosts] = useState<ExplorePost[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [cursor, setCursor] = useState<FeedCursor | null>(null);
+  const [seenIds, setSeenIds] = useState<string[]>([]);
   const [hasMore, setHasMore] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchMode, setSearchMode] = useState<SearchMode>('users');
@@ -78,32 +74,30 @@ export default function ExplorePage() {
     });
   }, [posts, activeCategory]);
 
-  // Load explore posts
-  const loadPosts = useCallback(async (cursorVal: FeedCursor | null) => {
+  // Load explore posts — uses exclude_ids for cursor-based pagination
+  const loadPosts = useCallback(async (excludeIds: string[]) => {
     const { data: { user } } = await supabase.auth.getUser();
     const { data: explorePosts } = await supabase.rpc('get_explore_feed', {
       p_user_id: user?.id ?? '00000000-0000-0000-0000-000000000000',
       p_limit: 30,
-      p_cursor_at: cursorVal?.created_at ?? null,
-      p_cursor_id: cursorVal?.id ?? null,
+      p_exclude_ids: excludeIds.length > 0 ? excludeIds : null,
     });
     return (explorePosts || []) as ExplorePost[];
   }, [supabase]);
 
-  const updateCursor = useCallback((posts: ExplorePost[]) => {
-    if (posts.length > 0) {
-      const last = posts[posts.length - 1];
-      setCursor({ created_at: last.created_at, id: last.id });
+  const updateSeenIds = useCallback((newPosts: ExplorePost[]) => {
+    if (newPosts.length > 0) {
+      setSeenIds(prev => [...prev, ...newPosts.map(p => p.id)]);
     }
   }, []);
 
   // Pull-to-refresh
   const handleRefresh = useCallback(async () => {
-    const freshPosts = await loadPosts(null);
+    const freshPosts = await loadPosts([]);
     setPosts(freshPosts);
-    updateCursor(freshPosts);
+    setSeenIds(freshPosts.map(p => p.id));
     setHasMore(freshPosts.length >= 30);
-  }, [loadPosts, updateCursor]);
+  }, [loadPosts]);
 
   const { pullDistance, isRefreshing, handlers: pullHandlers } = usePullToRefresh({
     onRefresh: handleRefresh,
@@ -112,31 +106,31 @@ export default function ExplorePage() {
   // Initial load
   useEffect(() => {
     async function init() {
-      const initialPosts = await loadPosts(null);
+      const initialPosts = await loadPosts([]);
       setPosts(initialPosts);
-      updateCursor(initialPosts);
+      setSeenIds(initialPosts.map(p => p.id));
       if (initialPosts.length < 30) setHasMore(false);
       setLoading(false);
     }
     init();
-  }, [loadPosts, updateCursor]);
+  }, [loadPosts]);
 
   // Infinite scroll
   useEffect(() => {
-    if (!hasMore || loading || !cursor) return;
+    if (!hasMore || loading || seenIds.length === 0) return;
     const sentinel = sentinelRef.current;
     if (!sentinel) return;
 
     const observer = new IntersectionObserver(async (entries) => {
       if (entries[0].isIntersecting && !loadingMore) {
         setLoadingMore(true);
-        const morePosts = await loadPosts(cursor);
+        const morePosts = await loadPosts(seenIds);
         setPosts(prev => {
           const existingIds = new Set(prev.map(p => p.id));
           const newPosts = morePosts.filter(p => !existingIds.has(p.id));
           return [...prev, ...newPosts];
         });
-        updateCursor(morePosts);
+        updateSeenIds(morePosts);
         if (morePosts.length < 30) setHasMore(false);
         setLoadingMore(false);
       }
@@ -144,7 +138,7 @@ export default function ExplorePage() {
 
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [cursor, hasMore, loading, loadingMore, loadPosts, updateCursor]);
+  }, [seenIds, hasMore, loading, loadingMore, loadPosts, updateSeenIds]);
 
   // Search
   useEffect(() => {
@@ -161,12 +155,20 @@ export default function ExplorePage() {
       const query = searchQuery.startsWith('@') ? searchQuery.slice(1) : searchQuery;
 
       if (searchMode === 'users') {
-        const { data } = await supabase
-          .from('profiles')
-          .select('id, username, display_name, avatar_url, bio, is_verified')
-          .or(`username.ilike.%${query}%,display_name.ilike.%${query}%`)
-          .limit(10);
-        setSearchResults(data || []);
+        const { data } = await supabase.rpc('search_explore', {
+          p_user_id: user?.id ?? '00000000-0000-0000-0000-000000000000',
+          p_query: query,
+          p_type: 'users',
+          p_limit: 10,
+        });
+        setSearchResults((data || []).map((r: any) => ({
+          id: r.id,
+          username: r.username,
+          display_name: r.display_name || r.username,
+          avatar_url: r.avatar_url,
+          bio: null,
+          is_verified: r.is_verified || false,
+        })));
       } else {
         const { data } = await supabase.rpc('search_explore', {
           p_user_id: user?.id ?? '00000000-0000-0000-0000-000000000000',
@@ -183,6 +185,21 @@ export default function ExplorePage() {
             avatar_url: null,
             bio: `${formatNumber(Number(r.post_count || 0))} posts`,
             is_verified: false,
+          })));
+        } else if (searchMode === 'posts' && data) {
+          // Posts return post content with user info
+          setSearchResults(data.map((r: any) => ({
+            id: r.id,
+            user_id: r.user_id,
+            username: r.username,
+            display_name: r.display_name || r.username,
+            avatar_url: r.avatar_url,
+            bio: r.content ? (r.content.length > 80 ? r.content.slice(0, 80) + '...' : r.content) : null,
+            is_verified: r.is_verified || false,
+            like_count: r.like_count || 0,
+            comment_count: r.comment_count || 0,
+            media: r.media || null,
+            result_type: r.result_type || 'post',
           })));
         } else {
           setSearchResults([]);
@@ -313,6 +330,21 @@ export default function ExplorePage() {
                       </div>
                     </Link>
                   ))
+                ) : searchMode === 'posts' && searchResults.length > 0 ? (
+                  searchResults.map((result) => (
+                    <Link
+                      key={result.id}
+                      href={`/post/${result.id}`}
+                      onClick={() => setShowResults(false)}
+                      className="flex items-center gap-3 px-4 py-3 hover:bg-[var(--bg-secondary)] transition-colors-fast"
+                    >
+                      <Avatar src={result.avatar_url} name={result.display_name} size="sm" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{result.display_name}</p>
+                        <p className="text-xs text-[var(--text-muted)] truncate">{result.bio}</p>
+                      </div>
+                    </Link>
+                  ))
                 ) : (
                   <div className="p-4 text-center text-sm text-[var(--text-muted)]">No results found</div>
                 )}
@@ -369,6 +401,21 @@ export default function ExplorePage() {
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-[var(--text-primary)] truncate">#{tag.username}</p>
                           <p className="text-xs text-[var(--text-muted)] truncate">{tag.bio}</p>
+                        </div>
+                      </Link>
+                    ))
+                  ) : searchMode === 'posts' && searchResults.length > 0 ? (
+                    searchResults.map((result) => (
+                      <Link
+                        key={result.id}
+                        href={`/post/${result.id}`}
+                        onClick={() => setShowResults(false)}
+                        className="flex items-center gap-3 px-4 py-3 hover:bg-[var(--bg-secondary)] transition-colors-fast"
+                      >
+                        <Avatar src={result.avatar_url} name={result.display_name} size="sm" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{result.display_name}</p>
+                          <p className="text-xs text-[var(--text-muted)] truncate">{result.bio}</p>
                         </div>
                       </Link>
                     ))

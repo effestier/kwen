@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import { createServerClient } from '@supabase/ssr'
 
 // Routes that require authentication
 const PROTECTED_ROUTES = [
@@ -25,7 +26,7 @@ const PUBLIC_ROUTES = [
   '/download',
 ]
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Skip static assets and API routes
@@ -55,19 +56,41 @@ export function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Check for Supabase auth cookies (sb-*)
-  const hasAuthCookie = request.cookies.has('sb-access-token') ||
-    request.cookies.has('sb-refresh-token') ||
-    Array.from(request.cookies.getAll()).some(c => c.name.startsWith('sb-'))
+  // Create Supabase server client with request/response cookies
+  const response = NextResponse.next({ request: { headers: request.headers } })
 
-  if (!hasAuthCookie) {
-    // Redirect to login
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            request.cookies.set({ name, value, ...options })
+            response.cookies.set({ name, value, ...options })
+          })
+        },
+      },
+    }
+  )
+
+  // Validate the session by calling getUser() — this:
+  // 1. Validates the JWT signature and expiry
+  // 2. Refreshes expired tokens (returns refreshed cookies via setAll)
+  // 3. Returns null if session is truly invalid
+  const { data: { user }, error } = await supabase.auth.getUser()
+
+  if (error || !user) {
+    // Invalid/expired session — redirect to login
     const loginUrl = new URL('/auth/login', request.url)
     loginUrl.searchParams.set('redirect', pathname)
     return NextResponse.redirect(loginUrl)
   }
 
-  return NextResponse.next()
+  return response
 }
 
 export const config = {

@@ -6,14 +6,12 @@ import { cn } from '@/lib/utils';
 interface VoiceRecorderProps {
   onSend: (blob: Blob, duration: number) => void;
   onCancel: () => void;
-  /** If true, recording starts immediately (called from hold-to-record). If false, wait for explicit start. */
-  autoStart?: boolean;
 }
 
-export function VoiceRecorder({ onSend, onCancel, autoStart = true }: VoiceRecorderProps) {
-  const [isRecording, setIsRecording] = useState(false);
+export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
+  // Lifecycle states
+  const [phase, setPhase] = useState<'initializing' | 'recording' | 'locked'>('initializing');
   const [isPaused, setIsPaused] = useState(false);
-  const [isLocked, setIsLocked] = useState(false);
   const [duration, setDuration] = useState(0);
   const [waveform, setWaveform] = useState<number[]>(new Array(40).fill(0));
   const [slideCancelled, setSlideCancelled] = useState(false);
@@ -34,7 +32,6 @@ export function VoiceRecorder({ onSend, onCancel, autoStart = true }: VoiceRecor
   const mimeTypeRef = useRef<string>('audio/webm');
   const touchStartXRef = useRef<number>(0);
   const touchStartYRef = useRef<number>(0);
-  const mountedAtRef = useRef<number>(Date.now());
 
   const cleanup = useCallback(() => {
     if (streamRef.current) {
@@ -60,10 +57,9 @@ export function VoiceRecorder({ onSend, onCancel, autoStart = true }: VoiceRecor
 
     const recorder = mediaRecorderRef.current;
     if (recorder && (recorder.state === 'recording' || recorder.state === 'paused')) {
-      sentRef.current = true; // prevent re-entry; onstop will call onSend
+      sentRef.current = true;
       recorder.stop();
     } else {
-      // No recorder or already stopped — send directly
       sentRef.current = true;
       cleanup();
       const blob = new Blob(chunksRef.current, { type: mimeTypeRef.current });
@@ -81,14 +77,14 @@ export function VoiceRecorder({ onSend, onCancel, autoStart = true }: VoiceRecor
 
     const recorder = mediaRecorderRef.current;
     if (recorder && (recorder.state === 'recording' || recorder.state === 'paused')) {
-      recorder.ondataavailable = null; // prevent any further data
+      recorder.ondataavailable = null;
       recorder.stop();
     }
     cleanup();
     onCancel();
   }, [onCancel, cleanup]);
 
-  // Start recording
+  // Start recording — the ONLY async operation
   const startRecording = useCallback(async () => {
     try {
       if (typeof MediaRecorder === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
@@ -138,7 +134,9 @@ export function VoiceRecorder({ onSend, onCancel, autoStart = true }: VoiceRecor
       recorder.start(100);
       totalPausedMsRef.current = 0;
       pausedAtRef.current = 0;
-      setIsRecording(true);
+
+      // ONLY NOW is the recorder ready — transition from initializing to recording
+      setPhase('recording');
 
       // Duration timer
       const startTime = Date.now();
@@ -165,7 +163,7 @@ export function VoiceRecorder({ onSend, onCancel, autoStart = true }: VoiceRecor
 
   // Auto-start on mount
   useEffect(() => {
-    if (autoStart) startRecording();
+    startRecording();
     return () => {
       cancelledRef.current = true;
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
@@ -177,6 +175,9 @@ export function VoiceRecorder({ onSend, onCancel, autoStart = true }: VoiceRecor
       cleanup();
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ARCHITECTURAL GUARD: only process touch events when recorder is active
+  const isRecorderActive = phase === 'recording' || phase === 'locked';
 
   // Pause/resume
   const togglePause = useCallback(() => {
@@ -192,7 +193,6 @@ export function VoiceRecorder({ onSend, onCancel, autoStart = true }: VoiceRecor
       totalPausedMsRef.current += Date.now() - pausedAtRef.current;
       recorder.resume();
       setIsPaused(false);
-      // Restart waveform animation
       if (analyserRef.current) {
         const analyser = analyserRef.current;
         const dataArray = new Uint8Array(analyser.frequencyBinCount);
@@ -208,17 +208,19 @@ export function VoiceRecorder({ onSend, onCancel, autoStart = true }: VoiceRecor
   }, []);
 
   // Touch handlers — slide left to cancel, slide up to lock
+  // ALL guarded by isRecorderActive — no events processed during initializing phase
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (!isRecorderActive) return;
     touchStartXRef.current = e.touches[0].clientX;
     touchStartYRef.current = e.touches[0].clientY;
-  }, []);
+  }, [isRecorderActive]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!isRecorderActive) return;
     const dx = touchStartXRef.current - e.touches[0].clientX;
     const dy = touchStartYRef.current - e.touches[0].clientY;
 
-    // Slide left to cancel
-    if (dx > 80 && !isLocked) {
+    if (dx > 80 && phase !== 'locked') {
       if (!slideCancelled) {
         cancelledRef.current = true;
         setSlideCancelled(true);
@@ -228,23 +230,20 @@ export function VoiceRecorder({ onSend, onCancel, autoStart = true }: VoiceRecor
       setSlideCancelled(false);
     }
 
-    // Slide up to lock
-    if (dy > 80 && !isLocked) {
-      setIsLocked(true);
+    if (dy > 80 && phase !== 'locked') {
+      setPhase('locked');
     }
-  }, [isLocked, slideCancelled]);
+  }, [isRecorderActive, phase, slideCancelled]);
 
   const handleTouchEnd = useCallback(() => {
-    // Guard: ignore touchEnd within 500ms of mount to prevent
-    // the mic button's touchEnd from firing on the newly mounted recorder
-    if (Date.now() - mountedAtRef.current < 500) return;
-    if (isLocked) return; // Locked mode — don't auto-send
+    if (!isRecorderActive) return;
+    if (phase === 'locked') return;
     if (cancelledRef.current) {
       doCancel();
     } else {
       stopAndSend();
     }
-  }, [doCancel, stopAndSend, isLocked]);
+  }, [isRecorderActive, phase, doCancel, stopAndSend]);
 
   const formatDuration = (sec: number) => {
     const m = Math.floor(sec / 60);
@@ -270,6 +269,28 @@ export function VoiceRecorder({ onSend, onCancel, autoStart = true }: VoiceRecor
     );
   }
 
+  // Initializing state — no touch handlers active, just a cancel button
+  if (phase === 'initializing') {
+    return (
+      <div className="flex items-center gap-3 px-4 py-3 bg-[var(--bg-secondary)] select-none">
+        <button
+          type="button"
+          onClick={doCancel}
+          aria-label="Cancel"
+          className="p-2 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+          </svg>
+        </button>
+        <div className="flex-1 flex items-center gap-2">
+          <div className="w-3 h-3 rounded-full bg-white animate-pulse" />
+          <span className="text-sm text-[var(--text-muted)]">Starting...</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(
@@ -281,7 +302,7 @@ export function VoiceRecorder({ onSend, onCancel, autoStart = true }: VoiceRecor
       onTouchEnd={handleTouchEnd}
     >
       {/* Left controls: cancel (locked) or recording indicator */}
-      {isLocked ? (
+      {phase === 'locked' ? (
         <button
           type="button"
           onClick={doCancel}
@@ -319,7 +340,7 @@ export function VoiceRecorder({ onSend, onCancel, autoStart = true }: VoiceRecor
       </div>
 
       {/* Right controls */}
-      {isLocked ? (
+      {phase === 'locked' ? (
         <div className="flex items-center gap-2">
           <button
             type="button"

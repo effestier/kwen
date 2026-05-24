@@ -1287,7 +1287,7 @@ export default function MessagesPage() {
                     ) : typeof MediaRecorder !== 'undefined' ? (
                       <button
                         type="button"
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsRecordingVoice(true); }}
+                        onClick={() => setIsRecordingVoice(true)}
                         disabled={sending || !currentUserProfile}
                         aria-label="Record voice message"
                         className="p-2.5 rounded-full text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] transition-colors-fast disabled:opacity-30"

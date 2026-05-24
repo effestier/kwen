@@ -432,6 +432,41 @@
 - **H37.** Light theme CSS vars use Instagram blue (`globals.css:26-27,39`)
 - **H38.** Light theme JS tokens use Instagram blue (`themes.ts:79-80,87`)
 
+---
+
+## PRIORITY E — DESIGN SYSTEM FIX STATUS (H33-H38)
+
+| Fix | Status | Files Changed |
+|-----|--------|---------------|
+| H33. Shadow vars undefined | ✅ PASS | `globals.css` |
+| H34. Poll sticker hardcoded | ✅ PASS | `poll-sticker.tsx` |
+| H35. Question sticker hardcoded | ✅ PASS | `question-sticker.tsx` |
+| H36. Brand config blue | ✅ PASS | `brand/config.ts` |
+| H37. CSS vars blue | ✅ PASS | `globals.css` |
+| H38. JS tokens blue | ✅ PASS | `themes.ts` |
+
+**Build verification:** `npx tsc --noEmit` clean. `npx next build` clean. Zero `#0095f6`/`#1877f2` remaining.
+
+### H33. Shadow CSS vars — FIX VERIFIED
+- Added `--shadow-sm/md/lg/xl` to light, dark media query, and `[data-theme="dark"]`. Values match `themes.ts`.
+
+### H34. Poll sticker hardcoded — FIX VERIFIED
+- All `bg-white`, `text-gray-*`, `bg-purple-*`, `bg-orange-*` replaced with `var(--card-bg)`, `var(--text-primary)`, `var(--accent-muted)`, `var(--bg-tertiary)`.
+
+### H35. Question sticker hardcoded — FIX VERIFIED
+- `from-purple-500 to-pink-500` gradient replaced with `bg-[var(--accent-primary)]`. All white/purple text uses `var(--text-inverse)`.
+
+### H36. Brand config blue — FIX VERIFIED
+- `#0095f6` → `#FFFFFF` (primary/accent), `#A8A8A8` (secondary). Zero blue in config.
+
+### H37. CSS vars blue — FIX VERIFIED
+- `--accent-primary: #000000`, `--accent-hover: #262626`, `--info: #000000` for light theme.
+
+### H38. JS tokens blue — FIX VERIFIED
+- `accentPrimary: '#000000'`, `accentHover: '#262626'`, `info: '#000000'` for light theme.
+
+---
+
 ### Mobile/APK
 - **H39.** Story video recording uses unsupported WebM format on Android (`media-picker.tsx:158-162`)
 - **H40.** No `overscroll-behavior: contain` — bounce conflicts with gestures

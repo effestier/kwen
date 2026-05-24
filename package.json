@@ -1,5 +1,6 @@
 {
-  "name": "open-social",
+  "name": "kwen",
+  "description": "A social media platform for everyone. Built by the people, for the people. No corporations, no algorithms deciding what you see. Your feed, your rules. Share moments, tell stories, connect with billions — not billionaires.",
   "version": "0.1.0",
   "private": true,
   "scripts": {

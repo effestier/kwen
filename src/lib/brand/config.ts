@@ -35,9 +35,9 @@ export const BRAND: BrandConfig = {
     icon: '⬡',
   },
   colors: {
-    primary: '#0095f6',
-    secondary: '#0095f6',
-    accent: '#0095f6',
+    primary: '#FFFFFF',
+    secondary: '#A8A8A8',
+    accent: '#FFFFFF',
   },
   social: {
     website: 'https://kwen.in',

@@ -76,15 +76,15 @@ export const lightTheme: ThemeConfig = {
     borderSoft: '#C7C7C7',
     borderStrong: '#8E8E8E',
 
-    accentPrimary: '#0095F6',
-    accentHover: '#1877F2',
+    accentPrimary: '#000000',
+    accentHover: '#262626',
     accentSecondary: '#DBDBDB',
     accentMuted: '#EFEFEF',
 
     destructive: '#ED4956',
     success: '#42D67D',
     warning: '#F7B928',
-    info: '#0095F6',
+    info: '#000000',
 
     overlay: 'rgba(0, 0, 0, 0.65)',
     modalBg: '#FFFFFF',

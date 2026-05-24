@@ -20,14 +20,14 @@ export function PollSticker({
   onOption2Change,
 }: PollStickerProps) {
   return (
-    <div className="bg-white rounded-2xl p-4 w-72 shadow-lg">
+    <div className="bg-[var(--card-bg)] rounded-2xl p-4 w-72 shadow-lg">
       {/* Question */}
       <input
         type="text"
         value={question}
         onChange={(e) => onQuestionChange(e.target.value)}
         placeholder="Ask a question..."
-        className="w-full text-center text-lg font-semibold text-gray-900 placeholder:text-gray-400 bg-transparent outline-none mb-3"
+        className="w-full text-center text-lg font-semibold text-[var(--text-primary)] placeholder:text-[var(--text-muted)] bg-transparent outline-none mb-3"
         maxLength={80}
       />
 
@@ -39,7 +39,7 @@ export function PollSticker({
             value={option1}
             onChange={(e) => onOption1Change(e.target.value)}
             placeholder="Option 1"
-            className="w-full px-4 py-3 rounded-xl bg-purple-100 text-purple-900 placeholder:text-purple-400 outline-none focus:ring-2 focus:ring-purple-300"
+            className="w-full px-4 py-3 rounded-xl bg-[var(--accent-muted)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:ring-2 focus:ring-[var(--accent-primary)]"
             maxLength={25}
           />
         </div>
@@ -49,7 +49,7 @@ export function PollSticker({
             value={option2}
             onChange={(e) => onOption2Change(e.target.value)}
             placeholder="Option 2"
-            className="w-full px-4 py-3 rounded-xl bg-orange-100 text-orange-900 placeholder:text-orange-400 outline-none focus:ring-2 focus:ring-orange-300"
+            className="w-full px-4 py-3 rounded-xl bg-[var(--bg-tertiary)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:ring-2 focus:ring-[var(--text-secondary)]"
             maxLength={25}
           />
         </div>
@@ -84,9 +84,9 @@ export function PollDisplay({
   const option2Percent = totalVotes > 0 ? Math.round((poll.option_2_count / totalVotes) * 100) : 50
 
   return (
-    <div className="bg-white/95 backdrop-blur-sm rounded-2xl p-4 w-72">
+    <div className="bg-[var(--card-bg)]/95 backdrop-blur-sm rounded-2xl p-4 w-72">
       {/* Question */}
-      <p className="text-center text-lg font-semibold text-gray-900 mb-3">
+      <p className="text-center text-lg font-semibold text-[var(--text-primary)] mb-3">
         {poll.question}
       </p>
 
@@ -97,7 +97,7 @@ export function PollDisplay({
           disabled={!!userVote}
           className={`relative w-full px-4 py-3 rounded-xl overflow-hidden transition-all ${
             userVote === 1
-              ? 'ring-2 ring-purple-500'
+              ? 'ring-2 ring-[var(--accent-primary)]'
               : userVote
                 ? 'opacity-70'
                 : 'hover:scale-[1.02]'
@@ -106,14 +106,14 @@ export function PollDisplay({
           {/* Background bar */}
           {showResults && (
             <div
-              className="absolute inset-0 bg-purple-200 transition-all duration-500"
+              className="absolute inset-0 bg-[var(--accent-muted)] transition-all duration-500"
               style={{ width: `${option1Percent}%` }}
             />
           )}
           <div className="relative flex items-center justify-between">
-            <span className="font-medium text-purple-900">{poll.option_1}</span>
+            <span className="font-medium text-[var(--text-primary)]">{poll.option_1}</span>
             {showResults && (
-              <span className="font-semibold text-purple-900">{option1Percent}%</span>
+              <span className="font-semibold text-[var(--text-primary)]">{option1Percent}%</span>
             )}
           </div>
         </button>
@@ -123,7 +123,7 @@ export function PollDisplay({
           disabled={!!userVote}
           className={`relative w-full px-4 py-3 rounded-xl overflow-hidden transition-all ${
             userVote === 2
-              ? 'ring-2 ring-orange-500'
+              ? 'ring-2 ring-[var(--text-secondary)]'
               : userVote
                 ? 'opacity-70'
                 : 'hover:scale-[1.02]'
@@ -132,14 +132,14 @@ export function PollDisplay({
           {/* Background bar */}
           {showResults && (
             <div
-              className="absolute inset-0 bg-orange-200 transition-all duration-500"
+              className="absolute inset-0 bg-[var(--bg-tertiary)] transition-all duration-500"
               style={{ width: `${option2Percent}%` }}
             />
           )}
           <div className="relative flex items-center justify-between">
-            <span className="font-medium text-orange-900">{poll.option_2}</span>
+            <span className="font-medium text-[var(--text-primary)]">{poll.option_2}</span>
             {showResults && (
-              <span className="font-semibold text-orange-900">{option2Percent}%</span>
+              <span className="font-semibold text-[var(--text-primary)]">{option2Percent}%</span>
             )}
           </div>
         </button>
@@ -147,7 +147,7 @@ export function PollDisplay({
 
       {/* Vote count */}
       {showResults && (
-        <p className="text-center text-sm text-gray-500 mt-2">
+        <p className="text-center text-sm text-[var(--text-muted)] mt-2">
           {totalVotes} {totalVotes === 1 ? 'vote' : 'votes'}
         </p>
       )}

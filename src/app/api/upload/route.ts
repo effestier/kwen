@@ -3,8 +3,6 @@ import { createClient } from '@/lib/supabase/server'
 import { checkRateLimit, UPLOAD_LIMIT } from '@/lib/rate-limit'
 import { getClientIP } from '@/lib/auth-rate-limit'
 
-export const dynamic = 'force-dynamic';
-
 // Note: In static export (APIK), native uploads directly to Supabase, bypassing this route
 
 interface UploadResult {

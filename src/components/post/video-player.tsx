@@ -17,6 +17,13 @@ export function VideoPlayer({ src, className, active = true }: VideoPlayerProps)
   const [showOverlay, setShowOverlay] = useState(false);
   const overlayTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // M21: Clean up overlay timer on unmount
+  useEffect(() => {
+    return () => {
+      if (overlayTimer.current) clearTimeout(overlayTimer.current);
+    };
+  }, []);
+
   // Viewport-aware autoplay — H9: only autoplay when active slide
   useEffect(() => {
     const video = videoRef.current;

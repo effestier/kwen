@@ -200,8 +200,13 @@ export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
       animFrameRef.current = requestAnimationFrame(updateWaveform);
     } catch (e) {
       // eslint-disable-next-line no-console
-      console.error('[VOICE] startRecording() failure -> doCancel()', e);
-      doCancel();
+      console.error('[VOICE] startRecording() failure', e);
+      // If permission denied (NotAllowedError), show actionable UI instead of silently closing
+      if (e instanceof DOMException && (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError')) {
+        setPermissionDenied(true);
+      } else {
+        doCancel();
+      }
     }
   }, [doCancel, onSend]);
 
@@ -341,7 +346,14 @@ export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
             <path d="M18 6 6 18" /><path d="m6 6 12 12" />
           </svg>
         </button>
-        <p className="flex-1 text-sm text-[var(--text-muted)]">Microphone access denied. Enable it in Settings to record voice messages.</p>
+        <p className="flex-1 text-sm text-[var(--text-muted)]">Microphone access denied. Enable it in browser settings.</p>
+        <button
+          type="button"
+          onClick={() => { setPermissionDenied(false); setPhase('initializing'); startRecording(); }}
+          className="px-3 py-1.5 text-xs font-medium bg-[var(--accent-primary)] text-[var(--text-inverse)] rounded-lg"
+        >
+          Retry
+        </button>
       </div>
     );
   }

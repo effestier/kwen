@@ -6,9 +6,10 @@ interface VideoPlayerProps {
   src: string;
   className?: string;
   onDoubleTap?: () => void;
+  active?: boolean; // H9: only autoplay when this slide is active in a carousel
 }
 
-export function VideoPlayer({ src, className }: VideoPlayerProps) {
+export function VideoPlayer({ src, className, active = true }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isMuted, setIsMuted] = useState(true);
@@ -16,7 +17,7 @@ export function VideoPlayer({ src, className }: VideoPlayerProps) {
   const [showOverlay, setShowOverlay] = useState(false);
   const overlayTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Viewport-aware autoplay
+  // Viewport-aware autoplay — H9: only autoplay when active slide
   useEffect(() => {
     const video = videoRef.current;
     const container = containerRef.current;
@@ -25,10 +26,12 @@ export function VideoPlayer({ src, className }: VideoPlayerProps) {
     const observer = new IntersectionObserver(
       (entries) => {
         const entry = entries[0];
-        if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
-          video.play().catch(() => {});
-          setIsPlaying(true);
-        } else if (entry.intersectionRatio < 0.25) {
+        if (entry.isIntersecting && entry.intersectionRatio >= 0.5 && active) {
+          video.play().then(
+            () => setIsPlaying(true),
+            () => setIsPlaying(false) // H4: Sync state if play rejects
+          );
+        } else if (entry.intersectionRatio < 0.25 || !active) {
           video.pause();
           setIsPlaying(false);
         }
@@ -38,7 +41,7 @@ export function VideoPlayer({ src, className }: VideoPlayerProps) {
 
     observer.observe(container);
     return () => observer.disconnect();
-  }, []);
+  }, [active]);
 
   const showPlayPauseOverlay = useCallback(() => {
     setShowOverlay(true);
@@ -47,13 +50,15 @@ export function VideoPlayer({ src, className }: VideoPlayerProps) {
   }, []);
 
   const handleTogglePlay = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
+    // H1/H6: Don't stopPropagation — let click bubble to carousel for double-tap detection
     const video = videoRef.current;
     if (!video) return;
 
     if (video.paused) {
-      video.play().catch(() => {});
-      setIsPlaying(true);
+      video.play().then(
+        () => setIsPlaying(true),
+        () => setIsPlaying(false) // H4: Sync state if play rejects
+      );
     } else {
       video.pause();
       setIsPlaying(false);

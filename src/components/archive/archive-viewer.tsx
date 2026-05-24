@@ -79,24 +79,43 @@ export function ArchiveViewer({
     }
   }, [currentIndex, isPaused, isLoading, duration, goToNext])
 
+  // H24: Track touch start position, navigate on touchEnd (not touchStart) to avoid breaking long-press
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null)
+
   const handleTouchStart = (e: React.TouchEvent) => {
-    const x = e.touches[0].clientX
-    const screenWidth = window.innerWidth
-
+    const touch = e.touches[0]
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY, time: Date.now() }
     longPressTimer.current = setTimeout(() => setIsPaused(true), 300)
-
-    if (x < screenWidth * 0.3) {
-      goToPrev()
-    } else if (x > screenWidth * 0.7) {
-      goToNext()
-    }
   }
 
-  const handleTouchEnd = () => {
+  const handleTouchEnd = (e: React.TouchEvent) => {
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current)
     }
     setIsPaused(false)
+
+    // H24: Only navigate if NOT a long-press and NOT paused
+    if (!touchStartRef.current || isPaused) {
+      touchStartRef.current = null
+      return
+    }
+
+    const touch = e.changedTouches[0]
+    const dx = Math.abs(touch.clientX - touchStartRef.current.x)
+    const dy = Math.abs(touch.clientY - touchStartRef.current.y)
+
+    // Only navigate on tap (not swipe) — small movement threshold
+    if (dx < 30 && dy < 30) {
+      const x = touch.clientX
+      const screenWidth = window.innerWidth
+      if (x < screenWidth * 0.3) {
+        goToPrev()
+      } else if (x > screenWidth * 0.7) {
+        goToNext()
+      }
+    }
+
+    touchStartRef.current = null
   }
 
   const handleDelete = async () => {
@@ -192,6 +211,7 @@ export function ArchiveViewer({
               muted
               playsInline
               onLoadedData={() => setIsLoading(false)}
+              onEnded={goToNext}
             />
           ) : (
             /* eslint-disable-next-line @next/next/no-img-element */

@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
-import { getMessages, sendMessage, markConversationAsRead, markMessagesAsDelivered, markMessagesAsSeen, getSignedUrl, addReaction, deleteMessage, reportMessage } from '@/services/messages';
+import { getMessages, getOlderMessages, sendMessage, markConversationAsRead, markMessagesAsDelivered, markMessagesAsSeen, getSignedUrl, addReaction, deleteMessage, reportMessage } from '@/services/messages';
 import type { MediaMetadata } from '@/services/messages';
 import { MessageBubble, type MessageBubbleData } from '@/components/messages/message-bubble';
 import { ReplyPreview } from '@/components/messages/reply-preview';
@@ -110,17 +110,21 @@ interface UserProfile {
 export default function MessagesPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMoreConversations, setLoadingMoreConversations] = useState(false);
+  const [hasMoreConversations, setHasMoreConversations] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showMobileChat, setShowMobileChat] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(-1); // -1 = idle, 0-100 = uploading
-  const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
+  const [enlargedImage, setEnlargedImage] = useState<{ url: string; mediaPath?: string } | null>(null);
   const [failedMessages, setFailedMessages] = useState<Map<string, FailedMessageData>>(new Map());
   const [replyTo, setReplyTo] = useState<MessageBubbleData | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' } | null>(null);
@@ -200,12 +204,16 @@ export default function MessagesPage() {
         .select('conversation_id, unread_count, last_read_at, conversations!inner(updated_at)')
         .eq('user_id', user.id)
         .order('conversations(updated_at)', { ascending: false })
-        .limit(20);
+        .limit(21); // H15: fetch 21 to detect if more exist
 
       if (!participants || participants.length === 0) { setLoading(false); return; }
 
-      const conversationIds = participants.map(p => p.conversation_id);
-      const participantMap = new Map(participants.map(p => [p.conversation_id, p]));
+      // H15: Track whether more conversations exist
+      setHasMoreConversations(participants.length > 20);
+      const pagedParticipants = participants.slice(0, 20);
+
+      const conversationIds = pagedParticipants.map(p => p.conversation_id);
+      const participantMap = new Map(pagedParticipants.map(p => [p.conversation_id, p]));
 
       const { data: others } = await supabase
         .from('conversation_participants')
@@ -315,6 +323,89 @@ export default function MessagesPage() {
     return () => { supabase.removeChannel(convChannel); };
   }, []);
 
+  // H15: Load more conversations pagination
+  const loadMoreConversations = useCallback(async () => {
+    if (loadingMoreConversations || !hasMoreConversations) return;
+    setLoadingMoreConversations(true);
+
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setLoadingMoreConversations(false); return; }
+
+    const oldestLoaded = conversations[conversations.length - 1];
+    if (!oldestLoaded) { setLoadingMoreConversations(false); return; }
+
+    const { data: participants } = await supabase
+      .from('conversation_participants')
+      .select('conversation_id, unread_count, last_read_at, conversations!inner(updated_at)')
+      .eq('user_id', user.id)
+      .order('conversations(updated_at)', { ascending: false })
+      .lt('conversations(updated_at)', oldestLoaded.updated_at)
+      .limit(21);
+
+    if (!participants || participants.length === 0) {
+      setHasMoreConversations(false);
+      setLoadingMoreConversations(false);
+      return;
+    }
+
+    setHasMoreConversations(participants.length > 20);
+    const pagedParticipants = participants.slice(0, 20);
+    const newIds = pagedParticipants.map(p => p.conversation_id);
+
+    const { data: others } = await supabase
+      .from('conversation_participants')
+      .select('conversation_id, user_id')
+      .in('conversation_id', newIds)
+      .neq('user_id', user.id);
+
+    const otherUserIds = [...new Set(others?.map(o => o.user_id) || [])];
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, username, display_name, avatar_url')
+      .in('id', otherUserIds);
+
+    const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+    const otherMap = new Map(others?.map(o => [o.conversation_id, o]) || []);
+    const participantMap = new Map(pagedParticipants.map(p => [p.conversation_id, p]));
+
+    const { data: recentMsgs } = await supabase
+      .from('messages')
+      .select('conversation_id, content, message_type, created_at, sender_id, deleted_at')
+      .in('conversation_id', newIds)
+      .order('created_at', { ascending: false });
+
+    const latestMsgMap = new Map<string, { content: string; created_at: string; message_type: string }>();
+    if (recentMsgs) {
+      for (const msg of recentMsgs) {
+        if (!latestMsgMap.has(msg.conversation_id) && !msg.deleted_at) {
+          latestMsgMap.set(msg.conversation_id, { content: msg.content, created_at: msg.created_at, message_type: msg.message_type });
+        }
+      }
+    }
+
+    const newConversations: Conversation[] = newIds.map(id => {
+      const other = otherMap.get(id);
+      const profile = other ? profileMap.get(other.user_id) : null;
+      const p = participantMap.get(id);
+      const latest = latestMsgMap.get(id);
+      return {
+        id,
+        unread_count: p?.unread_count || 0,
+        last_message: latest?.content || '',
+        updated_at: latest?.created_at || '',
+        other_user: profile ? { id: profile.id, username: profile.username, display_name: profile.display_name, avatar_url: profile.avatar_url } : null,
+      };
+    });
+
+    setConversations(prev => {
+      const existing = new Set(prev.map(c => c.id));
+      const fresh = newConversations.filter(c => !existing.has(c.id));
+      return [...prev, ...fresh];
+    });
+    setLoadingMoreConversations(false);
+  }, [conversations, loadingMoreConversations, hasMoreConversations]);
+
   // Handle conversation selection
   const handleSelectConversation = useCallback((conv: Conversation) => {
     if (conv.other_user) otherUserProfileRef.current = conv.other_user;
@@ -333,6 +424,7 @@ export default function MessagesPage() {
     async function loadMessagesAndSubscribe() {
       sentTempIdsRef.current.clear();
       setMessages([]);
+      setHasMoreMessages(true);
       setLoadingMessages(true);
       isSubscribedRef.current = false;
 
@@ -550,8 +642,26 @@ export default function MessagesPage() {
     };
   }, [selectedId, currentUserId, currentUserProfile, deduplicateMessages]);
 
-  // Scroll to bottom when messages change
-  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages.length]);
+  // H10: Smart auto-scroll — only scroll if user is already near the bottom
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const isNearBottomRef = useRef(true);
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const handleScroll = () => {
+      const threshold = 150;
+      isNearBottomRef.current = container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
+    };
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [selectedId]);
+
+  useEffect(() => {
+    if (isNearBottomRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages.length]);
 
   // Track typing with debounce
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -992,8 +1102,10 @@ export default function MessagesPage() {
       } : m)));
     } else {
       tid.delete(tempId);
+      // H11: Revoke blob URL on send failure to prevent memory leak
+      if (tempMediaUrl) URL.revokeObjectURL(tempMediaUrl);
       // Mark as failed instead of removing — user can retry
-      setMessages(prev => prev.map(m => m.id === tempId ? { ...m, status: 'failed' as const } : m));
+      setMessages(prev => prev.map(m => m.id === tempId ? { ...m, status: 'failed' as const, media_url: null, thumbnail_url: null } : m));
       setFailedMessages(prev => new Map(prev).set(tempId, { content: displayContent, media, file: imageFile ?? undefined, replyToMessageId: replyTo?.id }));
     }
     setSending(false);
@@ -1070,11 +1182,43 @@ export default function MessagesPage() {
       } : m)));
     } else {
       tid.delete(tempId);
-      setMessages(prev => prev.map(m => m.id === tempId ? { ...m, status: 'failed' as const } : m));
+      // H12: Revoke voice blob URL on send failure to prevent memory leak
+      URL.revokeObjectURL(voiceBlobUrl);
+      setMessages(prev => prev.map(m => m.id === tempId ? { ...m, status: 'failed' as const, media_url: null } : m));
       setFailedMessages(prev => new Map(prev).set(tempId, { content: '', blob, duration }));
     }
     setSending(false);
   }, [uploadWithProgress, showToast, deduplicateMessages]);
+
+  // H17: Format date for day separators
+  // H16: Load older messages for pagination
+  const loadMoreMessages = useCallback(async () => {
+    const sid = selectedIdRef.current;
+    if (!sid || loadingOlderMessages || !hasMoreMessages || messages.length === 0) return;
+    setLoadingOlderMessages(true);
+
+    const oldest = messages[0];
+    if (!oldest) { setLoadingOlderMessages(false); return; }
+
+    const result = await getOlderMessages(sid, oldest.createdAt);
+    if (result.messages.length === 0) {
+      setHasMoreMessages(false);
+    } else {
+      if (result.messages.length < 50) setHasMoreMessages(false);
+      setMessages(prev => [...result.messages, ...prev]);
+    }
+    setLoadingOlderMessages(false);
+  }, [messages, loadingOlderMessages, hasMoreMessages]);
+
+  const formatDateSeparator = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (date.toDateString() === today.toDateString()) return 'Today';
+    if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+    return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined });
+  };
 
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -1173,6 +1317,16 @@ export default function MessagesPage() {
                 <Link href="/explore" className="text-[var(--accent-primary)] text-sm hover:underline">Find people to message</Link>
               </div>
             )}
+            {/* H15: Load more conversations */}
+            {hasMoreConversations && (
+              <button
+                onClick={loadMoreConversations}
+                disabled={loadingMoreConversations}
+                className="w-full py-3 text-sm text-[var(--accent-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+              >
+                {loadingMoreConversations ? 'Loading...' : 'Load older conversations'}
+              </button>
+            )}
           </div>
         </div>
 
@@ -1210,7 +1364,15 @@ export default function MessagesPage() {
               </div>
 
               {/* Messages */}
-              <div role="log" aria-label="Messages" aria-live="polite" className="flex-1 min-h-0 overflow-y-auto px-4 py-2">
+              <div role="log" aria-label="Messages" aria-live="polite" ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto px-4 py-2"
+                onScroll={(e) => {
+                  // H16: Trigger load-older when scrolled near top
+                  const el = e.currentTarget;
+                  if (el.scrollTop < 50 && hasMoreMessages && !loadingOlderMessages) {
+                    loadMoreMessages();
+                  }
+                }}
+              >
                 {loadingMessages ? (
                   <div role="status" className="py-2 space-y-3">
                     {[40, 60, 50, 55, 35, 50].map((w, i) => (
@@ -1224,9 +1386,22 @@ export default function MessagesPage() {
                   </div>
                 ) : messages.length > 0 ? (
                   <div className="py-2">
+                    {/* H16: Loading indicator at top when fetching older messages */}
+                    {loadingOlderMessages && (
+                      <div className="flex items-center justify-center py-4">
+                        <div className="w-5 h-5 border-2 border-[var(--text-muted)] border-t-transparent rounded-full animate-spin" />
+                      </div>
+                    )}
+                    {!hasMoreMessages && !loadingOlderMessages && messages.length >= 200 && (
+                      <div className="text-center text-[11px] text-[var(--text-muted)] py-2">Start of conversation</div>
+                    )}
                     {messages.map((msg, i) => {
                       const prevMsg = i > 0 ? messages[i - 1] : null;
                       const isConsecutive = prevMsg && prevMsg.senderId === msg.senderId;
+
+                      // H17: Insert date separator when day changes
+                      const showDateSeparator = !prevMsg ||
+                        new Date(msg.createdAt).toDateString() !== new Date(prevMsg.createdAt).toDateString();
 
                       // Failed/sending messages use legacy inline rendering
                       if (msg.status === 'failed' || msg.status === 'sending') {
@@ -1255,19 +1430,31 @@ export default function MessagesPage() {
                       }
 
                       return (
-                        <div key={msg.id} className={cn('px-2', isConsecutive ? 'mt-[2px]' : 'mt-3')}>
-                          <MessageBubble
-                            message={msg as MessageBubbleData}
-                            showAvatar={!isConsecutive && !msg.isMine}
-                            onReact={handleReact}
-                            onReply={handleReply}
-                            onDelete={handleDelete}
-                            onCopy={handleCopy}
-                            onReport={handleReport}
-                            onSaveMedia={handleSaveMedia}
-                            onImageClick={setEnlargedImage}
-                            onRefreshUrl={getOrRefreshSignedUrl}
-                          />
+                        <div key={msg.id}>
+                          {showDateSeparator && (
+                            <div className="flex items-center justify-center my-4">
+                              <span className="text-[11px] text-[var(--text-muted)] bg-[var(--bg-secondary)] px-3 py-1 rounded-full">
+                                {formatDateSeparator(msg.createdAt)}
+                              </span>
+                            </div>
+                          )}
+                          <div className={cn('px-2', isConsecutive && !showDateSeparator ? 'mt-[2px]' : 'mt-3')}>
+                            <MessageBubble
+                              message={msg as MessageBubbleData}
+                              showAvatar={!isConsecutive && !msg.isMine}
+                              onReact={handleReact}
+                              onReply={handleReply}
+                              onDelete={handleDelete}
+                              onCopy={handleCopy}
+                              onReport={handleReport}
+                              onSaveMedia={handleSaveMedia}
+                              onImageClick={(url) => {
+                                const imgMsg = messages.find(m => m.media_url === url || m.thumbnail_url === url);
+                                setEnlargedImage({ url, mediaPath: imgMsg?.media_path || undefined });
+                              }}
+                              onRefreshUrl={getOrRefreshSignedUrl}
+                            />
+                          </div>
                         </div>
                       );
                     })}
@@ -1404,7 +1591,7 @@ export default function MessagesPage() {
         </div>
       </div>
 
-      {/* Image lightbox */}
+      {/* Image lightbox — H13: refreshes expired signed URLs */}
       {enlargedImage && (
         <div
           role="dialog"
@@ -1426,10 +1613,19 @@ export default function MessagesPage() {
           </button>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={enlargedImage}
+            src={enlargedImage.url}
             alt="Full size image"
             className="max-w-full max-h-[90vh] object-contain rounded-lg"
             onClick={(e) => e.stopPropagation()}
+            onError={async (e) => {
+              // H13: If image fails to load (expired URL), try refreshing via media_path
+              if (enlargedImage.mediaPath) {
+                const fresh = await getOrRefreshSignedUrl(enlargedImage.mediaPath);
+                if (fresh) {
+                  setEnlargedImage({ url: fresh, mediaPath: enlargedImage.mediaPath });
+                }
+              }
+            }}
           />
         </div>
       )}

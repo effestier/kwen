@@ -65,14 +65,18 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete }: PostCardProps) => 
   const [showComments, setShowComments] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [commentCount, setCommentCount] = useState(post.comments);
-  const [loading, setLoading] = useState(false);
+  // H2: Separate loading flags for like and save so they don't block each other
+  const [likeLoading, setLikeLoading] = useState(false);
+  const [saveLoading, setSaveLoading] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [deleted, setDeleted] = useState(false);
   const [showUndoToast, setShowUndoToast] = useState(false);
   const [editedAt, setEditedAt] = useState<string | null>(null);
   const [heartTrigger, setHeartTrigger] = useState(0);
-  const lastTapRef = useRef(0);
+  // H7: Caption expand/collapse state
+  const [captionExpanded, setCaptionExpanded] = useState(false);
+  const captionNeedsTruncation = post.content && post.content.length > 300;
   const supabase = createClient();
 
   useEffect(() => { setLiked(post.isLiked); }, [post.isLiked]);
@@ -81,8 +85,8 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete }: PostCardProps) => 
   useEffect(() => { setCommentCount(post.comments); }, [post.comments]);
 
   const handleLike = useCallback(async () => {
-    if (loading) return;
-    setLoading(true);
+    if (likeLoading) return;
+    setLikeLoading(true);
     if (!liked) hapticLight();
     const prevLiked = liked;
     const prevCount = likeCount;
@@ -94,23 +98,20 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete }: PostCardProps) => 
       setLiked(prevLiked);
       setLikeCount(prevCount);
     } finally {
-      setLoading(false);
+      setLikeLoading(false);
     }
-  }, [liked, likeCount, loading, post.id]);
+  }, [liked, likeCount, likeLoading, post.id]);
 
+  // H1/H6: Carousel already detects double-tap — this handler just fires the like + animation
   const handleMediaDoubleTap = useCallback(() => {
-    const now = Date.now();
-    if (now - lastTapRef.current < 300) {
-      if (!liked) handleLike();
-      setHeartTrigger(prev => prev + 1);
-      hapticMedium();
-    }
-    lastTapRef.current = now;
+    if (!liked) handleLike();
+    setHeartTrigger(prev => prev + 1);
+    hapticMedium();
   }, [liked, handleLike]);
 
   const handleSave = useCallback(async () => {
-    if (loading) return;
-    setLoading(true);
+    if (saveLoading) return;
+    setSaveLoading(true);
     const prevSaved = saved;
     setSaved(!saved);
     try {
@@ -118,29 +119,51 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete }: PostCardProps) => 
     } catch {
       setSaved(prevSaved);
     } finally {
-      setLoading(false);
+      setSaveLoading(false);
     }
-  }, [saved, loading, post.id]);
+  }, [saved, saveLoading, post.id]);
 
   const handleCommentsChange = useCallback(() => {
     getCommentCount(post.id).then(count => setCommentCount(count));
   }, [post.id]);
 
+  // H3: Track delete timeout for proper cleanup
+  const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const handleDelete = useCallback(async () => {
     setShowMoreMenu(false);
     setDeleted(true);
     setShowUndoToast(true);
-    await deletePost(post.id);
-    setTimeout(() => {
+    const { error } = await deletePost(post.id);
+    if (error) {
+      // H3: Revert optimistic delete on API failure
+      setDeleted(false);
+      setShowUndoToast(false);
+      return;
+    }
+    // H3: Track timeout so undo can clear it
+    deleteTimerRef.current = setTimeout(() => {
       onDelete?.(post.id);
     }, 5000);
   }, [post.id, onDelete]);
 
   const handleUndoDelete = useCallback(async () => {
+    // H3: Clear the pending delete timeout
+    if (deleteTimerRef.current) {
+      clearTimeout(deleteTimerRef.current);
+      deleteTimerRef.current = null;
+    }
     await restorePost(post.id);
     setDeleted(false);
     setShowUndoToast(false);
   }, [post.id]);
+
+  // H3: Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current);
+    };
+  }, []);
 
   // Build media array for carousel
   const mediaItems: MediaItem[] = post.media && post.media.length > 0
@@ -235,12 +258,23 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete }: PostCardProps) => 
           </div>
         </div>
 
-        {/* Content */}
+        {/* Content — H7: Truncate long captions with expand/collapse */}
         {post.content && (
           <div className="mb-3">
-            <p className="text-[15px] leading-relaxed text-[var(--text-secondary)] whitespace-pre-line">
+            <p className={cn(
+              'text-[15px] leading-relaxed text-[var(--text-secondary)] whitespace-pre-line',
+              !captionExpanded && captionNeedsTruncation && 'line-clamp-3'
+            )}>
               {renderRichText(post.content)}
             </p>
+            {captionNeedsTruncation && (
+              <button
+                onClick={() => setCaptionExpanded(!captionExpanded)}
+                className="text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors mt-1"
+              >
+                {captionExpanded ? 'Show less' : 'Show more'}
+              </button>
+            )}
             {editedAt && (
               <p className="text-xs text-[var(--text-muted)] mt-1">edited</p>
             )}
@@ -262,11 +296,11 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete }: PostCardProps) => 
         <div className="flex items-center gap-1 mt-2">
           <button
             onClick={handleLike}
-            disabled={loading}
+            disabled={likeLoading}
             className={cn(
               'p-2 rounded-full transition-all duration-200 active:scale-90',
               liked ? 'text-[var(--destructive)]' : 'text-[var(--text-muted)] hover:text-[var(--destructive)] hover:bg-[var(--bg-tertiary)]',
-              loading && 'opacity-50'
+              likeLoading && 'opacity-50'
             )}
             aria-label={liked ? 'Unlike' : 'Like'}
           >
@@ -297,11 +331,11 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete }: PostCardProps) => 
 
           <button
             onClick={handleSave}
-            disabled={loading}
+            disabled={saveLoading}
             className={cn(
               'p-2 rounded-full ml-auto transition-all duration-200 active:scale-90',
               saved ? 'text-amber-500' : 'text-[var(--text-muted)] hover:text-amber-500 hover:bg-[var(--bg-tertiary)]',
-              loading && 'opacity-50'
+              saveLoading && 'opacity-50'
             )}
             aria-label={saved ? 'Unsave' : 'Save'}
           >
@@ -317,6 +351,10 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete }: PostCardProps) => 
           <button onClick={() => setShowComments(true)} className="hover:underline">
             <span className="font-semibold text-[var(--text-secondary)]">{formatNumber(commentCount)}</span> comments
           </button>
+          {/* H8: Display share count */}
+          {post.shares > 0 && (
+            <span className="cursor-default">{formatNumber(post.shares)} shares</span>
+          )}
         </div>
       </article>
 

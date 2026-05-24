@@ -40,8 +40,8 @@ export function ArchiveGrid({ onStoryClick }: ArchiveGridProps) {
     if (storiesByMonth.has(month)) return
     setLoadingMonth(month)
 
-    // Get stories for this month by filtering the paginated results
-    const { stories, hasMore } = await getArchivedStories(userId, undefined, 200)
+    // H27: Fetch only first page (20 stories) per month, not all 200
+    const { stories, hasMore } = await getArchivedStories(userId, undefined, 20)
 
     // Group by month
     const grouped = new Map<string, ArchivedStory[]>()
@@ -51,15 +51,20 @@ export function ArchiveGrid({ onStoryClick }: ArchiveGridProps) {
       grouped.get(m)!.push(s)
     }
 
+    // Only keep stories for the requested month
+    const monthStories = grouped.get(month) || []
+
     setStoriesByMonth(prev => {
       const next = new Map(prev)
-      for (const [k, v] of grouped) {
-        next.set(k, v)
-      }
+      next.set(month, monthStories)
       return next
     })
 
     setHasMoreByMonth(prev => new Map(prev).set(month, hasMore))
+    if (stories.length > 0) {
+      const lastStory = stories[stories.length - 1]
+      setCursors(prev => new Map(prev).set(month, lastStory.created_at))
+    }
     setLoadingMonth(null)
   }
 

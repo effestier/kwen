@@ -99,6 +99,11 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
       userMap.get(story.user_id)!.stories.push(story);
     }
 
+    // H22: Sort each user's stories chronologically (oldest first) for viewer playback order
+    for (const user of userMap.values()) {
+      user.stories.sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at));
+    }
+
     return Array.from(userMap.values());
   }, [allStoriesSorted]);
 

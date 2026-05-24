@@ -141,6 +141,10 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
   // Video state
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [isVideoReady, setIsVideoReady] = useState(false);
+  // H18: Guard against double-fire of goToNext (rAF + video onEnded)
+  const navigatingRef = useRef(false);
+  // H19: Local music state instead of mutating prop
+  const [musicData, setMusicData] = useState<Story['music']>(undefined);
 
   // Gesture state
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
@@ -202,13 +206,14 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
     }
 
     getStoryMusic(currentStory.id).then(music => {
-      if (music && currentStory) {
-        currentStory.music = {
+      if (music) {
+        // H19: Store music in local state instead of mutating the prop
+        setMusicData({
           track_name: music.track_name,
           artist: music.artist,
           preview_url: music.preview_url,
           cover_url: music.cover_url,
-        };
+        });
 
         // Auto-play music if preview_url exists
         if (music.preview_url) {
@@ -219,6 +224,8 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
           musicRef.current = audio;
           setIsMusicPlaying(true);
         }
+      } else {
+        setMusicData(undefined);
       }
     });
 
@@ -306,8 +313,17 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
   }, []);
 
   const goToNext = useCallback(() => {
+    // H18: Guard against double-fire from rAF + video onEnded
+    if (navigatingRef.current) return;
+    navigatingRef.current = true;
+
     const currentUserData = users[userIndex];
-    if (!currentUserData) return;
+    if (!currentUserData) { navigatingRef.current = false; return; }
+
+    // H23: Pause video immediately to prevent audio bleed during transition
+    if (videoRef.current) {
+      videoRef.current.pause();
+    }
 
     if (storyIndex < currentUserData.stories.length - 1) {
       // Next story within same user
@@ -441,6 +457,7 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
   // Reset elapsed when story changes
   useEffect(() => {
     elapsedRef.current = 0;
+    navigatingRef.current = false; // H18: Reset double-fire guard
   }, [userIndex, storyIndex]);
 
   // ---- Preloading (next 3 stories across user boundaries) ----
@@ -944,7 +961,8 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
         {/* Bottom action bar */}
         <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/60 to-transparent z-10">
           {/* Music display */}
-          {currentStory?.music && (
+          {/* H19: Use musicData state instead of mutating prop */}
+          {musicData && (
             <div className="flex items-center gap-3 mb-3 bg-white/10 rounded-full px-4 py-2">
               <button
                 onClick={() => {
@@ -971,13 +989,13 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
                 )}
               </button>
               <div className="flex-1 min-w-0">
-                <p className="text-white text-sm font-medium truncate">{currentStory.music.track_name}</p>
-                <p className="text-white/60 text-xs truncate">{currentStory.music.artist}</p>
+                <p className="text-white text-sm font-medium truncate">{musicData.track_name}</p>
+                <p className="text-white/60 text-xs truncate">{musicData.artist}</p>
               </div>
-              {currentStory.music.cover_url && (
+              {musicData.cover_url && (
                 <img
-                  src={currentStory.music.cover_url}
-                  alt={`${currentStory.music.track_name} cover art`}
+                  src={musicData.cover_url}
+                  alt={`${musicData.track_name} cover art`}
                   className="w-8 h-8 rounded-full object-cover"
                 />
               )}
@@ -985,10 +1003,10 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
           )}
 
           {/* Audio element for music playback */}
-          {currentStory?.music?.preview_url && (
+          {musicData?.preview_url && (
             <audio
               ref={musicRef}
-              src={currentStory.music.preview_url}
+              src={musicData.preview_url}
               preload="auto"
               onEnded={() => setIsMusicPlaying(false)}
             />

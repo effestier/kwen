@@ -20,15 +20,26 @@ export function MediaCarousel({ media, onDoubleTap, className }: MediaCarouselPr
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastTapRef = useRef<number>(0);
+  // H4: Track whether a scroll/swipe happened to suppress false double-taps
+  const didScrollRef = useRef(false);
+  const scrollEndTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleScroll = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
     const index = Math.round(el.scrollLeft / el.clientWidth);
     setActiveIndex(index);
+    // H4: Mark that a scroll happened — suppress taps until settled
+    didScrollRef.current = true;
+    if (scrollEndTimer.current) clearTimeout(scrollEndTimer.current);
+    scrollEndTimer.current = setTimeout(() => {
+      didScrollRef.current = false;
+    }, 150);
   }, []);
 
   const handleTap = useCallback(() => {
+    // H4: Ignore taps that follow a scroll/swipe gesture
+    if (didScrollRef.current) return;
     const now = Date.now();
     if (now - lastTapRef.current < 300) {
       onDoubleTap?.();
@@ -71,7 +82,7 @@ export function MediaCarousel({ media, onDoubleTap, className }: MediaCarouselPr
           msOverflowStyle: 'none',
         }}
       >
-        {media.map((item) => (
+        {media.map((item, i) => (
           <div
             key={item.id}
             className="flex-shrink-0 w-full relative"
@@ -79,7 +90,7 @@ export function MediaCarousel({ media, onDoubleTap, className }: MediaCarouselPr
             onClick={handleTap}
           >
             {item.media_type === 'video' ? (
-              <VideoPlayer src={item.storage_path} />
+              <VideoPlayer src={item.storage_path} active={i === activeIndex} />
             ) : (
               <img
                 src={item.storage_path}
@@ -102,8 +113,8 @@ export function MediaCarousel({ media, onDoubleTap, className }: MediaCarouselPr
               key={i}
               className={`rounded-full transition-all duration-200 ${
                 i === activeIndex
-                  ? 'w-1.5 h-1.5 bg-white'
-                  : 'w-1 h-1 bg-white/30'
+                  ? 'w-1.5 h-1.5 bg-[var(--text-primary)]'
+                  : 'w-1 h-1 bg-[var(--text-muted)] opacity-30'
               }`}
             />
           ))}

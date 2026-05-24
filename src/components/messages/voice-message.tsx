@@ -216,17 +216,15 @@ export function VoiceMessage({ mediaUrl, duration, isMine, onRefreshUrl }: Voice
           )}>
             {isPlaying ? formatTime(currentTime) : formatTime(duration)}
           </span>
-          {speed !== 1 && (
-            <button
-              onClick={cycleSpeed}
-              className={cn(
-                'text-[9px] font-medium px-1 py-0.5 rounded',
-                isMine ? 'bg-white/20 text-white/70' : 'bg-[var(--bg-tertiary)] text-[var(--text-muted)]'
-              )}
-            >
-              {speed}x
-            </button>
-          )}
+          <button
+            onClick={cycleSpeed}
+            className={cn(
+              'text-[9px] font-medium px-1 py-0.5 rounded',
+              isMine ? 'bg-white/20 text-white/70' : 'bg-[var(--bg-tertiary)] text-[var(--text-muted)]'
+            )}
+          >
+            {speed}x
+          </button>
         </div>
       </div>
     </div>

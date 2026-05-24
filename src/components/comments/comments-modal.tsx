@@ -201,7 +201,7 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
 
     const result = await toggleCommentLike(commentId);
     if (!result.success) {
-      // Revert on failure
+      // H6: Revert on failure — parent comments AND replies
       setComments(prev => prev.map(c => {
         if (c.id === commentId) {
           return {
@@ -212,6 +212,22 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
         }
         return c;
       }));
+      setRepliesMap(prev => {
+        const next = new Map(prev);
+        for (const [parentId, replies] of next) {
+          next.set(parentId, replies.map(r => {
+            if (r.id === commentId) {
+              return {
+                ...r,
+                is_liked: !r.is_liked,
+                like_count: (r.like_count ?? 0) + (r.is_liked ? -1 : 1),
+              };
+            }
+            return r;
+          }));
+        }
+        return next;
+      });
     }
   };
 

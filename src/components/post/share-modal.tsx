@@ -35,11 +35,11 @@ export function ShareModal({ postId, isOpen, onClose }: ShareModalProps) {
     onClose();
   }, [postId, onClose]);
 
-  const handleSendAsDM = useCallback(() => {
-    // Navigate to messages with share intent
-    window.location.href = `/messages?share=${postId}`;
-    incrementShareCount(postId);
+  const handleSendAsDM = useCallback(async () => {
+    // H7: Increment share count BEFORE navigation (navigation kills JS context)
+    await incrementShareCount(postId);
     onClose();
+    window.location.href = `/messages?share=${postId}`;
   }, [postId, onClose]);
 
   if (!isOpen) return null;

@@ -525,7 +525,7 @@ export async function compositeVideoStory(options: CompositeOptions): Promise<Fi
   filterParts.push(`scale=${STORY_WIDTH}:${STORY_HEIGHT}:force_original_aspect_ratio=decrease`)
   filterParts.push(`pad=${STORY_WIDTH}:${STORY_HEIGHT}:(ow-iw)/2:(oh-ih)/2:black`)
 
-  // Filters (eq filter for brightness/contrast/saturation)
+  // Filters (eq filter for brightness/contrast/saturation + blur + warmth)
   if (hasFilters) {
     const eqParts: string[] = []
     if (filters.brightness !== 100) eqParts.push(`brightness=${(filters.brightness - 100) / 100}`)
@@ -533,6 +533,19 @@ export async function compositeVideoStory(options: CompositeOptions): Promise<Fi
     if (filters.saturation !== 100) eqParts.push(`saturation=${filters.saturation / 100}`)
     if (eqParts.length > 0) filterParts.push(`eq=${eqParts.join(':')}`)
     if (filters.grayscale) filterParts.push('hue=s=0')
+    // H20: Blur support via gblur
+    if (filters.blur > 0) filterParts.push(`gblur=sigma=${filters.blur}`)
+    // H20: Warmth support via colorchannelmixer (sepia-like warm tone)
+    if (filters.warmth !== 0) {
+      const warmthAbs = Math.abs(filters.warmth) / 100;
+      if (filters.warmth > 0) {
+        // Warm: boost red, reduce blue
+        filterParts.push(`colorchannelmixer=rr=${1 + warmthAbs * 0.3}:bb=${1 - warmthAbs * 0.3}`);
+      } else {
+        // Cool: boost blue, reduce red
+        filterParts.push(`colorchannelmixer=rr=${1 - warmthAbs * 0.3}:bb=${1 + warmthAbs * 0.3}`);
+      }
+    }
   }
 
   const videoFilter = filterParts.length > 0 ? filterParts.join(',') : 'null'

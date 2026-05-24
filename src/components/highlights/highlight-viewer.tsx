@@ -79,13 +79,13 @@ export function HighlightViewer({
     }
   }, [currentIndex])
 
-  // Progress bar timer
+  // Progress bar timer — H25: For videos, skip timer (video onTimeUpdate + onEnded handle it)
   useEffect(() => {
     if (progressRef.current) {
       clearInterval(progressRef.current)
     }
 
-    if (isPaused) return
+    if (isPaused || isVideo) return // H25: Don't run timer for videos
 
     setProgress(0)
     const interval = 50
@@ -106,7 +106,7 @@ export function HighlightViewer({
         clearInterval(progressRef.current)
       }
     }
-  }, [currentIndex, duration, goToNext, isPaused])
+  }, [currentIndex, duration, goToNext, isPaused, isVideo])
 
   // Keyboard navigation
   useEffect(() => {
@@ -192,7 +192,7 @@ export function HighlightViewer({
               className="h-full bg-white rounded-full transition-all duration-75"
               style={{
                 width: idx === currentIndex
-                  ? `${progress}%`
+                  ? `${isVideo ? videoProgress : progress}%`
                   : idx < currentIndex
                     ? '100%'
                     : '0%'

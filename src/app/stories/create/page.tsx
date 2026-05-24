@@ -327,18 +327,31 @@ export default function CreateStoryPage() {
 
       // 4. Save ONLY interactive stickers to DB (poll, question, countdown)
       // Text, drawing, gif, emoji, etc. are burned into the composited media
+      // H21: Catch and report sticker errors instead of silently swallowing
+      const stickerErrors: string[] = [];
       for (const o of overlays) {
-        if (o.type === 'sticker' && o.data.stickerType === 'poll' && o.data.question) {
-          const opts = o.data.options as string[];
-          if (opts && opts.length >= 2) {
-            await createPoll(story.id, o.data.question as string, opts[0], opts[1]);
+        try {
+          if (o.type === 'sticker' && o.data.stickerType === 'poll' && o.data.question) {
+            const opts = o.data.options as string[];
+            if (opts && opts.length >= 2) {
+              const result = await createPoll(story.id, o.data.question as string, opts[0], opts[1]);
+              if (result.error) stickerErrors.push(`Poll: ${result.error}`);
+            }
+          } else if (o.type === 'sticker' && o.data.stickerType === 'question' && o.data.question) {
+            const result = await createQuestion(story.id, o.data.question as string);
+            if (result.error) stickerErrors.push(`Question: ${result.error}`);
+          } else if (o.type === 'sticker' && o.data.stickerType === 'countdown' && o.data.title) {
+            const endTime = (o.data.endTime as string) || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+            const result = await createCountdown(story.id, o.data.title as string, endTime);
+            if (result.error) stickerErrors.push(`Countdown: ${result.error}`);
           }
-        } else if (o.type === 'sticker' && o.data.stickerType === 'question' && o.data.question) {
-          await createQuestion(story.id, o.data.question as string);
-        } else if (o.type === 'sticker' && o.data.stickerType === 'countdown' && o.data.title) {
-          const endTime = (o.data.endTime as string) || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-          await createCountdown(story.id, o.data.title as string, endTime);
+        } catch (err) {
+          stickerErrors.push(`Sticker save failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
         }
+      }
+      if (stickerErrors.length > 0) {
+        console.error('[Story] Sticker save errors:', stickerErrors);
+        showToast(`Story saved, but ${stickerErrors.length} sticker(s) failed`, 5);
       }
 
       // 5. Save music metadata to DB (viewer needs it for playback)

@@ -52,6 +52,7 @@ export default function ExplorePage() {
   const [searching, setSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  const mobileSearchRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
 
@@ -211,10 +212,13 @@ export default function ExplorePage() {
     return () => clearTimeout(timer);
   }, [searchQuery, searchMode, supabase]);
 
-  // Close search results on click outside
+  // H32: Close search results on click outside — check both mobile and desktop refs
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const inMobile = mobileSearchRef.current?.contains(target);
+      const inDesktop = searchRef.current?.contains(target);
+      if (!inMobile && !inDesktop) {
         setShowResults(false);
       }
     }
@@ -262,7 +266,7 @@ export default function ExplorePage() {
           <h1 className="text-lg font-bold text-[var(--text-primary)] mb-3">Explore</h1>
 
           {/* Search bar */}
-          <div ref={searchRef} className="relative">
+          <div ref={mobileSearchRef} className="relative">
             <div className="relative">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]">
                 <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />

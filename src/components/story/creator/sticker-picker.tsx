@@ -122,11 +122,12 @@ export function StickerPicker({ onAddSticker, onClose }: StickerPickerProps) {
     onClose();
   };
 
-  const addPollOption = () => {
-    if (pollOptions.length < 4) {
-      setPollOptions([...pollOptions, '']);
-    }
-  };
+  // H28: DB schema only supports 2 poll options (option_1, option_2). Cap at 2.
+  // const addPollOption = () => {
+  //   if (pollOptions.length < 4) {
+  //     setPollOptions([...pollOptions, '']);
+  //   }
+  // };
 
   const updatePollOption = (index: number, value: string) => {
     const newOptions = [...pollOptions];
@@ -346,14 +347,6 @@ export function StickerPicker({ onAddSticker, onClose }: StickerPickerProps) {
                         className="w-full px-4 py-2 rounded-lg bg-[var(--bg-tertiary)] text-white placeholder:text-[var(--text-muted)] border-none focus:outline-none focus:ring-1 focus:ring-[var(--border-soft)]"
                       />
                     ))}
-                    {pollOptions.length < 4 && (
-                      <button
-                        onClick={addPollOption}
-                        className="text-white/60 text-sm hover:text-white"
-                      >
-                        + Add option
-                      </button>
-                    )}
                   </div>
                 </div>
               )}

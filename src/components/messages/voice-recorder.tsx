@@ -34,6 +34,7 @@ export function VoiceRecorder({ onSend, onCancel, autoStart = true }: VoiceRecor
   const mimeTypeRef = useRef<string>('audio/webm');
   const touchStartXRef = useRef<number>(0);
   const touchStartYRef = useRef<number>(0);
+  const mountedAtRef = useRef<number>(Date.now());
 
   const cleanup = useCallback(() => {
     if (streamRef.current) {
@@ -234,6 +235,9 @@ export function VoiceRecorder({ onSend, onCancel, autoStart = true }: VoiceRecor
   }, [isLocked, slideCancelled]);
 
   const handleTouchEnd = useCallback(() => {
+    // Guard: ignore touchEnd within 500ms of mount to prevent
+    // the mic button's touchEnd from firing on the newly mounted recorder
+    if (Date.now() - mountedAtRef.current < 500) return;
     if (isLocked) return; // Locked mode — don't auto-send
     if (cancelledRef.current) {
       doCancel();

@@ -230,12 +230,7 @@ export default function ExplorePage() {
   }, []);
 
   // Grid class for mixed aspect ratios
-  const getGridItemClass = useCallback((index: number): string => {
-    const pos = index % 10;
-    if (pos === 0) return 'row-span-2';
-    if (pos === 5) return 'col-span-2';
-    return '';
-  }, []);
+  // All tiles are equal size — no mosaic layout
 
   if (loading) {
     return (
@@ -467,18 +462,17 @@ export default function ExplorePage() {
         {/* Posts grid */}
         <div className="max-w-5xl mx-auto px-0.5">
           {filteredPosts.length > 0 ? (
-            <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-0.5 auto-rows-[minmax(120px,1fr)]">
+            <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-0.5">
               {filteredPosts.map((post, index) => {
                 const hasImage = post.media?.some(m => m.media_type === 'image');
                 const hasVideo = post.media?.some(m => m.media_type === 'video');
                 const hasMultiple = (post.media?.length || 0) > 1;
-                const gridClass = getGridItemClass(index);
 
                 return (
                   <Link
                     key={post.id}
                     href={`/post/${post.id}`}
-                    className={`relative group block overflow-hidden bg-[var(--bg-tertiary)] ${gridClass}`}
+                    className="relative group block overflow-hidden bg-[var(--bg-tertiary)] aspect-square"
                   >
                     {post.media && post.media.length > 0 ? (
                       hasVideo ? (

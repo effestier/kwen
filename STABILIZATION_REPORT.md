@@ -544,6 +544,24 @@
 
 **Build verification:** `npx tsc --noEmit` clean. `npx next build` clean.
 
+## TIER 3 — MEDIUM BUGS FIX STATUS (Batch 2)
+
+| Fix | Status | Files Changed |
+|-----|--------|---------------|
+| M1. Reaction DELETE realtime broken | ✅ PASS | `supabase/migrations/046_atomic_conversation_create.sql` (REPLICA IDENTITY FULL) |
+| M6. TOCTOU race in conversation creation | ✅ PASS | `services/messages.ts`, `supabase/migrations/046_atomic_conversation_create.sql` |
+| M19. toggleLike/toggleSave TOCTOU race | ✅ PASS | `services/posts.ts` |
+| M25. Login/register ignore redirect param | ✅ PASS | `auth/password-login-form.tsx`, `auth/register-form.tsx` |
+| M26. Password reset redirectTo hardcoded | ✅ PASS | `services/auth.ts` |
+| M28. Sign-out race condition | ✅ PASS | `layout/sidebar.tsx` |
+| M35. Font mismatch between theme + CSS | ✅ PASS | `lib/theme/themes.ts` |
+| M38. Blue-tinted text-link in light mode | ✅ PASS | `globals.css` |
+| M39. Service worker stale static cache | ✅ PASS | `public/sw.js` |
+| M42. Voice recorder stream leak on cancel | ✅ PASS | `messages/voice-recorder.tsx` |
+
+**Build verification:** `npx tsc --noEmit` clean. `npx next build` clean.
+**Migration:** `046_atomic_conversation_create.sql` must be applied to Supabase.
+
 ---
 
 ## MEDIUM (Edge Cases / Degraded UX) — 42 failures

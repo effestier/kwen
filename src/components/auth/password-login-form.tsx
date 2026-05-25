@@ -369,7 +369,7 @@ export function PasswordLoginForm() {
                   value={otpCode[i] || ''}
                   onChange={(e) => handleOtpChange(i, e.target.value)}
                   onKeyDown={(e) => handleKeyDown(i, e)}
-                  aria-label={`Digit ${i + 1} of 8`}
+                  aria-label={`Digit ${i + 1} of 6`}
                   className="w-10 h-12 text-center text-lg font-bold rounded-xl bg-[var(--bg-tertiary)] border border-[var(--border-subtle)] focus:outline-none focus:border-[var(--border-strong)] text-[var(--text-primary)]"
                 />
               ))}

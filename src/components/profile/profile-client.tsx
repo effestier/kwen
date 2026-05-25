@@ -256,9 +256,12 @@ export function ProfileClient({ username }: { username: string }) {
   const handleFollow = async () => {
     if (!profile || !currentUser) return;
 
-    if (!isFollowing) hapticMedium();
+    // M31: Use functional setState to avoid stale closure on rapid clicks
+    setIsFollowing(prev => {
+      if (!prev) hapticMedium();
+      return !prev;
+    });
     const wasFollowing = isFollowing;
-    setIsFollowing(!wasFollowing);
     setStats(prev => ({
       ...prev,
       followers: wasFollowing ? prev.followers - 1 : prev.followers + 1,

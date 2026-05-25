@@ -34,6 +34,8 @@ export function DrawingTool({ onSave, onClear, onClose }: DrawingToolProps) {
   const [glowIntensity, setGlowIntensity] = useState(15);
   const [history, setHistory] = useState<ImageData[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  // M12: Use ref to track current historyIndex — avoids stale closure in saveState
+  const historyIndexRef = useRef(-1);
   const [showToolbar, setShowToolbar] = useState(true);
   const [showSizeSlider, setShowSizeSlider] = useState(false);
   const lastPosRef = useRef<{ x: number; y: number } | null>(null);
@@ -56,6 +58,7 @@ export function DrawingTool({ onSave, onClear, onClose }: DrawingToolProps) {
     saveState();
   }, []);
 
+  // M12: Use ref to avoid stale closure — read historyIndexRef.current instead of captured state
   const saveState = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -63,14 +66,18 @@ export function DrawingTool({ onSave, onClear, onClose }: DrawingToolProps) {
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
     setHistory(prev => {
-      const newHistory = prev.slice(0, historyIndex + 1);
+      const idx = historyIndexRef.current;
+      const newHistory = prev.slice(0, idx + 1);
       newHistory.push(imageData);
-      // Cap history at 30 states to prevent memory blowup
       if (newHistory.length > 30) newHistory.shift();
       return newHistory;
     });
-    setHistoryIndex(prev => Math.min(prev + 1, 29));
-  }, [historyIndex]);
+    setHistoryIndex(prev => {
+      const next = Math.min(prev + 1, 29);
+      historyIndexRef.current = next;
+      return next;
+    });
+  }, []);
 
   const getPos = useCallback((e: React.PointerEvent) => {
     const canvas = canvasRef.current;
@@ -156,6 +163,7 @@ export function DrawingTool({ onSave, onClear, onClose }: DrawingToolProps) {
     const newIndex = historyIndex - 1;
     ctx.putImageData(history[newIndex], 0, 0);
     setHistoryIndex(newIndex);
+    historyIndexRef.current = newIndex;
     hapticLight();
   }, [historyIndex, history]);
 
@@ -168,6 +176,7 @@ export function DrawingTool({ onSave, onClear, onClose }: DrawingToolProps) {
     const newIndex = historyIndex + 1;
     ctx.putImageData(history[newIndex], 0, 0);
     setHistoryIndex(newIndex);
+    historyIndexRef.current = newIndex;
     hapticLight();
   }, [historyIndex, history]);
 

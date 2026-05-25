@@ -66,7 +66,8 @@ export async function sendOTP(email: string): Promise<AuthResult> {
       if (error.message?.toLowerCase().includes('rate limit')) {
         return { error: 'Too many requests. Please wait a moment and try again.' };
       }
-      return { success: true };
+      // L13: Return actual error instead of silently swallowing
+      return { error: 'Failed to send code. Please try again.' };
     }
 
     return { success: true };

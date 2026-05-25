@@ -984,7 +984,7 @@ export default function MessagesPage() {
   const handleReport = useCallback(async (messageId: string) => {
     const result = await reportMessage(messageId);
     if (result.message) {
-      showToast(result.message, 'success');
+      showToast(result.message, result.success ? 'success' : 'error');
     }
   }, []);
 

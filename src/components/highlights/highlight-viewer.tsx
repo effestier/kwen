@@ -31,7 +31,7 @@ export function HighlightViewer({
   const [progress, setProgress] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [imageError, setImageError] = useState(false)
-  const progressRef = useRef<NodeJS.Timeout | null>(null)
+  const progressRef = useRef<number | null>(null)
 
   // Long press state
   const [isPaused, setIsPaused] = useState(false)
@@ -79,31 +79,39 @@ export function HighlightViewer({
     }
   }, [currentIndex])
 
-  // Progress bar timer — H25: For videos, skip timer (video onTimeUpdate + onEnded handle it)
+  // M16: Use requestAnimationFrame to prevent setInterval drift
   useEffect(() => {
     if (progressRef.current) {
-      clearInterval(progressRef.current)
+      cancelAnimationFrame(progressRef.current)
+      progressRef.current = null
     }
 
-    if (isPaused || isVideo) return // H25: Don't run timer for videos
+    if (isPaused || isVideo) return
 
     setProgress(0)
-    const interval = 50
-    const increment = (interval / duration) * 100
+    let startTime: number | null = null
 
-    progressRef.current = setInterval(() => {
-      setProgress(prev => {
-        if (prev >= 100) {
-          goToNext()
-          return 100
-        }
-        return prev + increment
-      })
-    }, interval)
+    const tick = (timestamp: number) => {
+      if (!startTime) startTime = timestamp
+      const elapsed = timestamp - startTime
+      const pct = Math.min((elapsed / duration) * 100, 100)
+
+      setProgress(pct)
+
+      if (pct >= 100) {
+        goToNext()
+        return
+      }
+
+      progressRef.current = requestAnimationFrame(tick)
+    }
+
+    progressRef.current = requestAnimationFrame(tick)
 
     return () => {
       if (progressRef.current) {
-        clearInterval(progressRef.current)
+        cancelAnimationFrame(progressRef.current)
+        progressRef.current = null
       }
     }
   }, [currentIndex, duration, goToNext, isPaused, isVideo])

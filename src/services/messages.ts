@@ -686,5 +686,6 @@ export async function deleteMessage(messageId: string, deleteForEveryone: boolea
 }
 
 export async function reportMessage(_messageId: string) {
-  return { success: true, message: 'Report system coming soon' };
+  // L2: No reports table yet — return honest status instead of fake success
+  return { success: false, message: 'Report system coming soon' };
 }

@@ -547,11 +547,18 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
     const elapsed = Date.now() - touchStartRef.current.time;
     const velocity = Math.sqrt(dx * dx + dy * dy) / elapsed; // px/ms
 
-    const isHorizontal = Math.abs(dx) > Math.abs(dy);
-    const isVertical = Math.abs(dy) > Math.abs(dx);
+    const isHorizontal = Math.abs(dx) > Math.abs(dy) * 1.2;
+    const isVertical = Math.abs(dy) > Math.abs(dx) * 1.2;
 
     // Fast swipe needs less distance
     const fastSwipe = velocity > 0.5;
+
+    // M17/M41: Require clear directional intent — ambiguous diagonals do nothing
+    if (!isHorizontal && !isVertical) {
+      touchStartRef.current = null;
+      setSwipeDownDistance(0);
+      return;
+    }
 
     if (isVertical && dy > 0) {
       // Downward swipe — close

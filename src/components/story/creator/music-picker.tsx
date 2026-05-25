@@ -270,7 +270,7 @@ export function MusicPicker({ onSelect, onClose }: MusicPickerProps) {
             <input
               type="range"
               min={5}
-              max={Math.min(60, selectedTrack.duration)}
+              max={Math.min(15, selectedTrack.duration)}
               value={trimDuration}
               onChange={(e) => setTrimDuration(Number(e.target.value))}
               className="w-full accent-white"

@@ -93,7 +93,7 @@ export function MediaPicker({ onMediaSelected, onCancel }: MediaPickerProps) {
     }
   }, [cameraStream, flashEnabled]);
 
-  // Timer countdown for capture
+  // L8: Timer countdown for capture — uses ref to avoid stale closure on capturePhoto
   const startTimer = useCallback((seconds: number) => {
     setTimerCountdown(seconds);
     hapticLight();
@@ -103,7 +103,7 @@ export function MediaPicker({ onMediaSelected, onCancel }: MediaPickerProps) {
         if (prev === null || prev <= 1) {
           if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
           setTimeout(() => {
-            capturePhoto();
+            capturePhotoRef.current?.();
             setTimerCountdown(null);
           }, 100);
           return null;
@@ -113,6 +113,9 @@ export function MediaPicker({ onMediaSelected, onCancel }: MediaPickerProps) {
       });
     }, 1000);
   }, []);
+
+  // L8: Use ref to avoid stale closure capturing capturePhoto
+  const capturePhotoRef = useRef<(() => void) | null>(null);
 
   // Capture photo
   const capturePhoto = useCallback(() => {
@@ -132,6 +135,9 @@ export function MediaPicker({ onMediaSelected, onCancel }: MediaPickerProps) {
       onMediaSelected(file, url, 'image');
     }, 'image/jpeg', 0.92);
   }, [onMediaSelected]);
+
+  // Keep ref in sync
+  useEffect(() => { capturePhotoRef.current = capturePhoto; }, [capturePhoto]);
 
   // Recording timer
   useEffect(() => {

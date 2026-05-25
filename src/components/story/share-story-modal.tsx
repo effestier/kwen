@@ -79,18 +79,20 @@ export function ShareStoryModal({
   }, [])
 
   const handleShare = async (conversationId: string) => {
-    setSending(conversationId)
-
     const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    setSending(conversationId)
     const message = `Check out ${storyUsername}'s story: ${window.location.origin}/${storyUsername}`
 
+    // M13: Always include sender_id — user is guaranteed non-null above
     const { error } = await supabase
       .from('messages')
       .insert({
         conversation_id: conversationId,
         content: message,
         message_type: 'text',
-        sender_id: user?.id,
+        sender_id: user.id,
       })
 
     if (!error) {

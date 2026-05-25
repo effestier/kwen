@@ -52,7 +52,7 @@ export function MediaCarousel({ media, onDoubleTap, className }: MediaCarouselPr
   if (media.length === 1) {
     const item = media[0];
     return (
-      <div className={className} onClick={handleTap}>
+      <div className={className} style={{ aspectRatio: '4/5', maxHeight: '80vh' }} onClick={handleTap}>
         {item.media_type === 'video' ? (
           <VideoPlayer src={item.storage_path} />
         ) : (
@@ -86,7 +86,7 @@ export function MediaCarousel({ media, onDoubleTap, className }: MediaCarouselPr
           <div
             key={item.id}
             className="flex-shrink-0 w-full relative"
-            style={{ scrollSnapAlign: 'start' }}
+            style={{ scrollSnapAlign: 'start', aspectRatio: '4/5', maxHeight: '80vh' }}
             onClick={handleTap}
           >
             {item.media_type === 'video' ? (

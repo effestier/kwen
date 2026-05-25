@@ -5,6 +5,7 @@ import { MainLayout } from '@/components/layout/main-layout'
 import { Avatar } from '@/components/ui/avatar'
 import { MediaPicker, type MediaItem } from '@/components/composer/media-picker'
 import { MediaPreview } from '@/components/composer/media-preview'
+import { ImageCropper, type CropRatio } from '@/components/composer/image-cropper'
 import { CaptionEditor } from '@/components/composer/caption-editor'
 import { AudienceSelector } from '@/components/composer/audience-selector'
 import { createClient } from '@/lib/supabase/client'
@@ -12,7 +13,7 @@ import { useRouter } from 'next/navigation'
 import { createPostWithMedia } from '@/app/actions/media'
 import { uploadMedia } from '@/lib/media'
 
-type Step = 'select' | 'preview' | 'details'
+type Step = 'select' | 'crop' | 'preview' | 'details'
 
 interface Profile {
   id: string
@@ -47,6 +48,8 @@ export default function CreatePage() {
   const [drafts, setDrafts] = useState<Draft[]>([])
   const [draftId, setDraftId] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [cropIndex, setCropIndex] = useState(0)
+  const [cropRatio, setCropRatio] = useState<CropRatio>('original')
 
   const supabase = createClient()
   const router = useRouter()
@@ -184,9 +187,28 @@ export default function CreatePage() {
                   Drafts
                 </button>
               </>
-            ) : step === 'preview' ? (
+            ) : step === 'crop' ? (
               <>
                 <button onClick={() => setStep('select')} className="text-[var(--text-muted)]">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m15 18-6-6 6-6" />
+                  </svg>
+                </button>
+                <h1 className="text-base font-semibold text-[var(--text-primary)]">Crop</h1>
+                <button
+                  onClick={() => setStep('preview')}
+                  className="text-[var(--accent-primary)] text-sm font-semibold"
+                >
+                  Next
+                </button>
+              </>
+            ) : step === 'preview' ? (
+              <>
+                <button onClick={() => {
+                  // Go back to crop if there are images, otherwise select
+                  const hasImages = mediaItems.some(m => m.type === 'image')
+                  setStep(hasImages ? 'crop' : 'select')
+                }} className="text-[var(--text-muted)]">
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="m15 18-6-6 6-6" />
                   </svg>
@@ -240,13 +262,72 @@ export default function CreatePage() {
               selected={mediaItems}
               onSelect={(items) => {
                 setMediaItems(items)
-                if (items.length > 0 && mediaItems.length === 0) {
-                  // Auto-advance to preview when first media added
+                if (items.length > 0) {
+                  const hasImages = items.some(m => m.type === 'image')
+                  if (hasImages) {
+                    setCropIndex(0)
+                    setCropRatio('original')
+                    setStep('crop')
+                  } else {
+                    setStep('preview')
+                  }
                 }
               }}
               maxItems={10}
             />
           )}
+
+          {step === 'crop' && (() => {
+            const imageItems = mediaItems.filter(m => m.type === 'image')
+            const currentItem = imageItems[cropIndex]
+            if (!currentItem) {
+              // No images left, skip to preview
+              setStep('preview')
+              return null
+            }
+            return (
+              <ImageCropper
+                key={currentItem.id}
+                src={currentItem.url}
+                ratio={cropRatio}
+                onRatioChange={setCropRatio}
+                onCrop={async (blob, width, height) => {
+                  // Replace the image with the cropped version
+                  const croppedFile = new File([blob], currentItem.file.name, { type: 'image/webp' })
+                  const croppedUrl = URL.createObjectURL(blob)
+
+                  // Revoke old URL
+                  URL.revokeObjectURL(currentItem.url)
+
+                  const updated = mediaItems.map(m =>
+                    m.id === currentItem.id
+                      ? { ...m, file: croppedFile, url: croppedUrl, width, height }
+                      : m
+                  )
+                  setMediaItems(updated)
+
+                  // Move to next image or preview
+                  const nextIndex = cropIndex + 1
+                  if (nextIndex < imageItems.length) {
+                    setCropIndex(nextIndex)
+                    setCropRatio('original')
+                  } else {
+                    setStep('preview')
+                  }
+                }}
+                onSkip={() => {
+                  // Skip this image, move to next or preview
+                  const nextIndex = cropIndex + 1
+                  if (nextIndex < imageItems.length) {
+                    setCropIndex(nextIndex)
+                    setCropRatio('original')
+                  } else {
+                    setStep('preview')
+                  }
+                }}
+              />
+            )
+          })()}
 
           {step === 'preview' && (
             <MediaPreview
@@ -371,7 +452,16 @@ export default function CreatePage() {
         {step === 'select' && mediaItems.length > 0 && (
           <div className="sticky bottom-0 bg-[var(--bg-primary)] border-t border-[var(--border-subtle)] p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             <button
-              onClick={() => setStep('preview')}
+              onClick={() => {
+                const hasImages = mediaItems.some(m => m.type === 'image')
+                if (hasImages) {
+                  setCropIndex(0)
+                  setCropRatio('original')
+                  setStep('crop')
+                } else {
+                  setStep('preview')
+                }
+              }}
               className="w-full py-3 bg-[var(--accent-primary)] text-[var(--text-inverse)] rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity"
             >
               Next

@@ -181,7 +181,7 @@ export async function getMessages(conversationId: string) {
     // Use only base columns from schema 001 to avoid 400 errors when 045 hasn't been applied
     const { data: messages, error } = await supabase
       .from('messages')
-      .select('id, content, sender_id, created_at, message_type, media_url, thumbnail_url, mime_type, file_size, media_width, media_height, reply_to_message_id, deleted_at, story_id, duration')
+      .select('id, content, sender_id, created_at, deleted_at, message_type, media_url, thumbnail_url, mime_type, file_size, media_width, media_height, reply_to_message_id, story_id')
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: true })
       .limit(200);
@@ -332,7 +332,7 @@ export async function getOlderMessages(conversationId: string, beforeCreatedAt: 
 
     const { data: messages, error } = await supabase
       .from('messages')
-      .select('id, content, sender_id, created_at, message_type, media_url, thumbnail_url, mime_type, file_size, media_width, media_height, reply_to_message_id, deleted_at, story_id, duration')
+      .select('id, content, sender_id, created_at, deleted_at, message_type, media_url, thumbnail_url, mime_type, file_size, media_width, media_height, reply_to_message_id, story_id')
       .eq('conversation_id', conversationId)
       .lt('created_at', beforeCreatedAt)
       .order('created_at', { ascending: true })

@@ -28,7 +28,6 @@ interface FeedPost {
   avatar_url: string | null;
   is_verified: boolean;
   media: Array<{ id: string; storage_path: string; media_type: string; sort_order: number }>;
-  tier: string;
 }
 
 interface Story {
@@ -68,7 +67,8 @@ export default function FeedPage() {
   useScrollPreservation({ key: 'feed' });
 
   const loadPosts = useCallback(async (userId: string, excludeIds: string[]) => {
-    const { data: feedPosts } = await supabase.rpc('get_discovery_feed', {
+    // Pure following-only timeline (user's own posts + followed users' posts)
+    const { data: feedPosts } = await supabase.rpc('get_following_feed', {
       p_user_id: userId,
       p_limit: 20,
       p_exclude_ids: excludeIds.length > 0 ? excludeIds : null,

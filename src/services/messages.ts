@@ -166,29 +166,36 @@ export async function getMessages(conversationId: string) {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    if (!user) return { messages: [] };
-    if (!conversationId || typeof conversationId !== 'string') return { messages: [] };
+    if (!user) return { messages: [], error: 'Not authenticated' };
+    if (!conversationId || typeof conversationId !== 'string') return { messages: [], error: 'Invalid conversation ID' };
 
-    const { data: participant } = await supabase
+    const { data: participant, error: partErr } = await supabase
       .from('conversation_participants')
       .select('user_id')
       .eq('conversation_id', conversationId)
       .eq('user_id', user.id)
       .single();
 
-    if (!participant) return { messages: [] };
+    if (partErr || !participant) return { messages: [], error: 'Not a participant in this conversation' };
 
+    // Use only base columns from schema 001 to avoid 400 errors when 045 hasn't been applied
     const { data: messages, error } = await supabase
       .from('messages')
-      .select('id, content, sender_id, created_at, message_type, media_url, thumbnail_url, mime_type, file_size, media_width, media_height, reply_to_message_id, deleted_for, story_id, duration, forwarded_from, delivered_at, seen_at')
+      .select('id, content, sender_id, created_at, message_type, media_url, thumbnail_url, mime_type, file_size, media_width, media_height, reply_to_message_id, deleted_at, story_id, duration')
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: true })
       .limit(200);
 
-    if (error || !messages) return { messages: [] };
+    if (error) {
+      console.error('[MESSAGES] getMessages query error:', error);
+      return { messages: [], error: error.message };
+    }
+    if (!messages) return { messages: [] };
 
+    // deleted_for column may not exist if migration 019 wasn't applied
     const visibleMessages = messages.filter(msg => {
-      const deletedFor = msg.deleted_for as string[] | null;
+      if (msg.deleted_at) return false;
+      const deletedFor = (msg as Record<string, unknown>).deleted_for as string[] | undefined;
       if (!deletedFor || deletedFor.length === 0) return true;
       return !deletedFor.includes(user.id);
     });
@@ -325,7 +332,7 @@ export async function getOlderMessages(conversationId: string, beforeCreatedAt: 
 
     const { data: messages, error } = await supabase
       .from('messages')
-      .select('id, content, sender_id, created_at, message_type, media_url, thumbnail_url, mime_type, file_size, media_width, media_height, reply_to_message_id, deleted_for, story_id, duration, forwarded_from, delivered_at, seen_at')
+      .select('id, content, sender_id, created_at, message_type, media_url, thumbnail_url, mime_type, file_size, media_width, media_height, reply_to_message_id, deleted_at, story_id, duration')
       .eq('conversation_id', conversationId)
       .lt('created_at', beforeCreatedAt)
       .order('created_at', { ascending: true })
@@ -334,7 +341,8 @@ export async function getOlderMessages(conversationId: string, beforeCreatedAt: 
     if (error || !messages) return { messages: [] };
 
     const visibleMessages = messages.filter(msg => {
-      const deletedFor = msg.deleted_for as string[] | null;
+      if (msg.deleted_at) return false;
+      const deletedFor = (msg as Record<string, unknown>).deleted_for as string[] | undefined;
       if (!deletedFor || deletedFor.length === 0) return true;
       return !deletedFor.includes(user.id);
     });
@@ -475,10 +483,10 @@ export async function markMessagesAsDelivered(conversationId: string) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user || !conversationId) return;
 
-    // 045: Use RPC — only updates delivered_at, verified participant check server-side
+    // 045: Use RPC if available; silently no-op if migration not applied
     await supabase.rpc('mark_messages_delivered', { p_conversation_id: conversationId });
   } catch {
-    // Silent fail
+    // Silent fail — migration 045 may not be applied
   }
 }
 
@@ -488,8 +496,8 @@ export async function markMessagesAsSeen(conversationId: string) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user || !conversationId) return [];
 
-    // Mark messages from others as seen (not sent by me, not yet seen)
-    const { data: updated } = await supabase
+    // seen_at may not exist if migration 045 wasn't applied — gracefully handle
+    const { data: updated, error } = await supabase
       .from('messages')
       .update({ seen_at: new Date().toISOString() })
       .eq('conversation_id', conversationId)
@@ -497,6 +505,7 @@ export async function markMessagesAsSeen(conversationId: string) {
       .is('seen_at', null)
       .select('id');
 
+    if (error) return []; // Column doesn't exist — no-op
     return updated?.map(m => m.id) || [];
   } catch {
     return [];

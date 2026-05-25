@@ -199,18 +199,31 @@ export default function MessagesPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setLoading(false); return; }
 
-      const { data: participants } = await supabase
+      const { data: participants, error: participantsErr } = await supabase
         .from('conversation_participants')
         .select('conversation_id, unread_count, last_read_at, conversations!inner(updated_at)')
         .eq('user_id', user.id)
-        .order('conversations(updated_at)', { ascending: false })
-        .limit(21); // H15: fetch 21 to detect if more exist
+        .limit(100);
+
+      if (participantsErr) {
+        console.error('[MESSAGES] Failed to load conversations:', participantsErr);
+        setLoading(false);
+        return;
+      }
 
       if (!participants || participants.length === 0) { setLoading(false); return; }
+
+      // Sort by conversation updated_at client-side to avoid foreign-table order issues
+      participants.sort((a: any, b: any) => {
+        const aTime = a.conversations?.updated_at || '';
+        const bTime = b.conversations?.updated_at || '';
+        return bTime.localeCompare(aTime);
+      });
 
       // H15: Track whether more conversations exist
       setHasMoreConversations(participants.length > 20);
       const pagedParticipants = participants.slice(0, 20);
+
 
       const conversationIds = pagedParticipants.map(p => p.conversation_id);
       const participantMap = new Map(pagedParticipants.map(p => [p.conversation_id, p]));
@@ -436,6 +449,11 @@ export default function MessagesPage() {
       if (reactionsChannelRef.current) { supabase.removeChannel(reactionsChannelRef.current); reactionsChannelRef.current = null; }
 
       const result = await getMessages(selectedId as string);
+
+      // Surface errors to console for debugging
+      if (result.error) {
+        console.error('[MESSAGES] Failed to load messages:', result.error);
+      }
 
       if (!cancelled && result.messages) {
         const enriched = result.messages.map(m => ({

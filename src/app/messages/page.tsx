@@ -1286,13 +1286,14 @@ export default function MessagesPage() {
       <div id="messages-unread-count" data-count={totalUnread} className="hidden" />
 
       {/* H41: Use svh (small viewport) to prevent keyboard resize scroll jumps on mobile */}
-      <div className="flex h-[calc(100svh-57px)] lg:h-[calc(100vh-57px)]">
+      {/* Mobile: nav (64px) + safe-area-inset-bottom + header spacing. Desktop: just header spacing */}
+      <div className="flex h-[calc(100svh-4rem-env(safe-area-inset-bottom,0px))] lg:h-[calc(100vh-57px)]">
         {/* Conversations List */}
         <div className={cn(
           "w-full md:w-80 border-r border-[var(--border-subtle)] flex flex-col bg-[var(--bg-primary)]",
           showMobileChat && 'hidden md:flex'
         )}>
-          <div className="p-4 border-b border-[var(--border-subtle)]">
+          <div className="p-4 pt-[max(1rem,env(safe-area-inset-top))] border-b border-[var(--border-subtle)]">
             <h1 className="text-xl font-bold text-[var(--text-primary)]">Messages</h1>
           </div>
           <div role="list" aria-label="Conversations" className="flex-1 min-h-0 overflow-y-auto">

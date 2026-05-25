@@ -111,7 +111,8 @@ export function MobileNav() {
     return pathname?.startsWith(href);
   };
 
-  const profileHref = profile ? `/profile/${profile.username}` : '/feed';
+  // L4: Don't redirect to /feed while profile is still loading
+  const profileHref = profile ? `/profile/${profile.username}` : null;
 
   return (
     <nav aria-label="Mobile navigation" className="lg:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-[var(--border-subtle)] bg-[var(--bg-primary)] pb-[env(safe-area-inset-bottom)]">
@@ -156,9 +157,9 @@ export function MobileNav() {
         </Link>
 
         {/* Profile */}
-        <Link href={profileHref} className="flex flex-col items-center justify-center gap-0.5 w-full h-full" aria-label="Profile" aria-current={isActive('/profile') ? 'page' : undefined}>
-          {profile ? (
-            profile.avatar_url ? (
+        {profileHref ? (
+          <Link href={profileHref} className="flex flex-col items-center justify-center gap-0.5 w-full h-full" aria-label="Profile" aria-current={isActive('/profile') ? 'page' : undefined}>
+            {profile?.avatar_url ? (
               <img
                 src={profile.avatar_url}
                 alt={profile.display_name}
@@ -166,14 +167,17 @@ export function MobileNav() {
               />
             ) : (
               <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold ${isActive('/profile') ? 'bg-white text-black' : 'bg-[var(--bg-tertiary)] text-[var(--text-muted)]'}`}>
-                {profile.display_name?.charAt(0).toUpperCase() || 'U'}
+                {profile?.display_name?.charAt(0).toUpperCase() || 'U'}
               </div>
-            )
-          ) : (
+            )}
+            <span className={`text-[10px] ${isActive('/profile') ? 'font-bold text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}>Profile</span>
+          </Link>
+        ) : (
+          <div className="flex flex-col items-center justify-center gap-0.5 w-full h-full" aria-label="Profile loading">
             <div className="w-7 h-7 rounded-full bg-[var(--bg-tertiary)] animate-pulse" />
-          )}
-          <span className={`text-[10px] ${isActive('/profile') ? 'font-bold text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}>Profile</span>
-        </Link>
+            <span className="text-[10px] text-[var(--text-muted)]">Profile</span>
+          </div>
+        )}
       </div>
     </nav>
   );

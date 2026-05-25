@@ -348,7 +348,7 @@ export function ProfileClient({ username }: { username: string }) {
   return (
     <MainLayout>
       <div className="min-h-screen">
-        <div className="h-32 md:h-48 bg-gradient-to-r from-[var(--gradient-start)] via-[var(--accent-red)] to-[var(--gradient-end)]" />
+        <div className="h-32 md:h-48 bg-gradient-to-r from-[var(--gradient-start)] via-[var(--accent-red)] to-[var(--gradient-end)] pt-[env(safe-area-inset-top)]" />
 
         <div className="px-4 pb-4">
           <div className="flex items-start justify-between -mt-12 mb-3">

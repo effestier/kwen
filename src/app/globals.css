@@ -196,8 +196,9 @@
 
 html {
   color-scheme: dark;
-  /* H40: Prevent rubber-bounce overscroll on mobile */
   overscroll-behavior: contain;
+  /* Prevent horizontal overflow on mobile */
+  overflow-x: hidden;
 }
 
 body {
@@ -208,7 +209,10 @@ body {
   -moz-osx-font-smoothing: grayscale;
   letter-spacing: -0.01em;
   line-height: 1.5;
-  min-height: 100vh;
+  min-height: 100svh;
+  /* Prevent horizontal scroll on mobile */
+  overflow-x: hidden;
+  /* Safe area handled by individual sticky headers and bottom nav */
 }
 
 /* ===========================================

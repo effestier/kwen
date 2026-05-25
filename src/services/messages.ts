@@ -98,9 +98,8 @@ export async function sendMessage(conversationId: string, content: string, media
       media_height: media?.height || null,
     };
 
-    if (voiceDuration != null) {
-      insertData.duration = voiceDuration;
-    }
+    // duration column doesn't exist yet (migration 041 not applied)
+    // Voice messages work without it — the player reads duration from the audio file
 
     if (replyToMessageId) {
       insertData.reply_to_message_id = replyToMessageId;
@@ -119,11 +118,24 @@ export async function sendMessage(conversationId: string, content: string, media
       }
     }
 
-    const { data: message, error } = await supabase
+    let { data: message, error } = await supabase
       .from('messages')
       .insert(insertData)
       .select()
       .single();
+
+    // If insert fails (e.g., duration column doesn't exist from migration 041),
+    // retry without optional columns
+    if (error && insertData.duration != null) {
+      const { duration: _, ...fallbackData } = insertData;
+      const retry = await supabase
+        .from('messages')
+        .insert(fallbackData)
+        .select()
+        .single();
+      message = retry.data;
+      error = retry.error;
+    }
 
     if (error) return { error: 'Failed to send message' };
 
@@ -147,15 +159,56 @@ export async function getOrCreateConversation(otherUserId: string) {
     if (!otherUserId || typeof otherUserId !== 'string') return { error: 'Invalid user ID' };
     if (user.id === otherUserId) return { error: 'Cannot message yourself' };
 
-    // M6: Use atomic RPC to prevent TOCTOU race creating duplicate conversations
-    const { data: conversationId, error } = await supabase.rpc('get_or_create_conversation', {
+    // Try atomic RPC first (migration 046), fall back to client-side if not applied
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('get_or_create_conversation', {
       p_user1: user.id,
       p_user2: otherUserId,
     });
 
-    if (error || !conversationId) return { error: 'Failed to create conversation' };
+    if (!rpcError && rpcResult) {
+      return { success: true, conversationId: rpcResult };
+    }
 
-    return { success: true, conversationId };
+    // RPC not available — fall back to client-side logic
+    // Check if conversation already exists
+    const { data: myParticipations } = await supabase
+      .from('conversation_participants')
+      .select('conversation_id')
+      .eq('user_id', user.id);
+
+    if (myParticipations && myParticipations.length > 0) {
+      const convIds = myParticipations.map(p => p.conversation_id);
+      const { data: existingConv } = await supabase
+        .from('conversation_participants')
+        .select('conversation_id')
+        .eq('user_id', otherUserId)
+        .in('conversation_id', convIds)
+        .limit(1);
+
+      if (existingConv && existingConv.length > 0) {
+        return { success: true, conversationId: existingConv[0].conversation_id };
+      }
+    }
+
+    // Create new conversation
+    const { data: conversation, error: convError } = await supabase
+      .from('conversations')
+      .insert({})
+      .select()
+      .single();
+
+    if (convError || !conversation) return { error: 'Failed to create conversation' };
+
+    const { error: partError } = await supabase
+      .from('conversation_participants')
+      .insert([
+        { conversation_id: conversation.id, user_id: user.id, unread_count: 0 },
+        { conversation_id: conversation.id, user_id: otherUserId, unread_count: 0 },
+      ]);
+
+    if (partError) return { error: 'Failed to create conversation' };
+
+    return { success: true, conversationId: conversation.id };
   } catch {
     return { error: 'Failed to create conversation' };
   }

@@ -19,7 +19,9 @@ export function MainLayout({
     <div className="min-h-screen bg-[var(--bg-primary)]">
       {showSidebar && <Sidebar />}
       <main id="main-content" className={`
-        flex-1 min-h-screen pb-20 lg:pb-0
+        flex-1 min-h-screen
+        pb-[calc(4rem+env(safe-area-inset-bottom,0px))]
+        lg:pb-0
         ${showSidebar ? 'lg:ml-[280px]' : ''}
       `}>
         {children}

@@ -496,7 +496,8 @@ export async function markMessagesAsSeen(conversationId: string) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user || !conversationId) return [];
 
-    // seen_at may not exist if migration 045 wasn't applied — gracefully handle
+    // seen_at column may not exist if migration 041/045 wasn't applied
+    // Gracefully no-op on 400
     const { data: updated, error } = await supabase
       .from('messages')
       .update({ seen_at: new Date().toISOString() })

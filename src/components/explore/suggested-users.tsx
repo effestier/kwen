@@ -25,10 +25,14 @@ export function SuggestedUsers() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data } = await supabase.rpc('get_suggested_users', {
+      const { data, error } = await supabase.rpc('get_suggested_users', {
         p_user_id: user.id,
         p_limit: 10,
       });
+      if (error) {
+        console.warn('[SUGGESTED_USERS] RPC error:', error.message);
+        return;
+      }
       if (data) setUsers(data);
     }
     load();

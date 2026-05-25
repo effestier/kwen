@@ -157,27 +157,7 @@ export function PasswordLoginForm() {
   // Shared layout wrapper
   const renderLayout = (children: React.ReactNode, backAction?: () => void) => (
     <div className="min-h-screen flex flex-col bg-[var(--bg-primary)]">
-      <header className="p-6 pt-[max(1.5rem,env(safe-area-inset-top))]">
-        {backAction ? (
-          <button
-            onClick={backAction}
-            aria-label="Go back"
-            className="inline-flex items-center gap-2 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors-fast"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="m12 19-7-7 7-7" /><path d="M19 12H5" />
-            </svg>
-            Back
-          </button>
-        ) : (
-          <Link href="/" aria-label="Back to home" className="inline-flex items-center gap-2 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors-fast">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="m12 19-7-7 7-7" /><path d="M19 12H5" />
-            </svg>
-            Back
-          </Link>
-        )}
-      </header>
+      <header className="p-6 pt-[max(1.5rem,env(safe-area-inset-top))]" />
 
       <main id="main-content" className="flex-1 flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-[380px]">

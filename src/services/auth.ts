@@ -183,6 +183,11 @@ export async function signInWithPassword(email: string, password: string): Promi
     });
 
     if (error) {
+      // Distinguish network/TLS failures from actual auth failures
+      const err = error as Error & { status?: number };
+      if (!err.status || err.status === 0) {
+        return { error: 'Could not connect. Check your internet and try again.' };
+      }
       // Generic message — don't reveal whether email exists or password is wrong
       return { error: 'Invalid email or password. Please try again.' };
     }

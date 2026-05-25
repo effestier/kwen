@@ -7,16 +7,11 @@
         </trust-anchors>
     </base-config>
 
-    <!-- Pin certificates for Supabase and kwen.in -->
+    <!-- Allow Supabase and kwen.in without certificate pinning -->
+    <!-- Supabase uses Cloudflare which rotates between Let's Encrypt and Google Trust Services -->
     <domain-config>
         <domain includeSubdomains="true">supabase.co</domain>
         <domain includeSubdomains="true">supabase.in</domain>
         <domain includeSubdomains="true">kwen.in</domain>
-        <pin-set expiration="2027-01-01">
-            <!-- Let's Encrypt Root CA (ISRG Root X1) -->
-            <pin digest="SHA-256">C/BDigBHc9LV6bZegLg7u7GJe8cR7H1drkIgMFMVnwk=</pin>
-            <!-- Let's Encrypt Root CA (ISRG Root X2) -->
-            <pin digest="SHA-256">diGVwiVYbubAI3RW4hB9xU8e/CH2GGvrTMwlPhKpoBc=</pin>
-        </pin-set>
     </domain-config>
 </network-security-config>

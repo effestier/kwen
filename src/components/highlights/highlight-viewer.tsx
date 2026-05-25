@@ -5,8 +5,9 @@ import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/design-system/skeleton'
 import { pushOverlay, popOverlay } from '@/lib/overlay-stack'
-import { updateHighlightTitle, removeStoryFromHighlight, updateHighlightCover } from '@/services/highlights'
+import { updateHighlightTitle, removeStoryFromHighlight, updateHighlightCover, getHighlightStories } from '@/services/highlights'
 import type { HighlightStory } from '@/services/highlights'
+import { ArchivePickerModal } from './archive-picker-modal'
 
 interface HighlightViewerProps {
   highlightId: string
@@ -47,6 +48,7 @@ export function HighlightViewer({
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleValue, setTitleValue] = useState(highlightTitle)
   const [showCoverPicker, setShowCoverPicker] = useState(false)
+  const [showArchivePicker, setShowArchivePicker] = useState(false)
 
   const supabase = createClient()
   const currentStory = stories[currentIndex]
@@ -263,6 +265,20 @@ export function HighlightViewer({
             Choose cover
           </button>
           <button
+            onClick={() => {
+              setShowArchivePicker(true)
+              setShowEditMenu(false)
+            }}
+            className="w-full px-4 py-3 text-left text-white hover:bg-[var(--bg-tertiary)] flex items-center gap-3"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect width="20" height="5" x="2" y="3" rx="1" />
+              <path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8" />
+              <path d="M10 12h4" />
+            </svg>
+            Add from archive
+          </button>
+          <button
             onClick={async () => {
               if (!currentStory) return
               setShowEditMenu(false)
@@ -461,6 +477,19 @@ export function HighlightViewer({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Archive picker modal */}
+      {showArchivePicker && (
+        <ArchivePickerModal
+          highlightId={highlightId}
+          onClose={() => setShowArchivePicker(false)}
+          onAdded={async () => {
+            // Refresh the highlight stories
+            const updated = await getHighlightStories(highlightId)
+            onStoriesChanged?.(updated)
+          }}
+        />
       )}
     </div>
   )

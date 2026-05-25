@@ -270,3 +270,59 @@ export async function unmuteUser(userId: string) {
     return { error: 'Failed to unmute user' };
   }
 }
+
+export async function archivePost(postId: string) {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'Not authenticated' };
+
+    const { error } = await supabase.rpc('archive_post', { p_post_id: postId });
+    if (error) return { error: 'Failed to archive post' };
+    return { success: true };
+  } catch {
+    return { error: 'Failed to archive post' };
+  }
+}
+
+export async function unarchivePost(postId: string) {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'Not authenticated' };
+
+    const { error } = await supabase.rpc('unarchive_post', { p_post_id: postId });
+    if (error) return { error: 'Failed to unarchive post' };
+    return { success: true };
+  } catch {
+    return { error: 'Failed to unarchive post' };
+  }
+}
+
+export async function toggleHideLikes(postId: string) {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'Not authenticated' };
+
+    const { data, error } = await supabase.rpc('toggle_hide_likes', { p_post_id: postId });
+    if (error) return { error: 'Failed to update' };
+    return { success: true, hideLikes: data as boolean };
+  } catch {
+    return { error: 'Failed to update' };
+  }
+}
+
+export async function toggleDisableComments(postId: string) {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'Not authenticated' };
+
+    const { data, error } = await supabase.rpc('toggle_disable_comments', { p_post_id: postId });
+    if (error) return { error: 'Failed to update' };
+    return { success: true, disableComments: data as boolean };
+  } catch {
+    return { error: 'Failed to update' };
+  }
+}

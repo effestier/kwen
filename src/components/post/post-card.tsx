@@ -5,7 +5,7 @@ import { cn, formatNumber, formatTimeAgo } from '@/lib/utils';
 import { Avatar } from '@/components/ui/avatar';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { toggleLike as togglePostLike, toggleSave as togglePostSave, deletePost, restorePost, blockUser, muteUser } from '@/services/posts';
+import { toggleLike as togglePostLike, toggleSave as togglePostSave, deletePost, restorePost, blockUser, muteUser, archivePost, toggleHideLikes, toggleDisableComments } from '@/services/posts';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { EditPostModal } from '@/components/post/edit-post-modal';
 import { renderRichText } from '@/lib/text-utils';
@@ -73,6 +73,9 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete }: PostCardProps) => 
   const [editedAt, setEditedAt] = useState<string | null>(null);
   const [heartTrigger, setHeartTrigger] = useState(0);
   const [showReportedToast, setShowReportedToast] = useState(false);
+  const [hideLikes, setHideLikes] = useState(false);
+  const [disableComments, setDisableComments] = useState(false);
+  const [showArchivedToast, setShowArchivedToast] = useState(false);
   // H7: Caption expand/collapse state
   const [captionExpanded, setCaptionExpanded] = useState(false);
   const captionNeedsTruncation = post.content && post.content.length > 300;
@@ -218,13 +221,59 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete }: PostCardProps) => 
             {showMoreMenu && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowMoreMenu(false)} />
-                <div className="absolute right-0 top-full mt-1 w-52 bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-xl shadow-lg z-50 overflow-hidden">
+                <div className="absolute right-0 top-full mt-1 w-56 bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-xl shadow-lg z-50 overflow-hidden">
                   {isOwnPost ? (
                     <>
+                      {/* Edit */}
                       <button onClick={() => { setShowEditModal(true); setShowMoreMenu(false); }} className="w-full px-3 py-2.5 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] active:bg-[var(--bg-tertiary)] flex items-center gap-3">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
                         Edit
                       </button>
+
+                      {/* Archive */}
+                      <button onClick={async () => {
+                        setShowMoreMenu(false);
+                        const { error } = await archivePost(post.id);
+                        if (!error) {
+                          setShowArchivedToast(true);
+                          setTimeout(() => { setShowArchivedToast(false); onDelete?.(post.id); }, 2000);
+                        }
+                      }} className="w-full px-3 py-2.5 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] active:bg-[var(--bg-tertiary)] flex items-center gap-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="5" x="2" y="3" rx="1" /><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8" /><path d="M10 12h4" /></svg>
+                        Archive
+                      </button>
+
+                      {/* Hide like count */}
+                      <button onClick={async () => {
+                        const result = await toggleHideLikes(post.id);
+                        if (result.success) setHideLikes(result.hideLikes!);
+                      }} className="w-full px-3 py-2.5 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] active:bg-[var(--bg-tertiary)] flex items-center gap-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+                        {hideLikes ? 'Show like count' : 'Hide like count'}
+                      </button>
+
+                      {/* Turn off commenting */}
+                      <button onClick={async () => {
+                        const result = await toggleDisableComments(post.id);
+                        if (result.success) setDisableComments(result.disableComments!);
+                      }} className="w-full px-3 py-2.5 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] active:bg-[var(--bg-tertiary)] flex items-center gap-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
+                        {disableComments ? 'Turn on commenting' : 'Turn off commenting'}
+                      </button>
+
+                      {/* Copy link */}
+                      <button onClick={() => {
+                        navigator.clipboard?.writeText(`${window.location.origin}/post/${post.id}`);
+                        setShowMoreMenu(false);
+                      }} className="w-full px-3 py-2.5 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] active:bg-[var(--bg-tertiary)] flex items-center gap-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
+                        Copy link
+                      </button>
+
+                      {/* Divider */}
+                      <div className="h-px bg-[var(--border-subtle)]" />
+
+                      {/* Delete */}
                       <button onClick={handleDelete} className="w-full px-3 py-2.5 text-left text-sm text-[var(--destructive)] hover:bg-[var(--bg-secondary)] active:bg-[var(--bg-tertiary)] flex items-center gap-3">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
                         Delete
@@ -232,17 +281,31 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete }: PostCardProps) => 
                     </>
                   ) : (
                     <>
+                      {/* Report */}
+                      <button onClick={() => { setShowReportedToast(true); setShowMoreMenu(false); setTimeout(() => setShowReportedToast(false), 3000); }} className="w-full px-3 py-2.5 text-left text-sm text-[var(--destructive)] hover:bg-[var(--bg-secondary)] active:bg-[var(--bg-tertiary)] flex items-center gap-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" x2="4" y1="22" y2="15" /></svg>
+                        Report
+                      </button>
+
+                      {/* Block */}
                       <button onClick={async () => { await blockUser(post.user.id); setShowMoreMenu(false); }} className="w-full px-3 py-2.5 text-left text-sm text-[var(--destructive)] hover:bg-[var(--bg-secondary)] active:bg-[var(--bg-tertiary)] flex items-center gap-3">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="m4.9 4.9 14.2 14.2" /></svg>
                         Block
                       </button>
+
+                      {/* Mute */}
                       <button onClick={async () => { await muteUser(post.user.id); setShowMoreMenu(false); }} className="w-full px-3 py-2.5 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] active:bg-[var(--bg-tertiary)] flex items-center gap-3">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
                         Mute
                       </button>
-                      <button onClick={() => { setShowReportedToast(true); setShowMoreMenu(false); setTimeout(() => setShowReportedToast(false), 3000); }} className="w-full px-3 py-2.5 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] active:bg-[var(--bg-tertiary)] flex items-center gap-3">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" x2="4" y1="22" y2="15" /></svg>
-                        Report
+
+                      {/* Copy link */}
+                      <button onClick={() => {
+                        navigator.clipboard?.writeText(`${window.location.origin}/post/${post.id}`);
+                        setShowMoreMenu(false);
+                      }} className="w-full px-3 py-2.5 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] active:bg-[var(--bg-tertiary)] flex items-center gap-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
+                        Copy link
                       </button>
                     </>
                   )}
@@ -303,15 +366,17 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete }: PostCardProps) => 
             </svg>
           </button>
 
-          <button
-            onClick={() => setShowComments(true)}
-            className="p-2 rounded-full text-[var(--text-muted)] hover:text-[var(--accent-primary)] hover:bg-[var(--bg-tertiary)] transition-all duration-200 active:scale-90"
-            aria-label="Comments"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-            </svg>
-          </button>
+          {!disableComments && (
+            <button
+              onClick={() => setShowComments(true)}
+              className="p-2 rounded-full text-[var(--text-muted)] hover:text-[var(--accent-primary)] hover:bg-[var(--bg-tertiary)] transition-all duration-200 active:scale-90"
+              aria-label="Comments"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+            </button>
+          )}
 
           <button
             onClick={() => setShowShare(true)}
@@ -341,11 +406,14 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete }: PostCardProps) => 
 
         {/* Engagement Stats */}
         <div className="flex items-center gap-3 mt-0.5 text-xs text-[var(--text-muted)]">
-          <span className="font-semibold text-[var(--text-secondary)] cursor-default">{formatNumber(likeCount)} likes</span>
-          <button onClick={() => setShowComments(true)} className="hover:underline">
-            <span className="font-semibold text-[var(--text-secondary)]">{formatNumber(commentCount)}</span> comments
-          </button>
-          {/* H8: Display share count */}
+          {!hideLikes && (
+            <span className="font-semibold text-[var(--text-secondary)] cursor-default">{formatNumber(likeCount)} likes</span>
+          )}
+          {!disableComments && (
+            <button onClick={() => setShowComments(true)} className="hover:underline">
+              <span className="font-semibold text-[var(--text-secondary)]">{formatNumber(commentCount)}</span> comments
+            </button>
+          )}
           {post.shares > 0 && (
             <span className="cursor-default">{formatNumber(post.shares)} shares</span>
           )}
@@ -382,6 +450,12 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete }: PostCardProps) => 
       {showReportedToast && (
         <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-xl shadow-lg px-4 py-3 animate-fadeInUp">
           <span className="text-sm text-[var(--text-primary)]">Report submitted</span>
+        </div>
+      )}
+
+      {showArchivedToast && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-xl shadow-lg px-4 py-3 animate-fadeInUp">
+          <span className="text-sm text-[var(--text-primary)]">Post archived</span>
         </div>
       )}
     </>

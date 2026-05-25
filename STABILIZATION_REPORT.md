@@ -562,6 +562,36 @@
 **Build verification:** `npx tsc --noEmit` clean. `npx next build` clean.
 **Migration:** `046_atomic_conversation_create.sql` must be applied to Supabase.
 
+## TIER 3 — MEDIUM BUGS FIX STATUS (Batch 3)
+
+| Fix | Status | Files Changed |
+|-----|--------|---------------|
+| M12. Drawing tool stale historyIndex | ✅ PASS | `story/creator/drawing-tool.tsx` (ref-based tracking) |
+| M13. Share message missing sender_id | ✅ PASS | `story/share-story-modal.tsx` (null guard) |
+| M16. Highlight viewer setInterval drift | ✅ PASS | `highlights/highlight-viewer.tsx` (requestAnimationFrame) |
+| M17/M41. Diagonal swipe ambiguous | ✅ PASS | `story/story-viewer.tsx` (1.2x dead zone) |
+| M22. Category filter client-side only | ✅ PASS | `explore/page.tsx`, `migrations/047_*.sql` |
+| M24. Suggested users sorts wrong | ✅ PASS | `migrations/047_*.sql` (strength DESC) |
+| M31. Follow toggle closure staleness | ✅ PASS | `profile/profile-client.tsx` (functional setState) |
+| M9. Dead code: actions/ (5 files) | ✅ PASS | Deleted `actions/comments,follows,notifications,otp-auth,posts.ts` |
+| M9/M10. Dead code: repositories/ (4 files) | ✅ PASS | Deleted `repositories/follow,notification,post,user-repo.ts` |
+
+**Build verification:** `npx tsc --noEmit` clean. `npx next build` clean.
+**Migration:** `047_fix_suggested_users_and_explore_category.sql` must be applied to Supabase.
+
+## TIER 4 — LOW BUGS FIX STATUS (Batch 1)
+
+| Fix | Status | Files Changed |
+|-----|--------|---------------|
+| L1. OTP aria-label says "8" instead of "6" | ✅ PASS | `auth/password-login-form.tsx` |
+| L2. reportMessage returns fake success | ✅ PASS | `services/messages.ts`, `messages/page.tsx` |
+| L7. Music trim max 60s vs 15s story limit | ✅ PASS | `story/creator/music-picker.tsx` |
+| L8. startTimer stale capturePhoto closure | ✅ PASS | `story/creator/media-picker.tsx` (ref-based) |
+| L10/L11. Avatar blue-adjacent + dup teal | ✅ PASS | `ui/avatar.tsx` |
+| L13. sendOTP swallows errors as success | ✅ PASS | `services/auth.ts` |
+
+**Build verification:** `npx tsc --noEmit` clean. `npx next build` clean.
+
 ---
 
 ## MEDIUM (Edge Cases / Degraded UX) — 42 failures

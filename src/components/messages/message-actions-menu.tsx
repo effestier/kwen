@@ -72,9 +72,9 @@ export function MessageActionsMenu({ isMine, isText, onAction, onClose, variant 
           ref={menuRef}
           role="menu"
           aria-label="Message actions"
-          className="fixed bottom-0 left-0 right-0 z-50 bg-[var(--bg-secondary)] border-t border-[var(--border-subtle)] rounded-t-2xl p-4 pb-8 animate-in slide-in-from-bottom duration-300"
+          className="fixed bottom-0 left-0 right-0 z-50 bg-[var(--bg-secondary)] border-t border-[var(--border-subtle)] rounded-t-2xl p-3 pb-6 animate-in slide-in-from-bottom duration-300"
         >
-          <div className="w-10 h-1 bg-[var(--text-muted)]/30 rounded-full mx-auto mb-4" />
+          <div className="w-10 h-1 bg-[var(--text-muted)]/30 rounded-full mx-auto mb-3" />
           <div className="space-y-1">
             {actions.map((action) => (
               <button

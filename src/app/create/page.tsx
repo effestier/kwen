@@ -266,7 +266,7 @@ export default function CreatePage() {
           {step === 'details' && user && (
             <div className="flex-1 flex flex-col">
               {/* User info + caption */}
-              <div className="flex items-start gap-3 p-4">
+              <div className="flex items-start gap-3 p-3">
                 <Avatar src={user.avatar_url} name={user.display_name} size="sm" />
                 <div className="flex-1 min-w-0">
                   <CaptionEditor
@@ -355,7 +355,7 @@ export default function CreatePage() {
               )}
 
               {/* Save draft button */}
-              <div className="mt-auto p-4 border-t border-[var(--border-subtle)]">
+              <div className="mt-auto p-3 border-t border-[var(--border-subtle)]">
                 <button
                   onClick={async () => { await saveDraft(); router.push('/feed') }}
                   className="w-full py-2.5 text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
@@ -369,7 +369,7 @@ export default function CreatePage() {
 
         {/* Bottom action bar (select step) */}
         {step === 'select' && mediaItems.length > 0 && (
-          <div className="sticky bottom-0 bg-[var(--bg-primary)] border-t border-[var(--border-subtle)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <div className="sticky bottom-0 bg-[var(--bg-primary)] border-t border-[var(--border-subtle)] p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             <button
               onClick={() => setStep('preview')}
               className="w-full py-3 bg-[var(--accent-primary)] text-[var(--text-inverse)] rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity"
@@ -393,7 +393,7 @@ export default function CreatePage() {
               </div>
               <div className="overflow-y-auto max-h-[50vh]">
                 {drafts.length === 0 ? (
-                  <div className="p-8 text-center text-[var(--text-muted)] text-sm">No drafts yet</div>
+                  <div className="p-6 text-center text-[var(--text-muted)] text-sm">No drafts yet</div>
                 ) : (
                   drafts.map(draft => (
                     <button

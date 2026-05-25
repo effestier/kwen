@@ -1293,12 +1293,12 @@ export default function MessagesPage() {
           "w-full md:w-80 border-r border-[var(--border-subtle)] flex flex-col bg-[var(--bg-primary)]",
           showMobileChat && 'hidden md:flex'
         )}>
-          <div className="p-4 pt-[max(1rem,env(safe-area-inset-top))] border-b border-[var(--border-subtle)]">
+          <div className="p-3 pt-[max(1rem,env(safe-area-inset-top))] border-b border-[var(--border-subtle)]">
             <h1 className="text-xl font-bold text-[var(--text-primary)]">Messages</h1>
           </div>
           <div role="list" aria-label="Conversations" className="flex-1 min-h-0 overflow-y-auto">
             {loading ? (
-              <div role="status" className="p-4">
+              <div role="status" className="p-3">
                 <ListSkeleton items={6} />
               </div>
             ) : conversations.length > 0 ? (
@@ -1312,7 +1312,7 @@ export default function MessagesPage() {
                     aria-current={isSelected ? 'true' : undefined}
                     onClick={() => handleSelectConversation(conv)}
                     className={cn(
-                      'w-full flex items-center gap-3 px-4 py-3 transition-colors-fast text-left',
+                      'w-full flex items-center gap-3 px-3 py-2.5 transition-colors-fast text-left',
                       isSelected ? 'bg-[var(--bg-tertiary)]' : 'hover:bg-[var(--bg-secondary)]'
                     )}
                   >
@@ -1359,8 +1359,8 @@ export default function MessagesPage() {
                 );
               })
             ) : (
-              <div className="p-4 text-center text-[var(--text-muted)]">
-                <p className="mb-4">No conversations yet</p>
+              <div className="p-3 text-center text-[var(--text-muted)]">
+                <p className="mb-3">No conversations yet</p>
                 <Link href="/explore" className="text-[var(--accent-primary)] text-sm hover:underline">Find people to message</Link>
               </div>
             )}
@@ -1435,7 +1435,7 @@ export default function MessagesPage() {
                   <div className="py-2">
                     {/* H16: Loading indicator at top when fetching older messages */}
                     {loadingOlderMessages && (
-                      <div className="flex items-center justify-center py-4">
+                      <div className="flex items-center justify-center py-2">
                         <div className="w-5 h-5 border-2 border-[var(--text-muted)] border-t-transparent rounded-full animate-spin" />
                       </div>
                     )}

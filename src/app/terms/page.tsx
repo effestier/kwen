@@ -3,11 +3,11 @@ import { BRAND } from '@/lib/brand/config';
 export default function TermsPage() {
   return (
     <div className="min-h-screen bg-[var(--bg-primary)]">
-      <div className="max-w-3xl mx-auto px-6 py-16">
+      <div className="max-w-3xl mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">Terms of Service</h1>
-        <p className="text-sm text-[var(--text-muted)] mb-10">Last updated: May 2026</p>
+        <p className="text-sm text-[var(--text-muted)] mb-6">Last updated: May 2026</p>
 
-        <div className="space-y-8 text-[var(--text-secondary)] text-sm leading-relaxed">
+        <div className="space-y-5 text-[var(--text-secondary)] text-sm leading-relaxed">
           <section>
             <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-3">1. Acceptance of Terms</h2>
             <p>

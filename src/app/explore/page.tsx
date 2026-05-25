@@ -235,7 +235,7 @@ export default function ExplorePage() {
   if (loading) {
     return (
       <MainLayout>
-        <div className="max-w-5xl mx-auto px-2 py-4">
+        <div className="max-w-5xl mx-auto px-2 py-2">
           <GridSkeleton columns={3} rows={4} gap={0.5} />
         </div>
       </MainLayout>
@@ -536,7 +536,7 @@ export default function ExplorePage() {
               })}
             </div>
           ) : (
-            <div className="py-16 text-center text-[var(--text-muted)]">
+            <div className="py-10 text-center text-[var(--text-muted)]">
               <p>No posts found</p>
             </div>
           )}
@@ -544,7 +544,7 @@ export default function ExplorePage() {
           {/* Infinite scroll sentinel */}
           <div ref={sentinelRef} className="h-1" />
           {loadingMore && (
-            <div className="py-8 flex justify-center">
+            <div className="py-4 flex justify-center">
               <div className="animate-spin h-5 w-5 border-2 border-[var(--text-muted)] border-t-transparent rounded-full" />
             </div>
           )}

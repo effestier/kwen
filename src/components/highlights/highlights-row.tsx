@@ -18,7 +18,7 @@ export function HighlightsRow({
   onCreateHighlight,
 }: HighlightsRowProps) {
   return (
-    <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4">
+    <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4">
       {/* Add highlight button (only on own profile) */}
       {isOwnProfile && (
         <button

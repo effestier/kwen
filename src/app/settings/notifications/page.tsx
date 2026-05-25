@@ -93,7 +93,7 @@ export default function NotificationsPage() {
     <div className="max-w-2xl">
       <button
         onClick={() => router.back()}
-        className="flex items-center gap-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] mb-6 transition-colors"
+        className="flex items-center gap-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] mb-4 transition-colors"
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="m15 18-6-6 6-6" />
@@ -101,14 +101,14 @@ export default function NotificationsPage() {
         <span className="text-sm">Back to Settings</span>
       </button>
 
-      <div className="mb-8">
+      <div className="mb-5">
         <h2 className="text-xl font-semibold text-[var(--text-primary)]">Notifications</h2>
         <p className="text-sm text-[var(--text-secondary)] mt-1">
           Choose how you want to be notified about activity.
         </p>
       </div>
 
-      <div className="space-y-6">
+      <div className="space-y-3">
         <Card>
           <CardHeader>
             <CardTitle>Push Notifications</CardTitle>
@@ -116,7 +116,7 @@ export default function NotificationsPage() {
               Notifications sent to your device.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3">
             <Switch
               label="Push Notifications"
               description="Enable push notifications on this device"
@@ -170,7 +170,7 @@ export default function NotificationsPage() {
               Notifications sent to your email.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3">
             <Switch
               label="Email Notifications"
               description="Receive notifications via email"

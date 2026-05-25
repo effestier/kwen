@@ -103,7 +103,7 @@ export function AddToHighlightModal({
         {/* Content */}
         <div className="max-h-80 overflow-y-auto">
           {loading ? (
-            <div className="p-4 space-y-3">
+            <div className="p-3 space-y-3">
               {Array.from({ length: 3 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-full bg-[var(--bg-tertiary)] animate-pulse" />
@@ -113,7 +113,7 @@ export function AddToHighlightModal({
             </div>
           ) : showCreate ? (
             /* Create new highlight form */
-            <div className="p-4 space-y-4">
+            <div className="p-3 space-y-3">
               <div>
                 <label className="block text-sm text-[var(--text-muted)] mb-2">
                   Highlight name
@@ -150,7 +150,7 @@ export function AddToHighlightModal({
               {/* Create new highlight button */}
               <button
                 onClick={() => setShowCreate(true)}
-                className="w-full flex items-center gap-3 p-4 hover:bg-[var(--bg-tertiary)] transition-colors"
+                className="w-full flex items-center gap-3 p-3 hover:bg-[var(--bg-tertiary)] transition-colors"
               >
                 <div className="w-12 h-12 rounded-full border-2 border-dashed border-[var(--border-subtle)] flex items-center justify-center">
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--text-muted)]">
@@ -197,7 +197,7 @@ export function AddToHighlightModal({
               ))}
 
               {highlights.length === 0 && (
-                <div className="p-4 text-center text-[var(--text-muted)]">
+                <div className="p-3 text-center text-[var(--text-muted)]">
                   No highlights yet. Create your first one!
                 </div>
               )}

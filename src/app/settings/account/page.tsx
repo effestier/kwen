@@ -175,7 +175,7 @@ export default function AccountPage() {
   if (!profile) {
     return (
       <div className="max-w-2xl">
-        <div className="mb-8">
+        <div className="mb-5">
           <h2 className="text-xl font-semibold text-[var(--text-primary)]">Account</h2>
         </div>
         <p className="text-[var(--text-muted)]">Please log in to manage your account.</p>
@@ -185,7 +185,7 @@ export default function AccountPage() {
 
   return (
     <div className="max-w-2xl">
-      <div className="mb-8">
+      <div className="mb-5">
         <h2 className="text-xl font-semibold text-[var(--text-primary)]">Account</h2>
         <p className="text-sm text-[var(--text-secondary)] mt-1">
           Manage your personal information and account details.
@@ -204,7 +204,7 @@ export default function AccountPage() {
         </div>
       )}
 
-      <div className="space-y-6">
+      <div className="space-y-3">
         <Card>
           <CardHeader>
             <CardTitle>Profile Photo</CardTitle>
@@ -258,7 +258,7 @@ export default function AccountPage() {
               Your public profile details.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3">
             <div className="space-y-2">
               <label htmlFor="settings-display-name" className="text-sm font-medium text-[var(--text-primary)]">Display Name</label>
               <input

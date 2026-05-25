@@ -159,9 +159,9 @@ export function PasswordLoginForm() {
     <div className="min-h-screen flex flex-col bg-[var(--bg-primary)]">
       <header className="p-6 pt-[max(1.5rem,env(safe-area-inset-top))]" />
 
-      <main id="main-content" className="flex-1 flex items-center justify-center px-6 py-12">
+      <main id="main-content" className="flex-1 flex items-center justify-center px-5 py-8">
         <div className="w-full max-w-[380px]">
-          <div className="flex items-center justify-center gap-2.5 mb-10">
+          <div className="flex items-center justify-center gap-2.5 mb-6">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[var(--gradient-start)] to-[var(--gradient-end)] flex items-center justify-center">
               <span className="text-base font-semibold text-white">{BRAND.logo.symbol}</span>
             </div>

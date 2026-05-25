@@ -122,12 +122,12 @@ export default function SavedPage() {
   return (
     <MainLayout>
       <div className="min-h-screen">
-        <div className="sticky top-0 z-10 bg-[var(--bg-primary)]/90 backdrop-blur-xl border-b border-[var(--border-subtle)] p-4">
+        <div className="sticky top-0 z-10 bg-[var(--bg-primary)]/90 backdrop-blur-xl border-b border-[var(--border-subtle)] px-4 py-3">
           <h1 className="text-xl font-bold text-[var(--text-primary)]">Saved</h1>
         </div>
 
         {loading ? (
-          <div className="p-4 space-y-4">
+          <div className="p-3 space-y-3">
             {Array.from({ length: 3 }).map((_, i) => (
               <div key={i} className="space-y-3">
                 <div className="flex items-center gap-3">
@@ -142,14 +142,14 @@ export default function SavedPage() {
         ) : posts.length > 0 ? (
           <div className="divide-y divide-[var(--border-subtle)]">
             {posts.map((post) => (
-              <div key={post.id} className="p-4">
+              <div key={post.id} className="p-3">
                 <PostCard post={post} />
               </div>
             ))}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center py-20 text-center px-6">
-            <div className="w-14 h-14 rounded-full bg-[var(--bg-secondary)] flex items-center justify-center mb-4">
+          <div className="flex flex-col items-center justify-center py-12 text-center px-4">
+            <div className="w-14 h-14 rounded-full bg-[var(--bg-secondary)] flex items-center justify-center mb-3">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--text-muted)]">
                 <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
               </svg>

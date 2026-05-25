@@ -384,7 +384,7 @@ export function PostDetailClient({ postId }: { postId: string }) {
                 )}
               </div>
             ) : (
-              <div className="aspect-square lg:aspect-auto lg:min-h-[400px] flex items-center justify-center p-8">
+              <div className="aspect-square lg:aspect-auto lg:min-h-[400px] flex items-center justify-center p-4">
                 <p className="text-[var(--text-secondary)] text-lg whitespace-pre-wrap text-center max-w-md">
                   {post.content}
                 </p>
@@ -416,7 +416,7 @@ export function PostDetailClient({ postId }: { postId: string }) {
               )}
             </div>
 
-            <div ref={commentsRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
+            <div ref={commentsRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
               {post.content && (
                 <div className="flex gap-3">
                   {post.user && (
@@ -444,11 +444,11 @@ export function PostDetailClient({ postId }: { postId: string }) {
               )}
 
               {commentsLoading ? (
-                <div className="flex justify-center py-6">
+                <div className="flex justify-center py-4">
                   <div className="animate-spin w-5 h-5 border-2 border-[var(--text-muted)] border-t-transparent rounded-full" />
                 </div>
               ) : comments.length === 0 ? (
-                <div className="text-center py-8">
+                <div className="text-center py-4">
                   <p className="text-[var(--text-muted)] text-sm">No comments yet</p>
                   <p className="text-[var(--text-muted)] text-xs mt-1">Be the first to comment</p>
                 </div>

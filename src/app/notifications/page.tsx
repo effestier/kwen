@@ -52,7 +52,7 @@ function getNotificationLink(notif: Notification): string {
 
 function NotificationSkeleton() {
   return (
-    <div className="p-4 flex items-start gap-3">
+    <div className="p-3 flex items-start gap-3">
       <Skeleton variant="circular" width={28} height={28} />
       <Skeleton variant="circular" width={40} height={40} />
       <div className="flex-1 space-y-2">
@@ -187,7 +187,7 @@ export default function NotificationsPage() {
   return (
     <MainLayout>
       <div className="min-h-screen">
-        <div className="sticky top-0 z-10 bg-[var(--bg-primary)]/90 backdrop-blur-xl border-b border-[var(--border-subtle)] px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-4">
+        <div className="sticky top-0 z-10 bg-[var(--bg-primary)]/90 backdrop-blur-xl border-b border-[var(--border-subtle)] px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-3">
           <div className="flex items-center justify-between">
             <h1 className="text-xl font-bold text-[var(--text-primary)]">Notifications</h1>
             {notifications.some(n => !n.is_read) && (
@@ -214,7 +214,7 @@ export default function NotificationsPage() {
                 key={notif.id}
                 href={getNotificationLink(notif)}
                 className={cn(
-                  'block p-4 hover:bg-[var(--bg-secondary)] transition-colors-fast',
+                  'block p-3 hover:bg-[var(--bg-secondary)] transition-colors-fast',
                   !notif.is_read && 'bg-[var(--bg-secondary)]/50'
                 )}
               >
@@ -242,7 +242,7 @@ export default function NotificationsPage() {
             ))}
             <div ref={sentinelRef} className="h-1" />
             {loadingMore && (
-              <div className="p-4 space-y-3">
+              <div className="p-3 space-y-3">
                 {Array.from({ length: 3 }).map((_, i) => (
                   <NotificationSkeleton key={i} />
                 ))}
@@ -250,7 +250,7 @@ export default function NotificationsPage() {
             )}
           </div>
         ) : (
-          <div className="text-center py-20">
+          <div className="text-center py-12">
             <p className="text-[var(--text-muted)]">No notifications yet</p>
           </div>
         )}

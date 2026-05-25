@@ -108,7 +108,7 @@ function SetNewPassword({ tokenHash }: { tokenHash: string }) {
             Back
           </Link>
         </header>
-        <main className="flex-1 flex items-center justify-center px-6 py-12">
+        <main className="flex-1 flex items-center justify-center px-5 py-8">
           <div className="w-full max-w-[380px]">
             <div className="rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] p-8 text-center">
               <p className="text-sm text-[var(--destructive)] mb-4">{error}</p>
@@ -128,9 +128,9 @@ function SetNewPassword({ tokenHash }: { tokenHash: string }) {
           Back
         </Link>
       </header>
-      <main className="flex-1 flex items-center justify-center px-6 py-12">
+      <main className="flex-1 flex items-center justify-center px-5 py-8">
         <div className="w-full max-w-[380px]">
-          <div className="flex items-center justify-center gap-2.5 mb-10">
+          <div className="flex items-center justify-center gap-2.5 mb-6">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[var(--gradient-start)] to-[var(--gradient-end)] flex items-center justify-center">
               <span className="text-base font-semibold text-white">{BRAND.logo.symbol}</span>
             </div>
@@ -203,9 +203,9 @@ function RequestReset() {
         </Link>
       </header>
 
-      <main id="main-content" className="flex-1 flex items-center justify-center px-6 py-12">
+      <main id="main-content" className="flex-1 flex items-center justify-center px-5 py-8">
         <div className="w-full max-w-[380px]">
-          <div className="flex items-center justify-center gap-2.5 mb-10">
+          <div className="flex items-center justify-center gap-2.5 mb-6">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[var(--gradient-start)] to-[var(--gradient-end)] flex items-center justify-center">
               <span className="text-base font-semibold text-white">{BRAND.logo.symbol}</span>
             </div>

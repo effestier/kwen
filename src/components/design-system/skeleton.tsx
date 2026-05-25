@@ -220,7 +220,7 @@ export function ReelSkeleton({ className }: { className?: string }) {
 
 export function SettingsSkeleton({ className }: { className?: string }) {
   return (
-    <div className={cn('space-y-6 p-4', className)}>
+    <div className={cn('space-y-4 p-3', className)}>
       {/* Header */}
       <div className="space-y-2">
         <Skeleton variant="text" width={140} height={20} />
@@ -262,7 +262,7 @@ export function PageSkeleton({ className }: { className?: string }) {
   return (
     <div className={cn('flex min-h-screen bg-[var(--bg-primary)]', className)}>
       {/* Sidebar skeleton */}
-      <div className="hidden md:flex flex-col w-64 p-4 border-r border-[var(--border-subtle)] space-y-4">
+      <div className="hidden md:flex flex-col w-64 p-3 border-r border-[var(--border-subtle)] space-y-3">
         <Skeleton variant="text" width={100} height={24} />
         <div className="space-y-2 mt-4">
           {[1, 2, 3, 4, 5, 6].map((i) => (
@@ -275,7 +275,7 @@ export function PageSkeleton({ className }: { className?: string }) {
       </div>
 
       {/* Content skeleton */}
-      <div className="flex-1 max-w-2xl mx-auto p-4 space-y-4">
+      <div className="flex-1 max-w-2xl mx-auto p-3 space-y-3">
         {[1, 2, 3].map((i) => (
           <CardSkeleton key={i} />
         ))}

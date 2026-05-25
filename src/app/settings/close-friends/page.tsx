@@ -106,7 +106,7 @@ export default function CloseFriendsPage() {
         </div>
 
         {/* Search */}
-        <div className="p-4 border-b border-[var(--border-subtle)]">
+        <div className="p-3 border-b border-[var(--border-subtle)]">
           <div className="relative">
             <input
               type="text"
@@ -235,7 +235,7 @@ export default function CloseFriendsPage() {
               </div>
             ))
           ) : (
-            <div className="text-center py-12 px-4">
+            <div className="text-center py-8 px-4">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 width="48"

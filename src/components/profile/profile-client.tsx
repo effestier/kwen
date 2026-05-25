@@ -295,7 +295,7 @@ export function ProfileClient({ username }: { username: string }) {
   if (loading) {
     return (
       <MainLayout>
-        <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
+        <div className="max-w-2xl mx-auto px-4 py-3 space-y-3">
           <div className="flex items-center gap-4">
             <Skeleton variant="circular" width={80} height={80} />
             <div className="flex-1 space-y-2">
@@ -406,7 +406,7 @@ export function ProfileClient({ username }: { username: string }) {
             <p className="text-sm text-[var(--text-secondary)] mb-3 leading-relaxed">{profile.bio}</p>
           )}
 
-          <div className="flex items-center gap-4 text-sm mb-4">
+          <div className="flex items-center gap-3 text-sm mb-3">
             <span>
               <span className="font-bold text-[var(--text-primary)]">{formatNumber(stats.posts)}</span>
               <span className="text-[var(--text-muted)]"> posts</span>
@@ -455,7 +455,7 @@ export function ProfileClient({ username }: { username: string }) {
               aria-selected={activeTab === tab}
               onClick={() => setActiveTab(tab)}
               className={cn(
-                'flex-1 py-3.5 text-sm font-semibold capitalize transition-colors-fast relative',
+                'flex-1 py-2.5 text-sm font-semibold capitalize transition-colors-fast relative',
                 activeTab === tab ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'
               )}
             >
@@ -488,23 +488,23 @@ export function ProfileClient({ username }: { username: string }) {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-20">
+              <div className="text-center py-12">
                 <p className="text-[var(--text-muted)]">No posts yet</p>
               </div>
             )
           )}
           {activeTab === 'reels' && (
-            <div className="text-center py-20">
+            <div className="text-center py-12">
               <p className="text-[var(--text-muted)]">No reels yet</p>
             </div>
           )}
           {activeTab === 'likes' && (
-            <div className="text-center py-20">
+            <div className="text-center py-12">
               <p className="text-[var(--text-muted)]">No liked posts yet</p>
             </div>
           )}
           {activeTab === 'saved' && (
-            <div className="text-center py-20">
+            <div className="text-center py-12">
               <p className="text-[var(--text-muted)]">No saved posts yet</p>
             </div>
           )}

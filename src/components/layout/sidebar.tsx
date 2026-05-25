@@ -211,7 +211,7 @@ export function Sidebar() {
       </div>
 
       {/* Search */}
-      <div className="px-4 mb-4" ref={searchRef}>
+      <div className="px-4 mb-3" ref={searchRef}>
         <div className={`relative transition-all ${searchOpen ? 'ring-2 ring-white/20 rounded-lg' : ''}`}>
           <label htmlFor="sidebar-search" className="sr-only">Search</label>
           <input
@@ -266,7 +266,7 @@ export function Sidebar() {
         })}
 
         {/* Secondary Navigation */}
-        <div className="mt-6 pt-4 border-t border-[var(--border-subtle)]">
+        <div className="mt-4 pt-3 border-t border-[var(--border-subtle)]">
           {/* Dynamic Profile Link - uses real username */}
           {user && (
             <Link
@@ -349,7 +349,7 @@ export function Sidebar() {
       </nav>
 
       {/* Create Button */}
-      <div className="px-4 py-4">
+      <div className="px-4 py-3">
         <Link
           href="/create"
           className="flex items-center justify-center w-full py-3 rounded-full bg-[var(--accent-primary)] text-[var(--text-inverse)] text-sm font-semibold hover:opacity-90 transition-opacity"

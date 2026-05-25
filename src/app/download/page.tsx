@@ -5,7 +5,7 @@ import { BRAND } from '@/lib/brand/config';
 export default function DownloadPage() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-black px-6">
-      <div className="max-w-md w-full text-center space-y-8">
+      <div className="max-w-md w-full text-center space-y-5">
         {/* Logo */}
         <div className="w-20 h-20 rounded-2xl bg-[var(--bg-tertiary)] border border-[var(--border-subtle)] flex items-center justify-center mx-auto">
           <span className="text-3xl font-semibold text-white">{BRAND.logo.symbol}</span>
@@ -23,7 +23,7 @@ export default function DownloadPage() {
         <a
           href="/kwen.apk"
           download
-          className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl bg-[var(--accent-primary)] text-[var(--text-inverse)] font-semibold text-lg hover:opacity-90 transition-opacity"
+          className="inline-flex items-center gap-3 px-6 py-3 rounded-2xl bg-[var(--accent-primary)] text-[var(--text-inverse)] font-semibold text-lg hover:opacity-90 transition-opacity"
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />

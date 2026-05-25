@@ -408,7 +408,7 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
         {/* Comments List */}
         <div ref={commentsListRef} className="overflow-y-auto max-h-[calc(85vh-140px)] sm:max-h-[calc(80vh-140px)] px-4 py-3">
           {loading ? (
-            <div className="space-y-4 py-2">
+            <div className="space-y-3 py-2">
               {Array.from({ length: 4 }).map((_, i) => (
                 <div key={i} className="flex gap-3">
                   <Skeleton variant="circular" width={32} height={32} />
@@ -421,12 +421,12 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
               ))}
             </div>
           ) : comments.length === 0 ? (
-            <div className="text-center py-10">
+            <div className="text-center py-6">
               <p className="text-[var(--text-muted)]">No comments yet</p>
               <p className="text-sm text-[var(--text-muted)] mt-1">Be the first to comment</p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {comments.map((comment) => (
                 <div key={comment.id}>
                   {/* Parent Comment */}

@@ -64,7 +64,7 @@ export default function SecurityPage() {
     <div className="max-w-2xl">
       <button
         onClick={() => router.back()}
-        className="flex items-center gap-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] mb-6 transition-colors"
+        className="flex items-center gap-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] mb-4 transition-colors"
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="m15 18-6-6 6-6" />
@@ -72,7 +72,7 @@ export default function SecurityPage() {
         <span className="text-sm">Back to Settings</span>
       </button>
 
-      <div className="mb-8">
+      <div className="mb-5">
         <h2 className="text-xl font-semibold text-[var(--text-primary)]">Security</h2>
         <p className="text-sm text-[var(--text-secondary)] mt-1">
           Keep your account secure and manage login options.
@@ -91,7 +91,7 @@ export default function SecurityPage() {
         </div>
       )}
 
-      <div className="space-y-6">
+      <div className="space-y-3">
         <Card>
           <CardHeader>
             <CardTitle>Password</CardTitle>
@@ -99,7 +99,7 @@ export default function SecurityPage() {
               Change your account password.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3">
             <div className="space-y-2">
               <label className="text-sm font-medium text-[var(--text-primary)]">Current Password</label>
               <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--input-bg)] text-[var(--text-primary)]" placeholder="Enter current password" autoComplete="current-password" />
@@ -128,7 +128,7 @@ export default function SecurityPage() {
               Add an extra layer of security to your account.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3">
             <div className="flex items-center justify-between p-4 rounded-lg bg-[var(--bg-secondary)]">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-[var(--accent-secondary)] flex items-center justify-center">

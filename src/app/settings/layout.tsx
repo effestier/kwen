@@ -147,8 +147,8 @@ export default function SettingsLayout({ children }: SettingsLayoutProps) {
 
   return (
     <div className="min-h-screen bg-[var(--bg-primary)]">
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        <div className="flex items-center gap-4 mb-8">
+      <div className="max-w-6xl mx-auto px-4 py-5">
+        <div className="flex items-center gap-4 mb-5">
           <button
             onClick={() => router.push('/feed')}
             className="flex items-center justify-center w-9 h-9 rounded-lg bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)] transition-all"
@@ -167,7 +167,7 @@ export default function SettingsLayout({ children }: SettingsLayoutProps) {
           )}
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-8">
+        <div className="flex flex-col lg:flex-row gap-5">
           {/* Sidebar */}
           <nav aria-label="Settings navigation" className="lg:w-64 flex-shrink-0">
             <div className="space-y-1">

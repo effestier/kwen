@@ -108,8 +108,8 @@ export function TagPageClient() {
 
   return (
     <MainLayout>
-      <div className="max-w-2xl mx-auto px-4 py-6">
-        <div className="mb-6">
+      <div className="max-w-2xl mx-auto px-4 py-4">
+        <div className="mb-4">
           <Link href="/explore" className="text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors-fast mb-2 inline-block">
             &larr; Back to Explore
           </Link>
@@ -120,8 +120,8 @@ export function TagPageClient() {
         {loading ? (
           <GridSkeleton rows={6} />
         ) : error ? (
-          <div className="text-center py-16">
-            <p className="text-[var(--text-muted)] mb-4">{error}</p>
+          <div className="text-center py-10">
+            <p className="text-[var(--text-muted)] mb-3">{error}</p>
             <button
               onClick={() => window.location.reload()}
               className="px-4 py-2 bg-[var(--accent-primary)] text-[var(--text-inverse)] rounded-lg text-sm font-medium"
@@ -130,11 +130,11 @@ export function TagPageClient() {
             </button>
           </div>
         ) : posts.length === 0 ? (
-          <div className="text-center py-16">
+          <div className="text-center py-10">
             <p className="text-[var(--text-muted)]">No posts found with #{tag}</p>
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-4">
             {posts.map((post) => (
               <PostCard
                 key={post.id}

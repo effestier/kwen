@@ -26,8 +26,8 @@ export function Card({
   const paddingStyles = {
     none: '',
     sm: 'p-3',
-    md: 'p-4',
-    lg: 'p-6',
+    md: 'p-3',
+    lg: 'p-4',
   };
 
   return (
@@ -51,7 +51,7 @@ interface CardHeaderProps {
 
 export function CardHeader({ children, className }: CardHeaderProps) {
   return (
-    <div className={cn('mb-4', className)}>
+    <div className={cn('mb-3', className)}>
       {children}
     </div>
   );
@@ -103,7 +103,7 @@ interface CardFooterProps {
 
 export function CardFooter({ children, className }: CardFooterProps) {
   return (
-    <div className={cn('mt-4 pt-4 border-t border-[var(--border-subtle)] flex items-center gap-3', className)}>
+    <div className={cn('mt-3 pt-3 border-t border-[var(--border-subtle)] flex items-center gap-3', className)}>
       {children}
     </div>
   );

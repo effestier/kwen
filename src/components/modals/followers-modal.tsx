@@ -137,7 +137,7 @@ export function FollowersModal({ userId, type, onClose }: FollowersModalProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-[var(--modal-backdrop)]" onClick={onClose} />
       <div className="relative w-full max-w-md max-h-[80vh] bg-[var(--bg-secondary)] rounded-xl overflow-hidden">
-        <div className="p-4 border-b border-[var(--border-subtle)] flex items-center justify-between">
+        <div className="p-3 border-b border-[var(--border-subtle)] flex items-center justify-between">
           <h2 className="text-lg font-bold text-[var(--text-primary)]">
             {type === 'followers' ? 'Followers' : 'Following'}
           </h2>
@@ -189,7 +189,7 @@ export function FollowersModal({ userId, type, onClose }: FollowersModalProps) {
               ))}
             </div>
           ) : (
-            <div className="p-8 text-center text-[var(--text-muted)]">
+            <div className="p-6 text-center text-[var(--text-muted)]">
               {type === 'followers' ? 'No followers yet' : 'Not following anyone yet'}
             </div>
           )}

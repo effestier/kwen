@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kwen-v2';
+const CACHE_NAME = 'kwen-v3';
 const SHELL_URLS = ['/', '/feed/', '/auth/login/'];
 
 self.addEventListener('install', (event) => {
@@ -42,17 +42,32 @@ self.addEventListener('fetch', (event) => {
       }).catch(() => caches.match('/'))
     );
   } else {
-    event.respondWith(
-      caches.match(request).then((cached) => {
-        if (cached) return cached;
-        return fetch(request).then((response) => {
+    // M39: Network-first for _next/static chunks to prevent stale JS/CSS after deploy
+    // Next.js hashes static assets, but stale HTML shell could reference old hashes
+    const isStatic = url.pathname.startsWith('/_next/static/');
+    if (isStatic) {
+      event.respondWith(
+        fetch(request).then((response) => {
           if (response.ok && response.type === 'basic') {
             const clone = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
           }
           return response;
-        });
-      })
-    );
+        }).catch(() => caches.match(request))
+      );
+    } else {
+      event.respondWith(
+        caches.match(request).then((cached) => {
+          if (cached) return cached;
+          return fetch(request).then((response) => {
+            if (response.ok && response.type === 'basic') {
+              const clone = response.clone();
+              caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+            }
+            return response;
+          });
+        })
+      );
+    }
   }
 });

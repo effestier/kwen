@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { signInWithPassword, sendOTP, verifyOTP } from '@/services/auth';
 import { BRAND } from '@/lib/brand/config';
 
@@ -10,6 +10,7 @@ type SubStep = 'credentials' | 'otp-email' | 'otp-verify';
 
 export function PasswordLoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [subStep, setSubStep] = useState<SubStep>('credentials');
   const [email, setEmail] = useState('');
@@ -42,7 +43,9 @@ export function PasswordLoginForm() {
         return;
       }
 
-      router.push('/feed');
+      // M25: Respect redirect param from URL
+      const redirect = searchParams.get('redirect');
+      router.push(redirect && redirect.startsWith('/') ? redirect : '/feed');
       router.refresh();
     } catch {
       setError('Could not connect. Check your internet and try again.');
@@ -116,7 +119,9 @@ export function PasswordLoginForm() {
         return;
       }
 
-      router.push('/feed');
+      // M25: Respect redirect param from URL
+      const redirect = searchParams.get('redirect');
+      router.push(redirect && redirect.startsWith('/') ? redirect : '/feed');
       router.refresh();
     } catch {
       setError('Could not connect. Check your internet and try again.');

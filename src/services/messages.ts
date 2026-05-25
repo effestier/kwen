@@ -147,52 +147,15 @@ export async function getOrCreateConversation(otherUserId: string) {
     if (!otherUserId || typeof otherUserId !== 'string') return { error: 'Invalid user ID' };
     if (user.id === otherUserId) return { error: 'Cannot message yourself' };
 
-    const { data: targetUser } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('id', otherUserId)
-      .single();
+    // M6: Use atomic RPC to prevent TOCTOU race creating duplicate conversations
+    const { data: conversationId, error } = await supabase.rpc('get_or_create_conversation', {
+      p_user1: user.id,
+      p_user2: otherUserId,
+    });
 
-    if (!targetUser) return { error: 'User not found' };
+    if (error || !conversationId) return { error: 'Failed to create conversation' };
 
-    const { data: myParticipations } = await supabase
-      .from('conversation_participants')
-      .select('conversation_id')
-      .eq('user_id', user.id);
-
-    if (myParticipations && myParticipations.length > 0) {
-      const convIds = myParticipations.map(p => p.conversation_id);
-
-      const { data: existingConv } = await supabase
-        .from('conversation_participants')
-        .select('conversation_id')
-        .eq('user_id', otherUserId)
-        .in('conversation_id', convIds)
-        .limit(1);
-
-      if (existingConv && existingConv.length > 0) {
-        return { success: true, conversationId: existingConv[0].conversation_id };
-      }
-    }
-
-    const { data: conversation, error: convError } = await supabase
-      .from('conversations')
-      .insert({})
-      .select()
-      .single();
-
-    if (convError || !conversation) return { error: 'Failed to create conversation' };
-
-    const { error: partError } = await supabase
-      .from('conversation_participants')
-      .insert([
-        { conversation_id: conversation.id, user_id: user.id, unread_count: 0 },
-        { conversation_id: conversation.id, user_id: otherUserId, unread_count: 0 },
-      ]);
-
-    if (partError) return { error: 'Failed to create conversation' };
-
-    return { success: true, conversationId: conversation.id };
+    return { success: true, conversationId };
   } catch {
     return { error: 'Failed to create conversation' };
   }
@@ -512,13 +475,8 @@ export async function markMessagesAsDelivered(conversationId: string) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user || !conversationId) return;
 
-    // Mark messages from others as delivered (not sent by me, not yet delivered)
-    await supabase
-      .from('messages')
-      .update({ delivered_at: new Date().toISOString() })
-      .eq('conversation_id', conversationId)
-      .neq('sender_id', user.id)
-      .is('delivered_at', null);
+    // 045: Use RPC — only updates delivered_at, verified participant check server-side
+    await supabase.rpc('mark_messages_delivered', { p_conversation_id: conversationId });
   } catch {
     // Silent fail
   }

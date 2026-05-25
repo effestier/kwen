@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { sendOTP, verifyOTP, setPassword, completeProfile } from '@/services/auth';
 import { BRAND } from '@/lib/brand/config';
 
@@ -10,6 +10,7 @@ type Step = 'email' | 'otp' | 'complete';
 
 export function RegisterForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [step, setStep] = useState<Step>('email');
   const [email, setEmail] = useState('');
@@ -125,7 +126,9 @@ export function RegisterForm() {
       if (pwResult.error) { setError(pwResult.error); return; }
       const profileResult = await completeProfile(username, displayName);
       if (profileResult.error) { setError(profileResult.error); return; }
-      router.push('/feed');
+      // M25: Respect redirect param from URL
+      const redirect = searchParams.get('redirect');
+      router.push(redirect && redirect.startsWith('/') ? redirect : '/feed');
       router.refresh();
     } catch {
       setError('Could not connect. Check your internet and try again.');

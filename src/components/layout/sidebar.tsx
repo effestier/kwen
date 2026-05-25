@@ -409,8 +409,10 @@ export function Sidebar() {
                   if (signingOut) return;
                   setSigningOut(true);
                   setAccountMenuOpen(false);
-                  await signOut();
+                  // M28: Navigate away BEFORE signing out to prevent
+                  // auth listener from fetching profile for cleared session
                   router.push('/');
+                  await signOut();
                   router.refresh();
                 }}
                 disabled={signingOut}

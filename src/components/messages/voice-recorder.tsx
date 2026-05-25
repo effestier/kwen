@@ -123,6 +123,13 @@ export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
       // eslint-disable-next-line no-console
       console.log('[VOICE] requesting getUserMedia...');
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      // M42: If cancel fired while getUserMedia was pending, stop the stream immediately
+      if (cancelledRef.current) {
+        stream.getTracks().forEach(t => t.stop());
+        return;
+      }
+
       // eslint-disable-next-line no-console
       console.log('[VOICE] getUserMedia success', { tracks: stream.getTracks().length });
       streamRef.current = stream;

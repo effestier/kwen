@@ -8,12 +8,13 @@ export async function toggleLike(postId: string) {
     if (!user) return { error: 'Not authenticated' };
     if (!postId || typeof postId !== 'string') return { error: 'Invalid post ID' };
 
+    // M19: Check if liked, then act. Catch unique constraint on insert (TOCTOU safe).
     const { data: existing } = await supabase
       .from('post_likes')
       .select('id')
       .eq('post_id', postId)
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
 
     if (existing) {
       await supabase.from('post_likes').delete().eq('id', existing.id);
@@ -23,7 +24,11 @@ export async function toggleLike(postId: string) {
         .from('post_likes')
         .insert({ post_id: postId, user_id: user.id });
 
-      if (error) return { error: 'Failed to like post' };
+      if (error) {
+        // M19: Unique constraint violation = concurrent insert already liked it
+        if (error.code === '23505') return { success: true, liked: true };
+        return { error: 'Failed to like post' };
+      }
       return { success: true, liked: true };
     }
   } catch {
@@ -44,7 +49,7 @@ export async function toggleSave(postId: string) {
       .select('id')
       .eq('post_id', postId)
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
 
     if (existing) {
       await supabase.from('saved_posts').delete().eq('id', existing.id);
@@ -54,7 +59,11 @@ export async function toggleSave(postId: string) {
         .from('saved_posts')
         .insert({ post_id: postId, user_id: user.id });
 
-      if (error) return { error: 'Failed to save post' };
+      if (error) {
+        // M19: Unique constraint violation = concurrent insert already saved it
+        if (error.code === '23505') return { success: true, saved: true };
+        return { error: 'Failed to save post' };
+      }
       return { success: true, saved: true };
     }
   } catch {

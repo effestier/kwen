@@ -322,8 +322,10 @@ export async function sendPasswordReset(email: string): Promise<AuthResult> {
       return { success: true };
     }
 
+    // M26: Use dynamic origin instead of hardcoded URL
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://kwen.in';
     await supabase.auth.resetPasswordForEmail(cleanEmail, {
-      redirectTo: 'https://kwen.in/auth/reset-password',
+      redirectTo: `${origin}/auth/reset-password`,
     });
 
     // Always return success — do not leak whether email exists

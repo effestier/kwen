@@ -7,8 +7,6 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { toggleLike as togglePostLike, toggleSave as togglePostSave, deletePost, restorePost, blockUser, muteUser } from '@/services/posts';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
-import { getCommentCount } from '@/services/comments';
-import { createClient } from '@/lib/supabase/client';
 import { EditPostModal } from '@/components/post/edit-post-modal';
 import { renderRichText } from '@/lib/text-utils';
 import { MediaCarousel } from '@/components/post/media-carousel';
@@ -74,10 +72,10 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete }: PostCardProps) => 
   const [showUndoToast, setShowUndoToast] = useState(false);
   const [editedAt, setEditedAt] = useState<string | null>(null);
   const [heartTrigger, setHeartTrigger] = useState(0);
+  const [showReportedToast, setShowReportedToast] = useState(false);
   // H7: Caption expand/collapse state
   const [captionExpanded, setCaptionExpanded] = useState(false);
   const captionNeedsTruncation = post.content && post.content.length > 300;
-  const supabase = createClient();
 
   useEffect(() => { setLiked(post.isLiked); }, [post.isLiked]);
   useEffect(() => { setLikeCount(post.likes); }, [post.likes]);
@@ -122,10 +120,6 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete }: PostCardProps) => 
       setSaveLoading(false);
     }
   }, [saved, saveLoading, post.id]);
-
-  const handleCommentsChange = useCallback(() => {
-    getCommentCount(post.id).then(count => setCommentCount(count));
-  }, [post.id]);
 
   // H3: Track delete timeout for proper cleanup
   const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -227,26 +221,26 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete }: PostCardProps) => 
                 <div className="absolute right-0 top-full mt-1 w-52 bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-xl shadow-lg z-50 overflow-hidden">
                   {isOwnPost ? (
                     <>
-                      <button onClick={() => { setShowEditModal(true); setShowMoreMenu(false); }} className="w-full px-3 py-2.5 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] flex items-center gap-3">
+                      <button onClick={() => { setShowEditModal(true); setShowMoreMenu(false); }} className="w-full px-3 py-2.5 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] active:bg-[var(--bg-tertiary)] flex items-center gap-3">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
                         Edit
                       </button>
-                      <button onClick={handleDelete} className="w-full px-3 py-2.5 text-left text-sm text-red-500 hover:bg-[var(--bg-secondary)] flex items-center gap-3">
+                      <button onClick={handleDelete} className="w-full px-3 py-2.5 text-left text-sm text-[var(--destructive)] hover:bg-[var(--bg-secondary)] active:bg-[var(--bg-tertiary)] flex items-center gap-3">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
                         Delete
                       </button>
                     </>
                   ) : (
                     <>
-                      <button onClick={async () => { await blockUser(post.user.id); setShowMoreMenu(false); }} className="w-full px-3 py-2.5 text-left text-sm text-red-500 hover:bg-[var(--bg-secondary)] flex items-center gap-3">
+                      <button onClick={async () => { await blockUser(post.user.id); setShowMoreMenu(false); }} className="w-full px-3 py-2.5 text-left text-sm text-[var(--destructive)] hover:bg-[var(--bg-secondary)] active:bg-[var(--bg-tertiary)] flex items-center gap-3">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="m4.9 4.9 14.2 14.2" /></svg>
                         Block
                       </button>
-                      <button onClick={async () => { await muteUser(post.user.id); setShowMoreMenu(false); }} className="w-full px-3 py-2.5 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] flex items-center gap-3">
+                      <button onClick={async () => { await muteUser(post.user.id); setShowMoreMenu(false); }} className="w-full px-3 py-2.5 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] active:bg-[var(--bg-tertiary)] flex items-center gap-3">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
                         Mute
                       </button>
-                      <button onClick={() => { alert('Report submitted.'); setShowMoreMenu(false); }} className="w-full px-3 py-2.5 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] flex items-center gap-3">
+                      <button onClick={() => { setShowReportedToast(true); setShowMoreMenu(false); setTimeout(() => setShowReportedToast(false), 3000); }} className="w-full px-3 py-2.5 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] active:bg-[var(--bg-tertiary)] flex items-center gap-3">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" x2="4" y1="22" y2="15" /></svg>
                         Report
                       </button>
@@ -334,7 +328,7 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete }: PostCardProps) => 
             disabled={saveLoading}
             className={cn(
               'p-2 rounded-full ml-auto transition-all duration-200 active:scale-90',
-              saved ? 'text-amber-500' : 'text-[var(--text-muted)] hover:text-amber-500 hover:bg-[var(--bg-tertiary)]',
+              saved ? 'text-[var(--accent-primary)]' : 'text-[var(--text-muted)] hover:text-[var(--accent-primary)] hover:bg-[var(--bg-tertiary)]',
               saveLoading && 'opacity-50'
             )}
             aria-label={saved ? 'Unsave' : 'Save'}
@@ -367,6 +361,7 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete }: PostCardProps) => 
           postId={post.id}
           initialContent={post.content}
           initialLocation={post.location}
+          initialMedia={mediaItems}
           onClose={() => setShowEditModal(false)}
           onSave={(updated) => {
             setShowEditModal(false);
@@ -376,11 +371,17 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete }: PostCardProps) => 
       )}
 
       {showUndoToast && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-xl shadow-lg px-4 py-3 flex items-center gap-3">
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-xl shadow-lg px-4 py-3 flex items-center gap-3 animate-fadeInUp">
           <span className="text-sm text-[var(--text-primary)]">Post deleted</span>
-          <button onClick={handleUndoDelete} className="text-sm font-semibold text-[var(--accent-primary)] hover:underline">
+          <button onClick={handleUndoDelete} className="text-sm font-semibold text-[var(--accent-primary)] active:opacity-60">
             Undo
           </button>
+        </div>
+      )}
+
+      {showReportedToast && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-xl shadow-lg px-4 py-3 animate-fadeInUp">
+          <span className="text-sm text-[var(--text-primary)]">Report submitted</span>
         </div>
       )}
     </>

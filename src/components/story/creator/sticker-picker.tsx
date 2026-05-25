@@ -435,7 +435,7 @@ export function StickerPicker({ onAddSticker, onClose }: StickerPickerProps) {
 
               {/* Link validation hint */}
               {activeSticker === 'link' && inputValue && !inputValue.startsWith('http') && (
-                <p className="text-yellow-500/80 text-xs">URL should start with https://</p>
+                <p className="text-[var(--warning)] text-xs">URL should start with https://</p>
               )}
 
               {/* Submit button */}

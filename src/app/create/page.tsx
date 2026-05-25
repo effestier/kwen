@@ -431,7 +431,7 @@ export default function CreatePage() {
               {/* Error */}
               {error && (
                 <div className="px-4 py-3">
-                  <p className="text-sm text-red-500">{error}</p>
+                  <p className="text-sm text-[var(--destructive)]">{error}</p>
                 </div>
               )}
 

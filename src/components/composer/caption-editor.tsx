@@ -194,7 +194,7 @@ export function CaptionEditor({
             </svg>
           </div>
           {isNearLimit && (
-            <span className={`text-xs ${charCount >= maxLength ? 'text-red-500' : 'text-[var(--text-muted)]'}`}>
+            <span className={`text-xs ${charCount >= maxLength ? 'text-[var(--destructive)]' : 'text-[var(--text-muted)]'}`}>
               {maxLength - charCount}
             </span>
           )}

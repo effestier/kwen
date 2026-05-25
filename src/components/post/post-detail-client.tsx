@@ -566,7 +566,7 @@ export function PostDetailClient({ postId }: { postId: string }) {
                   aria-label={saved ? 'Unsave' : 'Save'}
                   className={cn(
                     'p-2 rounded-full ml-auto transition-all active:scale-90',
-                    saved ? 'text-amber-500' : 'text-[var(--text-muted)] hover:text-amber-500'
+                    saved ? 'text-[var(--accent-primary)]' : 'text-[var(--text-muted)] hover:text-[var(--accent-primary)]'
                   )}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={saved ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

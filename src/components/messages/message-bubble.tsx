@@ -56,6 +56,7 @@ export function MessageBubble({ message, showAvatar, onReact, onReply, onDelete,
   const [showActions, setShowActions] = useState(false);
   const [showReactionPicker, setShowReactionPicker] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [showTime, setShowTime] = useState(false);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bubbleRef = useRef<HTMLDivElement>(null);
 
@@ -63,10 +64,11 @@ export function MessageBubble({ message, showAvatar, onReact, onReply, onDelete,
   const reactions = message.reactions ?? {};
   const hasReactions = Object.keys(reactions).length > 0;
 
-  // Long press handlers (mobile)
+  // Long press handlers (mobile) — shows time + actions
   const handleTouchStart = useCallback(() => {
     longPressTimer.current = setTimeout(() => {
       setShowActions(true);
+      setShowTime(true);
     }, 500);
   }, []);
 
@@ -76,6 +78,13 @@ export function MessageBubble({ message, showAvatar, onReact, onReply, onDelete,
       longPressTimer.current = null;
     }
   }, []);
+
+  // Tap on mobile — toggle time visibility
+  const handleBubbleClick = useCallback(() => {
+    if (!showActions) {
+      setShowTime(prev => !prev);
+    }
+  }, [showActions]);
 
   const handleAction = useCallback((action: ActionKind) => {
     switch (action) {
@@ -107,6 +116,9 @@ export function MessageBubble({ message, showAvatar, onReact, onReply, onDelete,
     onReact(message.id, emoji);
     setShowReactionPicker(false);
   }, [message.id, onReact]);
+
+  // Whether to show the time — hover on desktop, tap on mobile
+  const timeVisible = isHovered || showTime;
 
   return (
     <div
@@ -159,6 +171,7 @@ export function MessageBubble({ message, showAvatar, onReact, onReply, onDelete,
               ? 'bg-[var(--accent-primary)] text-[var(--text-inverse)] rounded-br-md'
               : 'bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-[var(--text-primary)] rounded-bl-md'
           }`}
+          onClick={handleBubbleClick}
         >
           {/* Story reply preview */}
           {message.message_type === 'story_reply' && message.media_url && (
@@ -186,7 +199,7 @@ export function MessageBubble({ message, showAvatar, onReact, onReply, onDelete,
           {(message.message_type === 'image' || message.message_type === 'mixed') && message.media_url && (
             <div
               className="rounded-lg overflow-hidden mb-1 max-w-[280px] cursor-pointer"
-              onClick={() => onImageClick?.(message.media_url!)}
+              onClick={(e) => { e.stopPropagation(); onImageClick?.(message.media_url!); }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -228,8 +241,12 @@ export function MessageBubble({ message, showAvatar, onReact, onReply, onDelete,
             </p>
           )}
 
-          {/* Timestamp + Read receipt */}
-          <div className={`flex items-center gap-1 mt-1 ${message.isMine ? 'justify-end' : 'justify-start'}`}>
+          {/* Time + read receipt — shown on hover/tap, positioned bottom-right */}
+          <div className={cn(
+            'flex items-center gap-1 mt-0.5 transition-opacity duration-150',
+            message.isMine ? 'justify-end' : 'justify-end',
+            timeVisible ? 'opacity-100' : 'opacity-0 h-0 mt-0 overflow-hidden'
+          )}>
             <p className={`text-[10px] ${message.isMine ? 'text-white/60' : 'text-[var(--text-muted)]'}`}>
               {formatTime(message.createdAt)}
             </p>

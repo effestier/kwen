@@ -177,7 +177,7 @@ export function PasswordLoginForm() {
   if (subStep === 'credentials') {
     return renderLayout(
       <>
-        <div className="rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] p-8">
+        <div className="rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] p-6">
           <h1 className="text-xl font-bold text-[var(--text-primary)] mb-1">Welcome back</h1>
           <p className="text-sm text-[var(--text-muted)] mb-6">Sign in to your account</p>
 
@@ -265,7 +265,7 @@ export function PasswordLoginForm() {
   // OTP email step
   if (subStep === 'otp-email') {
     return renderLayout(
-      <div className="rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] p-8">
+      <div className="rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] p-6">
         <h1 className="text-xl font-bold text-[var(--text-primary)] mb-1">Sign in with code</h1>
         <p className="text-sm text-[var(--text-muted)] mb-6">We&apos;ll send a 6-digit code to your email</p>
 
@@ -316,7 +316,7 @@ export function PasswordLoginForm() {
   // OTP verify step
   if (subStep === 'otp-verify') {
     return renderLayout(
-      <div className="rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] p-8">
+      <div className="rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] p-6">
         <h1 className="text-xl font-bold text-[var(--text-primary)] mb-1">Check your email</h1>
         <p className="text-sm text-[var(--text-muted)] mb-6">
           We sent a 6-digit code to<br />

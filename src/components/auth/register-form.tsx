@@ -176,7 +176,7 @@ export function RegisterForm() {
   if (step === 'email') {
     return renderLayout(
       <>
-        <div className="rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] p-8">
+        <div className="rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] p-6">
           <h1 className="text-xl font-bold text-[var(--text-primary)] mb-1">Create account</h1>
           <p className="text-sm text-[var(--text-muted)] mb-6">Join {BRAND.name} today</p>
           {error && <div role="alert" aria-live="polite" className="mb-4 p-3 rounded-lg bg-[var(--destructive)]/10 border border-[var(--destructive)]/20 text-sm text-[var(--destructive)]">{error}</div>}
@@ -195,7 +195,7 @@ export function RegisterForm() {
 
   if (step === 'otp') {
     return renderLayout(
-      <div className="rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] p-8">
+      <div className="rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] p-6">
         <h1 className="text-xl font-bold text-[var(--text-primary)] mb-1">Check your email</h1>
         <p className="text-sm text-[var(--text-muted)] mb-6">We sent a 6-digit code to<br /><span className="text-[var(--text-primary)] font-medium">{email}</span></p>
         {error && <div role="alert" aria-live="polite" className="mb-4 p-3 rounded-lg bg-[var(--destructive)]/10 border border-[var(--destructive)]/20 text-sm text-[var(--destructive)]">{error}</div>}
@@ -223,7 +223,7 @@ export function RegisterForm() {
 
   if (step === 'complete') {
     return renderLayout(
-      <div className="rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] p-8">
+      <div className="rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] p-6">
         <h1 className="text-xl font-bold text-[var(--text-primary)] mb-1">Complete your profile</h1>
         <p className="text-sm text-[var(--text-muted)] mb-6">Set up your profile and password</p>
         {error && <div role="alert" aria-live="polite" className="mb-4 p-3 rounded-lg bg-[var(--destructive)]/10 border border-[var(--destructive)]/20 text-sm text-[var(--destructive)]">{error}</div>}

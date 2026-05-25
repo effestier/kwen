@@ -110,7 +110,7 @@ function SetNewPassword({ tokenHash }: { tokenHash: string }) {
         </header>
         <main className="flex-1 flex items-center justify-center px-5 py-8">
           <div className="w-full max-w-[380px]">
-            <div className="rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] p-8 text-center">
+            <div className="rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] p-6 text-center">
               <p className="text-sm text-[var(--destructive)] mb-4">{error}</p>
               <Link href="/auth/reset-password" className="block w-full py-3 rounded-xl bg-[var(--accent-primary)] text-[var(--text-inverse)] text-sm font-semibold hover:opacity-90 transition-opacity">Request new link</Link>
             </div>
@@ -136,7 +136,7 @@ function SetNewPassword({ tokenHash }: { tokenHash: string }) {
             </div>
             <span className="text-lg font-semibold text-[var(--text-primary)] tracking-tight">{BRAND.name}</span>
           </div>
-          <div className="rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] p-8">
+          <div className="rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] p-6">
             <h1 className="text-xl font-bold text-[var(--text-primary)] mb-1">Set new password</h1>
             <p className="text-sm text-[var(--text-muted)] mb-6">Choose a strong password for your account</p>
             {error && <div role="alert" aria-live="polite" className="mb-4 p-3 rounded-lg bg-[var(--destructive)]/10 border border-[var(--destructive)]/20 text-sm text-[var(--destructive)]">{error}</div>}
@@ -212,7 +212,7 @@ function RequestReset() {
             <span className="text-lg font-semibold text-[var(--text-primary)] tracking-tight">{BRAND.name}</span>
           </div>
 
-          <div className="rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] p-8">
+          <div className="rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] p-6">
             {sent ? (
               <>
                 <div className="text-center mb-6">

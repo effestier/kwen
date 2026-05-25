@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
 import { VideoPlayer } from './video-player';
 
 interface MediaItem {
@@ -16,11 +16,82 @@ interface MediaCarouselProps {
   className?: string;
 }
 
+/** Max portrait ratio allowed (Instagram's tallest). Taller images get center-cropped. */
+const MAX_PORTRAIT_RATIO = 4 / 5;
+
+/** Max height in pixels so tall images don't dominate the feed */
+const MAX_HEIGHT_PX = 600;
+
+function AdaptiveImage({ src, onClick }: { src: string; onClick?: () => void }) {
+  const [ratio, setRatio] = useState<number | null>(null);
+
+  const handleLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    if (img.naturalWidth && img.naturalHeight) {
+      setRatio(img.naturalWidth / img.naturalHeight);
+    }
+  }, []);
+
+  // Before we know the ratio, show a placeholder
+  if (ratio === null) {
+    return (
+      <div className="w-full relative" style={{ aspectRatio: '1/1', maxHeight: MAX_HEIGHT_PX }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={src}
+          alt=""
+          className="w-full h-full object-cover"
+          loading="lazy"
+          decoding="async"
+          draggable={false}
+          onLoad={handleLoad}
+          onClick={onClick}
+        />
+      </div>
+    );
+  }
+
+  // Portrait image taller than 4:5 → cap at 4:5
+  if (ratio < MAX_PORTRAIT_RATIO) {
+    return (
+      <div className="w-full relative" style={{ aspectRatio: `${MAX_PORTRAIT_RATIO}`, maxHeight: MAX_HEIGHT_PX }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={src}
+          alt=""
+          className="w-full h-full object-cover"
+          loading="lazy"
+          decoding="async"
+          draggable={false}
+          onClick={onClick}
+        />
+      </div>
+    );
+  }
+
+  // Square, landscape, or mild portrait → show at natural ratio, just cap height
+  // We use aspect-ratio from the image's natural dimensions
+  return (
+    <div className="w-full relative" style={{ maxHeight: MAX_HEIGHT_PX }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt=""
+        className="w-full block"
+        style={{ maxHeight: MAX_HEIGHT_PX, objectFit: 'contain' }}
+        loading="lazy"
+        decoding="async"
+        draggable={false}
+        onClick={onClick}
+      />
+    </div>
+  );
+}
+
 export function MediaCarousel({ media, onDoubleTap, className }: MediaCarouselProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastTapRef = useRef<number>(0);
-  // H4: Track whether a scroll/swipe happened to suppress false double-taps
   const didScrollRef = useRef(false);
   const scrollEndTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -29,7 +100,6 @@ export function MediaCarousel({ media, onDoubleTap, className }: MediaCarouselPr
     if (!el) return;
     const index = Math.round(el.scrollLeft / el.clientWidth);
     setActiveIndex(index);
-    // H4: Mark that a scroll happened — suppress taps until settled
     didScrollRef.current = true;
     if (scrollEndTimer.current) clearTimeout(scrollEndTimer.current);
     scrollEndTimer.current = setTimeout(() => {
@@ -38,7 +108,6 @@ export function MediaCarousel({ media, onDoubleTap, className }: MediaCarouselPr
   }, []);
 
   const handleTap = useCallback(() => {
-    // H4: Ignore taps that follow a scroll/swipe gesture
     if (didScrollRef.current) return;
     const now = Date.now();
     if (now - lastTapRef.current < 300) {
@@ -52,18 +121,11 @@ export function MediaCarousel({ media, onDoubleTap, className }: MediaCarouselPr
   if (media.length === 1) {
     const item = media[0];
     return (
-      <div className={className} style={{ aspectRatio: '4/5', maxHeight: '80vh' }} onClick={handleTap}>
+      <div className={className} onClick={handleTap}>
         {item.media_type === 'video' ? (
           <VideoPlayer src={item.storage_path} />
         ) : (
-          <img
-            src={item.storage_path}
-            alt=""
-            className="w-full h-full object-cover"
-            loading="lazy"
-            decoding="async"
-            draggable={false}
-          />
+          <AdaptiveImage src={item.storage_path} />
         )}
       </div>
     );
@@ -86,20 +148,13 @@ export function MediaCarousel({ media, onDoubleTap, className }: MediaCarouselPr
           <div
             key={item.id}
             className="flex-shrink-0 w-full relative"
-            style={{ scrollSnapAlign: 'start', aspectRatio: '4/5', maxHeight: '80vh' }}
+            style={{ scrollSnapAlign: 'start', maxHeight: MAX_HEIGHT_PX }}
             onClick={handleTap}
           >
             {item.media_type === 'video' ? (
               <VideoPlayer src={item.storage_path} active={i === activeIndex} />
             ) : (
-              <img
-                src={item.storage_path}
-                alt=""
-                className="w-full h-full object-cover"
-                loading="lazy"
-                decoding="async"
-                draggable={false}
-              />
+              <AdaptiveImage src={item.storage_path} />
             )}
           </div>
         ))}

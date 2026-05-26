@@ -361,54 +361,55 @@ export function ProfileClient({ username }: { username: string }) {
   return (
     <MainLayout>
       <div className="min-h-screen">
-        {/* Profile header — centered layout */}
-        <div className="px-5 pt-5 pb-2">
-          {/* Avatar — centered */}
-          <div className="flex justify-center mb-3">
-            <div className="w-20 h-20 rounded-full bg-[var(--bg-secondary)] overflow-hidden ring-2 ring-[var(--border-subtle)] ring-offset-2 ring-offset-[var(--bg-primary)]">
-              <Avatar
-                src={profile.avatar_url}
-                name={profile.display_name}
-                size="2xl"
-                className="w-full h-full"
-              />
+        {/* Profile header */}
+        <div className="px-4 pt-4 pb-3">
+          {/* Row: avatar + name/bio/stats inline */}
+          <div className="flex gap-4">
+            {/* Avatar */}
+            <div className="flex-shrink-0">
+              <div className="w-[76px] h-[76px] rounded-full bg-[var(--bg-secondary)] overflow-hidden">
+                <Avatar
+                  src={profile.avatar_url}
+                  name={profile.display_name}
+                  size="2xl"
+                  className="w-full h-full"
+                />
+              </div>
             </div>
-          </div>
 
-          {/* Name — centered */}
-          <div className="text-center mb-1">
-            <div className="flex items-center justify-center gap-1">
-              <h2 className="text-base font-bold text-[var(--text-primary)]">{profile.display_name}</h2>
-              {profile.is_verified && (
-                <svg className="w-4 h-4 text-blue-500" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
+            {/* Right side: name, stats, bio */}
+            <div className="flex-1 min-w-0">
+              {/* Name + verified */}
+              <div className="flex items-center gap-1 mb-2">
+                <h2 className="text-[15px] font-bold text-[var(--text-primary)] truncate">{profile.display_name}</h2>
+                {profile.is_verified && (
+                  <svg className="w-4 h-4 text-blue-500 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                )}
+              </div>
+
+              {/* Stats — compact inline chips */}
+              <div className="flex gap-3 mb-2">
+                <div>
+                  <span className="text-[14px] font-bold text-[var(--text-primary)]">{formatNumber(stats.posts)}</span>
+                  <span className="text-[12px] text-[var(--text-muted)] ml-1">posts</span>
+                </div>
+                <button onClick={() => setShowFollowers(true)}>
+                  <span className="text-[14px] font-bold text-[var(--text-primary)]">{formatNumber(stats.followers)}</span>
+                  <span className="text-[12px] text-[var(--text-muted)] ml-1">followers</span>
+                </button>
+                <button onClick={() => setShowFollowing(true)}>
+                  <span className="text-[14px] font-bold text-[var(--text-primary)]">{formatNumber(stats.following)}</span>
+                  <span className="text-[12px] text-[var(--text-muted)] ml-1">following</span>
+                </button>
+              </div>
+
+              {/* Bio — compact under stats */}
+              {profile.bio && (
+                <p className="text-[13px] text-[var(--text-secondary)] leading-snug whitespace-pre-line line-clamp-2">{profile.bio}</p>
               )}
             </div>
-            <p className="text-[13px] text-[var(--text-muted)] mt-0.5">@{profile.username}</p>
-          </div>
-
-          {/* Bio */}
-          {profile.bio && (
-            <p className="text-[14px] text-[var(--text-secondary)] text-center leading-snug whitespace-pre-line mt-2 max-w-[280px] mx-auto">{profile.bio}</p>
-          )}
-
-          {/* Stats — horizontal row */}
-          <div className="flex items-center justify-center gap-6 mt-3 py-2.5 rounded-xl bg-[var(--bg-secondary)]">
-            <div className="text-center">
-              <div className="text-[15px] font-bold text-[var(--text-primary)] leading-tight">{formatNumber(stats.posts)}</div>
-              <div className="text-[11px] text-[var(--text-muted)] mt-0.5 uppercase tracking-wide">posts</div>
-            </div>
-            <div className="w-px h-6 bg-[var(--border-subtle)]" />
-            <button onClick={() => setShowFollowers(true)} className="text-center">
-              <div className="text-[15px] font-bold text-[var(--text-primary)] leading-tight">{formatNumber(stats.followers)}</div>
-              <div className="text-[11px] text-[var(--text-muted)] mt-0.5 uppercase tracking-wide">followers</div>
-            </button>
-            <div className="w-px h-6 bg-[var(--border-subtle)]" />
-            <button onClick={() => setShowFollowing(true)} className="text-center">
-              <div className="text-[15px] font-bold text-[var(--text-primary)] leading-tight">{formatNumber(stats.following)}</div>
-              <div className="text-[11px] text-[var(--text-muted)] mt-0.5 uppercase tracking-wide">following</div>
-            </button>
           </div>
 
           {/* Action buttons */}
@@ -446,7 +447,7 @@ export function ProfileClient({ username }: { username: string }) {
 
         {/* Highlights */}
         {(highlights.length > 0 || isOwnProfile) && (
-          <div className="pt-2 pb-1">
+          <div className="pt-1 pb-2">
             <HighlightsRow
               highlights={highlights}
               isOwnProfile={isOwnProfile}
@@ -463,24 +464,50 @@ export function ProfileClient({ username }: { username: string }) {
           </div>
         )}
 
-        {/* Tab bar — segmented style */}
-        <div role="tablist" aria-label="Profile sections" className="flex mx-4 mt-1 mb-0 p-0.5 rounded-lg bg-[var(--bg-secondary)]">
-          {tabs.map((tab) => (
-            <button
-              key={tab}
-              role="tab"
-              aria-selected={activeTab === tab}
-              onClick={() => setActiveTab(tab)}
-              className={cn(
-                'flex-1 py-1.5 text-[12px] font-semibold capitalize rounded-md transition-all',
-                activeTab === tab
-                  ? 'bg-[var(--bg-primary)] text-[var(--text-primary)] shadow-sm'
-                  : 'text-[var(--text-muted)]'
-              )}
-            >
-              {tab}
-            </button>
-          ))}
+        {/* Tab bar — icon + label style */}
+        <div role="tablist" aria-label="Profile sections" className="flex border-t border-[var(--border-subtle)]">
+          <button
+            role="tab"
+            aria-selected={activeTab === 'posts'}
+            onClick={() => setActiveTab('posts')}
+            className={cn(
+              'flex-1 flex flex-col items-center gap-0.5 py-2.5 transition-colors relative',
+              activeTab === 'posts' ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'
+            )}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
+            </svg>
+            {activeTab === 'posts' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--text-primary)]" />}
+          </button>
+          <button
+            role="tab"
+            aria-selected={activeTab === 'videos'}
+            onClick={() => setActiveTab('videos')}
+            className={cn(
+              'flex-1 flex flex-col items-center gap-0.5 py-2.5 transition-colors relative',
+              activeTab === 'videos' ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'
+            )}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="4" width="20" height="16" rx="2" /><path d="m10 9 5 3-5 3z" />
+            </svg>
+            {activeTab === 'videos' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--text-primary)]" />}
+          </button>
+          <button
+            role="tab"
+            aria-selected={activeTab === 'saved'}
+            onClick={() => setActiveTab('saved')}
+            className={cn(
+              'flex-1 flex flex-col items-center gap-0.5 py-2.5 transition-colors relative',
+              activeTab === 'saved' ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'
+            )}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
+            </svg>
+            {activeTab === 'saved' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--text-primary)]" />}
+          </button>
         </div>
 
         {/* Posts grid */}

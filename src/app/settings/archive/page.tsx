@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic'
 import { MainLayout } from '@/components/layout/main-layout'
 import { createClient } from '@/lib/supabase/client'
 import { ArchiveGrid } from '@/components/archive/archive-grid'
+import { PostsArchiveGrid } from '@/components/archive/posts-archive-grid'
 import type { ArchivedStory } from '@/services/archive'
 
 const ArchiveViewer = dynamic(() => import('@/components/archive/archive-viewer').then(mod => ({ default: mod.ArchiveViewer })), {
@@ -68,15 +69,12 @@ export default function ArchivePage() {
             }}
           />
         ) : (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[var(--text-muted)] mb-4" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-              <circle cx="8.5" cy="8.5" r="1.5" />
-              <polyline points="21 15 16 10 5 21" />
-            </svg>
-            <p className="text-[var(--text-muted)] font-medium">Post archive coming soon</p>
-            <p className="text-sm text-[var(--text-muted)] mt-1">Your archived posts will appear here</p>
-          </div>
+          <PostsArchiveGrid
+            onPostClick={(post) => {
+              // Navigate to the post or show a viewer
+              window.location.href = `/post/${post.id}`
+            }}
+          />
         )}
       </div>
 

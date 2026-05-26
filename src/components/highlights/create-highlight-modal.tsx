@@ -11,7 +11,6 @@ interface CreateHighlightModalProps {
 }
 
 export function CreateHighlightModal({ onClose, onSuccess }: CreateHighlightModalProps) {
-  const [step, setStep] = useState<'pick' | 'name'>('pick')
   const [stories, setStories] = useState<AvailableStory[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
@@ -56,9 +55,7 @@ export function CreateHighlightModal({ onClose, onSuccess }: CreateHighlightModa
       return
     }
 
-    // Add selected stories to the highlight
-    const storyIds = Array.from(selected)
-    for (const storyId of storyIds) {
+    for (const storyId of selected) {
       await addStoryToHighlight(result.id!, storyId)
     }
 
@@ -74,34 +71,22 @@ export function CreateHighlightModal({ onClose, onSuccess }: CreateHighlightModa
       <div className="w-full sm:max-w-lg bg-[var(--bg-primary)] rounded-t-2xl sm:rounded-2xl max-h-[85vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-subtle)] flex-shrink-0">
-          {step === 'name' ? (
-            <button onClick={() => setStep('pick')} className="text-[var(--text-muted)] text-[15px] font-medium active:opacity-60">
-              Back
-            </button>
-          ) : (
-            <button onClick={onClose} className="text-[var(--text-muted)] text-[15px] font-medium active:opacity-60">
-              Cancel
-            </button>
-          )}
-          <h3 className="text-[16px] font-semibold text-[var(--text-primary)]">
-            {step === 'pick' ? 'Select Stories' : 'New Highlight'}
-          </h3>
-          {step === 'pick' ? (
-            <button
-              onClick={() => setStep('name')}
-              disabled={selected.size === 0}
-              className="text-[var(--accent-primary)] text-[15px] font-semibold active:opacity-60 disabled:opacity-30"
-            >
-              Next
-            </button>
-          ) : (
-            <div className="w-12" />
-          )}
+          <button onClick={onClose} className="text-[var(--text-muted)] text-[15px] font-medium active:opacity-60">
+            Cancel
+          </button>
+          <h3 className="text-[16px] font-semibold text-[var(--text-primary)]">New Highlight</h3>
+          <button
+            onClick={handleCreate}
+            disabled={!title.trim() || creating}
+            className="text-[var(--accent-primary)] text-[15px] font-semibold active:opacity-60 disabled:opacity-30"
+          >
+            {creating ? 'Saving...' : 'Save'}
+          </button>
         </div>
 
         {/* Error */}
         {error && (
-          <div className="px-4 py-2 bg-[var(--destructive)]/10 border-b border-[var(--destructive)]/20 flex items-center justify-between">
+          <div className="px-4 py-2 bg-[var(--destructive)]/10 border-b border-[var(--destructive)]/20 flex items-center justify-between flex-shrink-0">
             <span className="text-[13px] text-[var(--destructive)]">{error}</span>
             <button onClick={() => setError(null)} className="text-[var(--destructive)] p-0.5">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
@@ -109,60 +94,80 @@ export function CreateHighlightModal({ onClose, onSuccess }: CreateHighlightModa
           </div>
         )}
 
-        {/* Content */}
-        {step === 'pick' ? (
-          <div className="flex-1 overflow-y-auto p-3">
+        <div className="flex-1 overflow-y-auto">
+          {/* Title input */}
+          <div className="px-4 py-4 border-b border-[var(--border-subtle)]">
+            <label className="text-[13px] text-[var(--text-muted)] font-medium mb-2 block">Highlight name</label>
+            <input
+              type="text"
+              placeholder="e.g. Travel, Food, Memories"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              maxLength={30}
+              autoFocus
+              className="w-full px-3 py-2.5 bg-[var(--bg-secondary)] rounded-lg text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:ring-2 focus:ring-[var(--accent-primary)]/20"
+            />
+            {selected.size > 0 && (
+              <p className="text-[12px] text-[var(--text-muted)] mt-2">{selected.size} {selected.size === 1 ? 'story' : 'stories'} selected</p>
+            )}
+          </div>
+
+          {/* Archived stories */}
+          <div className="px-4 pt-3 pb-2">
+            <p className="text-[13px] text-[var(--text-muted)] font-medium">Your stories</p>
+            <p className="text-[11px] text-[var(--text-muted)] mt-0.5">Select stories to add to this highlight</p>
+          </div>
+
+          <div className="px-1 pb-4">
             {loading ? (
-              <div className="grid grid-cols-3 gap-1">
+              <div className="grid grid-cols-3 gap-0.5">
                 {Array.from({ length: 9 }).map((_, i) => (
-                  <div key={i} className="aspect-[3/4] rounded-lg bg-[var(--bg-tertiary)] animate-pulse" />
+                  <div key={i} className="aspect-[3/4] bg-[var(--bg-tertiary)] animate-pulse" />
                 ))}
               </div>
             ) : stories.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[var(--text-muted)] mb-3" strokeLinecap="round" strokeLinejoin="round">
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[var(--text-muted)] mb-2" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
                   <circle cx="8.5" cy="8.5" r="1.5" />
                   <polyline points="21 15 16 10 5 21" />
                 </svg>
-                <p className="text-[var(--text-muted)] font-medium">No stories available</p>
-                <p className="text-sm text-[var(--text-muted)] mt-1">Stories are available after 24 hours</p>
+                <p className="text-[var(--text-muted)] font-medium text-sm">No stories yet</p>
+                <p className="text-xs text-[var(--text-muted)] mt-1">Stories will appear here after they expire</p>
               </div>
             ) : (
-              <div className="grid grid-cols-3 gap-1">
+              <div className="grid grid-cols-3 gap-0.5">
                 {stories.map((story) => {
                   const isSelected = selected.has(story.id)
                   return (
                     <button
                       key={story.id}
                       onClick={() => toggleStory(story.id)}
-                      className={`relative aspect-[3/4] rounded-lg overflow-hidden bg-[var(--bg-secondary)] ${
-                        isSelected ? 'ring-2 ring-[var(--accent-primary)]' : ''
-                      }`}
+                      className="relative aspect-[3/4] bg-[var(--bg-secondary)] overflow-hidden"
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={story.media_url}
                         alt=""
-                        className="w-full h-full object-cover"
+                        className={`w-full h-full object-cover transition-opacity ${isSelected ? 'opacity-70' : ''}`}
                         loading="lazy"
                       />
 
-                      {/* Selection indicator */}
-                      <div className={`absolute top-1.5 right-1.5 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
+                      {/* Selection checkbox */}
+                      <div className={`absolute top-1.5 right-1.5 w-5 h-5 rounded-full border-[1.5px] flex items-center justify-center transition-colors ${
                         isSelected
                           ? 'bg-[var(--accent-primary)] border-[var(--accent-primary)]'
-                          : 'border-white/60 bg-black/20'
+                          : 'border-white/50 bg-black/20'
                       }`}>
                         {isSelected && (
-                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                             <polyline points="20 6 9 17 4 12" />
                           </svg>
                         )}
                       </div>
 
-                      {/* Date badge */}
-                      <div className="absolute bottom-1 left-1 text-[9px] text-white/70 bg-black/40 px-1 rounded">
+                      {/* Date */}
+                      <div className="absolute bottom-0.5 left-0.5 text-[8px] text-white/60 bg-black/30 px-1 rounded-sm">
                         {new Date(story.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}
                       </div>
                     </button>
@@ -171,45 +176,7 @@ export function CreateHighlightModal({ onClose, onSuccess }: CreateHighlightModa
               </div>
             )}
           </div>
-        ) : (
-          <div className="p-4 space-y-4">
-            {/* Selected stories preview */}
-            {selected.size > 0 && (
-              <div className="flex gap-1.5 overflow-x-auto pb-2">
-                {stories.filter(s => selected.has(s.id)).slice(0, 6).map(story => (
-                  <div key={story.id} className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={story.media_url} alt="" className="w-full h-full object-cover" />
-                  </div>
-                ))}
-                {selected.size > 6 && (
-                  <div className="w-14 h-14 rounded-lg bg-[var(--bg-tertiary)] flex items-center justify-center flex-shrink-0">
-                    <span className="text-xs text-[var(--text-muted)]">+{selected.size - 6}</span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <input
-              type="text"
-              placeholder="Highlight name"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              maxLength={30}
-              autoFocus
-              className="w-full px-3 py-2.5 bg-[var(--bg-secondary)] rounded-lg text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:ring-2 focus:ring-[var(--accent-primary)]/20"
-              onKeyDown={(e) => { if (e.key === 'Enter') handleCreate() }}
-            />
-
-            <button
-              onClick={handleCreate}
-              disabled={!title.trim() || creating}
-              className="w-full py-3 bg-[var(--accent-primary)] text-[var(--text-inverse)] rounded-xl text-sm font-semibold active:opacity-80 disabled:opacity-40"
-            >
-              {creating ? 'Creating...' : `Create with ${selected.size} ${selected.size === 1 ? 'story' : 'stories'}`}
-            </button>
-          </div>
-        )}
+        </div>
       </div>
     </div>
   )

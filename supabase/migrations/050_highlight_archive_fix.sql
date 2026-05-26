@@ -107,6 +107,14 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- =============================================
+-- 0d. Fix RLS: allow owners to see their own deleted/archived posts
+-- =============================================
+DROP POLICY IF EXISTS "posts_select_own_archived" ON public.posts;
+CREATE POLICY "posts_select_own_archived" ON public.posts FOR SELECT USING (
+  user_id = auth.uid()
+);
+
+-- =============================================
 -- 1. STORY HIGHLIGHTS TABLE
 -- =============================================
 CREATE TABLE IF NOT EXISTS public.story_highlights (

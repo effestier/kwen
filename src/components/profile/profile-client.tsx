@@ -37,7 +37,7 @@ const PostOwnerActionsSheet = dynamic(() => import('@/components/post/post-owner
   ssr: false,
 });
 
-const tabs = ['posts', 'reels', 'saved'];
+const tabs = ['posts', 'videos', 'saved'];
 
 interface Profile {
   id: string;
@@ -361,10 +361,11 @@ export function ProfileClient({ username }: { username: string }) {
   return (
     <MainLayout>
       <div className="min-h-screen">
-        {/* Row 1: Avatar + Stats */}
-        <div className="px-4 pt-4 pb-2">
-          <div className="flex items-center gap-6">
-            <div className="w-[77px] h-[77px] rounded-full bg-[var(--bg-secondary)] border-2 border-[var(--border-subtle)] overflow-hidden flex-shrink-0">
+        {/* Profile header — centered layout */}
+        <div className="px-5 pt-5 pb-2">
+          {/* Avatar — centered */}
+          <div className="flex justify-center mb-3">
+            <div className="w-20 h-20 rounded-full bg-[var(--bg-secondary)] overflow-hidden ring-2 ring-[var(--border-subtle)] ring-offset-2 ring-offset-[var(--bg-primary)]">
               <Avatar
                 src={profile.avatar_url}
                 name={profile.display_name}
@@ -372,77 +373,80 @@ export function ProfileClient({ username }: { username: string }) {
                 className="w-full h-full"
               />
             </div>
-            <div className="flex-1 grid grid-cols-3 text-center">
-              <button className="py-2">
-                <div className="text-lg font-bold text-[var(--text-primary)]">{formatNumber(stats.posts)}</div>
-                <div className="text-xs text-[var(--text-muted)]">posts</div>
-              </button>
-              <button onClick={() => setShowFollowers(true)} className="py-2">
-                <div className="text-lg font-bold text-[var(--text-primary)]">{formatNumber(stats.followers)}</div>
-                <div className="text-xs text-[var(--text-muted)]">followers</div>
-              </button>
-              <button onClick={() => setShowFollowing(true)} className="py-2">
-                <div className="text-lg font-bold text-[var(--text-primary)]">{formatNumber(stats.following)}</div>
-                <div className="text-xs text-[var(--text-muted)]">following</div>
-              </button>
+          </div>
+
+          {/* Name — centered */}
+          <div className="text-center mb-1">
+            <div className="flex items-center justify-center gap-1">
+              <h2 className="text-base font-bold text-[var(--text-primary)]">{profile.display_name}</h2>
+              {profile.is_verified && (
+                <svg className="w-4 h-4 text-blue-500" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+              )}
             </div>
+            <p className="text-[13px] text-[var(--text-muted)] mt-0.5">@{profile.username}</p>
           </div>
+
+          {/* Bio */}
+          {profile.bio && (
+            <p className="text-[14px] text-[var(--text-secondary)] text-center leading-snug whitespace-pre-line mt-2 max-w-[280px] mx-auto">{profile.bio}</p>
+          )}
+
+          {/* Stats — horizontal row */}
+          <div className="flex items-center justify-center gap-6 mt-3 py-2.5 rounded-xl bg-[var(--bg-secondary)]">
+            <div className="text-center">
+              <div className="text-[15px] font-bold text-[var(--text-primary)] leading-tight">{formatNumber(stats.posts)}</div>
+              <div className="text-[11px] text-[var(--text-muted)] mt-0.5 uppercase tracking-wide">posts</div>
+            </div>
+            <div className="w-px h-6 bg-[var(--border-subtle)]" />
+            <button onClick={() => setShowFollowers(true)} className="text-center">
+              <div className="text-[15px] font-bold text-[var(--text-primary)] leading-tight">{formatNumber(stats.followers)}</div>
+              <div className="text-[11px] text-[var(--text-muted)] mt-0.5 uppercase tracking-wide">followers</div>
+            </button>
+            <div className="w-px h-6 bg-[var(--border-subtle)]" />
+            <button onClick={() => setShowFollowing(true)} className="text-center">
+              <div className="text-[15px] font-bold text-[var(--text-primary)] leading-tight">{formatNumber(stats.following)}</div>
+              <div className="text-[11px] text-[var(--text-muted)] mt-0.5 uppercase tracking-wide">following</div>
+            </button>
+          </div>
+
+          {/* Action buttons */}
+          {isLoggedIn && (
+            <div className="mt-3 flex gap-2">
+              {isOwnProfile ? (
+                <Link href="/settings" className="flex-1 text-center py-[7px] rounded-xl bg-[var(--bg-tertiary)] text-[13px] font-semibold text-[var(--text-primary)] active:opacity-70 transition-opacity">
+                  Edit profile
+                </Link>
+              ) : (
+                <>
+                  <button
+                    onClick={handleFollow}
+                    className={cn(
+                      'flex-1 py-[7px] rounded-xl text-[13px] font-semibold active:opacity-70 transition-opacity',
+                      isFollowing
+                        ? 'bg-[var(--bg-tertiary)] text-[var(--text-primary)]'
+                        : 'bg-[var(--accent-primary)] text-[var(--text-inverse)]'
+                    )}
+                  >
+                    {isFollowing ? 'Following' : 'Follow'}
+                  </button>
+                  <button
+                    onClick={handleMessage}
+                    disabled={messaging}
+                    className="flex-1 py-[7px] rounded-xl bg-[var(--bg-tertiary)] text-[13px] font-semibold text-[var(--text-primary)] active:opacity-70 transition-opacity disabled:opacity-40"
+                  >
+                    {messaging ? '...' : 'Message'}
+                  </button>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Row 2: Display name */}
-        <div className="px-4 pb-1">
-          <div className="flex items-center gap-1">
-            <span className="text-sm font-semibold text-[var(--text-primary)]">{profile.display_name}</span>
-            {profile.is_verified && (
-              <svg aria-label="Verified" className="w-3.5 h-3.5 text-[var(--accent-primary)]" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143z" clipRule="evenodd" />
-              </svg>
-            )}
-          </div>
-        </div>
-
-        {/* Row 3: Bio */}
-        {profile.bio && (
-          <div className="px-4 pb-3">
-            <p className="text-sm text-[var(--text-secondary)] leading-snug whitespace-pre-line">{profile.bio}</p>
-          </div>
-        )}
-
-        {/* Row 4: Action buttons */}
-        <div className="px-4 pb-3">
-          {isLoggedIn ? (
-            isOwnProfile ? (
-              <Link href="/settings" className="block w-full text-center py-1.5 rounded-lg border border-[var(--border-soft)] text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] transition-colors-fast">
-                Edit profile
-              </Link>
-            ) : (
-              <div className="flex gap-2">
-                <button
-                  onClick={handleFollow}
-                  className={cn(
-                    'flex-1 py-1.5 rounded-lg text-sm font-semibold transition-colors-fast',
-                    isFollowing
-                      ? 'border border-[var(--border-soft)] text-[var(--text-primary)] hover:bg-[var(--bg-secondary)]'
-                      : 'bg-[var(--accent-primary)] text-[var(--text-inverse)] hover:opacity-90'
-                  )}
-                >
-                  {isFollowing ? 'Following' : 'Follow'}
-                </button>
-                <button
-                  onClick={handleMessage}
-                  disabled={messaging}
-                  className="flex-1 py-1.5 rounded-lg border border-[var(--border-soft)] text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] transition-colors-fast disabled:opacity-50"
-                >
-                  {messaging ? '...' : 'Message'}
-                </button>
-              </div>
-            )
-          ) : null}
-        </div>
-
-        {/* Row 5: Highlights */}
+        {/* Highlights */}
         {(highlights.length > 0 || isOwnProfile) && (
-          <div className="py-2 border-t border-[var(--border-subtle)]">
+          <div className="pt-2 pb-1">
             <HighlightsRow
               highlights={highlights}
               isOwnProfile={isOwnProfile}
@@ -459,8 +463,8 @@ export function ProfileClient({ username }: { username: string }) {
           </div>
         )}
 
-        {/* Row 6: Tab bar */}
-        <div role="tablist" aria-label="Profile sections" className="flex border-t border-b border-[var(--border-subtle)]">
+        {/* Tab bar — segmented style */}
+        <div role="tablist" aria-label="Profile sections" className="flex mx-4 mt-1 mb-0 p-0.5 rounded-lg bg-[var(--bg-secondary)]">
           {tabs.map((tab) => (
             <button
               key={tab}
@@ -468,29 +472,28 @@ export function ProfileClient({ username }: { username: string }) {
               aria-selected={activeTab === tab}
               onClick={() => setActiveTab(tab)}
               className={cn(
-                'flex-1 py-2.5 text-sm font-semibold capitalize transition-colors-fast relative',
-                activeTab === tab ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'
+                'flex-1 py-1.5 text-[12px] font-semibold capitalize rounded-md transition-all',
+                activeTab === tab
+                  ? 'bg-[var(--bg-primary)] text-[var(--text-primary)] shadow-sm'
+                  : 'text-[var(--text-muted)]'
               )}
             >
               {tab}
-              {activeTab === tab && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--text-primary)]" />
-              )}
             </button>
           ))}
         </div>
 
-        {/* Row 7: Posts grid */}
+        {/* Posts grid */}
         <div>
           {activeTab === 'posts' && (
             posts.length > 0 ? (
-              <div className="grid grid-cols-3 gap-0.5">
+              <div className="grid grid-cols-3 gap-[2px] mt-1">
                 {posts.map((post) => (
                   isOwnProfile ? (
                     <button
                       key={post.id}
                       onClick={() => setSelectedOwnerPost(post)}
-                      className="aspect-square bg-[var(--bg-secondary)] relative group block focus:outline-none focus:ring-2 focus:ring-white/20 focus:ring-inset cursor-pointer"
+                      className="aspect-square bg-[var(--bg-secondary)] relative group block focus:outline-none cursor-pointer"
                     >
                       {post.images?.[0] ? (
                         <img src={post.images[0]} alt={`Post by ${profile.display_name}`} className="w-full h-full object-cover" />
@@ -506,7 +509,7 @@ export function ProfileClient({ username }: { username: string }) {
                       </div>
                     </button>
                   ) : (
-                    <Link key={post.id} href={`/post/${post.id}`} className="aspect-square bg-[var(--bg-secondary)] relative group block focus:outline-none focus:ring-2 focus:ring-white/20 focus:ring-inset cursor-pointer">
+                    <Link key={post.id} href={`/post/${post.id}`} className="aspect-square bg-[var(--bg-secondary)] relative group block focus:outline-none cursor-pointer">
                       {post.images?.[0] ? (
                         <img src={post.images[0]} alt={`Post by ${profile.display_name}`} className="w-full h-full object-cover" />
                       ) : (
@@ -528,9 +531,9 @@ export function ProfileClient({ username }: { username: string }) {
               </div>
             )
           )}
-          {activeTab === 'reels' && (
+          {activeTab === 'videos' && (
             <div className="text-center py-12">
-              <p className="text-[var(--text-muted)]">No reels yet</p>
+              <p className="text-[var(--text-muted)]">No videos yet</p>
             </div>
           )}
           {activeTab === 'saved' && (

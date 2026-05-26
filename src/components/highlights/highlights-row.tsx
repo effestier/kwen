@@ -18,18 +18,18 @@ export function HighlightsRow({
   onCreateHighlight,
 }: HighlightsRowProps) {
   return (
-    <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4">
-      {/* Add highlight button (only on own profile) */}
+    <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide px-4">
+      {/* Add collection button (only on own profile) */}
       {isOwnProfile && (
         <button
           onClick={onCreateHighlight}
           className="flex flex-col items-center gap-1.5 flex-shrink-0"
         >
-          <div className="w-[77px] h-[77px] rounded-full border-2 border-dashed border-[var(--border-soft)] flex items-center justify-center bg-[var(--bg-secondary)]">
+          <div className="w-16 h-16 rounded-lg border-2 border-dashed border-[var(--border-soft)] flex items-center justify-center bg-[var(--bg-secondary)]">
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
+              width="22"
+              height="22"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -42,56 +42,50 @@ export function HighlightsRow({
               <path d="M12 5v14" />
             </svg>
           </div>
-          <span className="text-xs text-[var(--text-muted)] max-w-[77px] truncate">
+          <span className="text-[11px] text-[var(--text-muted)] max-w-16 truncate">
             New
           </span>
         </button>
       )}
 
-      {/* Highlight circles */}
+      {/* Collection cards */}
       {highlights.map((highlight) => (
         <button
           key={highlight.id}
           onClick={() => onHighlightClick(highlight)}
           className="flex flex-col items-center gap-1.5 flex-shrink-0"
         >
-          <div className="w-[77px] h-[77px] rounded-full p-[2.5px] bg-gradient-to-tr from-yellow-500 via-red-500 to-purple-600">
-            <div className="w-full h-full rounded-full p-[2px] bg-[var(--bg-primary)] overflow-hidden">
-              {highlight.cover_url ? (
-                <img
-                  src={highlight.cover_url}
-                  alt={highlight.title}
-                  className="w-full h-full object-cover rounded-full"
-                />
-              ) : (
-                <div className="w-full h-full rounded-full bg-[var(--bg-tertiary)] flex items-center justify-center">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="text-[var(--text-muted)]"
-                  >
-                    <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-                    <circle cx="12" cy="12" r="3" />
-                  </svg>
-                </div>
-              )}
-            </div>
+          <div className="w-16 h-16 rounded-lg overflow-hidden bg-[var(--bg-tertiary)]">
+            {highlight.cover_url ? (
+              <img
+                src={highlight.cover_url}
+                alt={highlight.title}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-[var(--bg-secondary)]">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="text-[var(--text-muted)]"
+                >
+                  <rect x="3" y="3" width="18" height="18" rx="2" />
+                  <path d="m9 14 2-2 4 4" />
+                  <circle cx="15" cy="9" r="2" />
+                </svg>
+              </div>
+            )}
           </div>
-          <span className="text-xs text-[var(--text-primary)] max-w-[77px] truncate">
+          <span className="text-[11px] text-[var(--text-primary)] max-w-16 truncate">
             {highlight.title}
           </span>
-          {highlight.story_count !== undefined && highlight.story_count > 0 && (
-            <span className="text-[10px] text-[var(--text-muted)]">
-              {highlight.story_count} {highlight.story_count === 1 ? 'story' : 'stories'}
-            </span>
-          )}
         </button>
       ))}
     </div>

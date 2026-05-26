@@ -148,12 +148,13 @@ export function MobileNav() {
           <span className={`text-[10px] ${isActive('/messages') ? 'font-bold text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}>Messages</span>
         </Link>
 
-        {/* Reels */}
-        <Link href="/reels" className="flex flex-col items-center justify-center gap-0.5 w-full h-full" aria-label="Reels" aria-current={isActive('/reels') ? 'page' : undefined}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={isActive('/reels') ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={isActive('/reels') ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}>
-            <polygon points="5 3 19 12 5 21 5 3" />
+        {/* Videos */}
+        <Link href="/reels" className="flex flex-col items-center justify-center gap-0.5 w-full h-full" aria-label="Videos" aria-current={isActive('/reels') ? 'page' : undefined}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={isActive('/reels') ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}>
+            <rect x="2" y="4" width="20" height="16" rx="2" />
+            <path d="m10 9 5 3-5 3z" />
           </svg>
-          <span className={`text-[10px] ${isActive('/reels') ? 'font-bold text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}>Reels</span>
+          <span className={`text-[10px] ${isActive('/reels') ? 'font-bold text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}>Videos</span>
         </Link>
 
         {/* Profile */}

@@ -27,7 +27,7 @@
   --accent-hover: #262626;
   --accent-secondary: #dbdbdb;
   --accent-muted: #efefef;
-  --accent-gradient: linear-gradient(45deg, #262626, #555555, #8e8e8e, #555555, #262626);
+  --accent-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   --accent-red: #ed4956;
   --accent-green: #58c322;
   --destructive: #ed4956;
@@ -87,7 +87,7 @@
     --accent-hover: #f2f2f2;
     --accent-secondary: #262626;
     --accent-muted: #161616;
-    --accent-gradient: linear-gradient(45deg, #262626, #555555, #a8a8a8, #555555, #262626);
+    --accent-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     --accent-red: #ed4956;
     --accent-green: #58c322;
     --destructive: #ed4956;
@@ -147,7 +147,7 @@
   --accent-hover: #f2f2f2;
   --accent-secondary: #262626;
   --accent-muted: #161616;
-  --accent-gradient: linear-gradient(45deg, #262626, #555555, #a8a8a8, #555555, #262626);
+  --accent-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   --accent-red: #ffffff;
   --accent-green: #ffffff;
   --destructive: #ffffff;
@@ -434,7 +434,7 @@ input, textarea, select, [contenteditable="true"] {
 }
 
 .gradient-story-ring {
-  background: linear-gradient(45deg, #555555, #888888, #ffffff, #888888, #555555);
+  background: var(--accent-gradient);
 }
 
 /* ===========================================

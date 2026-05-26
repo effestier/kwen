@@ -182,10 +182,10 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
                 className={cn(
                   'w-14 h-14 rounded-full p-0.5',
                   hasUnviewedMyStory
-                    ? 'bg-gradient-to-br from-[var(--accent-primary)] to-[var(--accent-secondary)]'
+                    ? 'bg-gradient-to-br from-blue-500 via-blue-300 to-white'
                     : myStories.length > 0
                       ? 'bg-[var(--border-subtle)]'
-                      : 'bg-gradient-to-br from-[var(--accent-primary)] to-[var(--accent-secondary)]'
+                      : 'bg-[var(--border-subtle)]'
                 )}
               >
                 <div className="w-full h-full rounded-full p-0.5 bg-[var(--bg-primary)] overflow-hidden">
@@ -205,14 +205,12 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
                   )}
                 </div>
               </div>
-              {/* Add icon - only show when no stories */}
-              {myStories.length === 0 && (
-                <div className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-[var(--accent-primary)] flex items-center justify-center border-2 border-[var(--bg-primary)]">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--text-inverse)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M5 12h14" /><path d="M12 5v14" />
-                  </svg>
-                </div>
-              )}
+              {/* Add icon — always visible so user can add more stories */}
+              <div className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center border-2 border-[var(--bg-primary)]">
+                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 12h14" /><path d="M12 5v14" />
+                </svg>
+              </div>
             </div>
             <span className="text-xs text-[var(--text-muted)] max-w-[56px] truncate">
               {myStories.length > 0 ? 'My story' : 'Add story'}
@@ -237,7 +235,7 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
                     'w-14 h-14 rounded-full p-0.5',
                     allViewed
                       ? 'bg-[var(--border-subtle)]'
-                      : 'bg-gradient-to-br from-[var(--accent-primary)] to-[var(--accent-secondary)]'
+                      : 'bg-gradient-to-br from-blue-500 via-blue-300 to-white'
                   )}
                 >
                   <div className="w-full h-full rounded-full p-0.5 bg-[var(--bg-primary)] overflow-hidden">

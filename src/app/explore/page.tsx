@@ -11,7 +11,7 @@ import { TrendingTags } from '@/components/explore/trending-tags';
 import { SuggestedUsers } from '@/components/explore/suggested-users';
 import Link from 'next/link';
 
-const categories = ['All', 'Photos', 'Videos', 'Reels', 'Text'] as const;
+const categories = ['All', 'Photos', 'Videos', 'Text'] as const;
 type Category = typeof categories[number];
 type SearchMode = 'users' | 'tags' | 'posts';
 
@@ -68,7 +68,6 @@ export default function ExplorePage() {
       switch (activeCategory) {
         case 'Photos': return hasImage && !hasVideo;
         case 'Videos': return hasVideo;
-        case 'Reels': return hasVideo && post.media.length === 1;
         case 'Text': return isText;
         default: return true;
       }

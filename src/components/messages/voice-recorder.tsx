@@ -390,88 +390,83 @@ export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
   return (
     <div
       className={cn(
-        'flex items-center gap-3 px-4 py-3 transition-all touch-none select-none',
+        'flex items-center gap-3 px-3 py-2.5 transition-all touch-none select-none',
         slideCancelled ? 'bg-[var(--bg-tertiary)]' : 'bg-[var(--bg-secondary)]'
       )}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Left controls: cancel (locked) or recording indicator */}
-      {phase === 'locked' ? (
-        <button
-          type="button"
-          onClick={doCancel}
-          aria-label="Cancel recording"
-          className="p-2 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M18 6 6 18" /><path d="m6 6 12 12" />
-          </svg>
-        </button>
-      ) : (
-        <div className="flex items-center gap-2">
+      {/* Left: send button */}
+      <button
+        type="button"
+        onClick={stopAndSend}
+        aria-label="Send voice message"
+        className="w-9 h-9 rounded-full bg-[var(--accent-primary)] flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-inverse)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" />
+        </svg>
+      </button>
+
+      {/* Center: duration + waveform + pause */}
+      <div className="flex-1 flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-1.5 flex-shrink-0">
           <div className={cn(
-            'w-3 h-3 rounded-full animate-pulse',
-            slideCancelled ? 'bg-[var(--text-muted)]' : 'bg-white'
+            'w-2 h-2 rounded-full animate-pulse',
+            isPaused ? 'bg-[var(--text-muted)]' : 'bg-red-500'
           )} />
-          <span className="text-sm font-mono text-[var(--text-primary)] min-w-[36px]">
+          <span className="text-[13px] font-mono text-[var(--text-primary)]">
             {formatDuration(duration)}
           </span>
         </div>
-      )}
 
-      {/* Waveform visualization */}
-      <div className="flex-1 flex items-center gap-0.5 h-8">
-        {waveform.map((v, i) => (
-          <div
-            key={i}
-            className={cn(
-              'flex-1 rounded-full transition-all duration-75',
-              slideCancelled ? 'bg-[var(--text-muted)]/50' : isPaused ? 'bg-white/30' : 'bg-white/80'
-            )}
-            style={{ height: `${Math.max(4, v * 32)}px` }}
-          />
-        ))}
-      </div>
+        {/* Waveform */}
+        <div className="flex-1 flex items-center gap-[1px] h-6 min-w-0">
+          {waveform.map((v, i) => (
+            <div
+              key={i}
+              className={cn(
+                'flex-1 rounded-full transition-all duration-75 min-w-[2px]',
+                slideCancelled ? 'bg-[var(--text-muted)]/30' : isPaused ? 'bg-[var(--text-muted)]/40' : 'bg-[var(--accent-primary)]/60'
+              )}
+              style={{ height: `${Math.max(3, v * 24)}px` }}
+            />
+          ))}
+        </div>
 
-      {/* Right controls */}
-      {phase === 'locked' ? (
-        <div className="flex items-center gap-2">
+        {/* Pause toggle (locked phase only) */}
+        {phase === 'locked' && (
           <button
             type="button"
             onClick={togglePause}
-            aria-label={isPaused ? 'Resume recording' : 'Pause recording'}
-            className="p-2 text-white/70 hover:text-white transition-colors"
+            aria-label={isPaused ? 'Resume' : 'Pause'}
+            className="p-1.5 text-[var(--text-muted)] active:text-[var(--text-primary)] flex-shrink-0"
           >
             {isPaused ? (
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <polygon points="5 3 19 12 5 21 5 3" />
               </svg>
             ) : (
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" />
               </svg>
             )}
           </button>
-          <button
-            type="button"
-            onClick={stopAndSend}
-            aria-label="Send voice message"
-            className="p-2 rounded-full bg-white text-black transition-all active:scale-90"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" />
-            </svg>
-          </button>
-        </div>
-      ) : (
-        slideCancelled ? (
-          <span className="text-[var(--text-muted)] text-xs font-medium">Release to cancel</span>
-        ) : (
-          <span className="text-[var(--text-muted)] text-xs">← Cancel · ↑ Lock</span>
-        )
-      )}
+        )}
+      </div>
+
+      {/* Right: cancel button */}
+      <button
+        type="button"
+        onClick={doCancel}
+        aria-label="Cancel recording"
+        className="w-9 h-9 rounded-full bg-[var(--bg-tertiary)] flex items-center justify-center flex-shrink-0 active:opacity-60 transition-opacity"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+        </svg>
+      </button>
     </div>
   );
 }

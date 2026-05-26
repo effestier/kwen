@@ -165,12 +165,81 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- =============================================
--- 0d. Fix RLS: allow owners to see their own deleted/archived posts
+-- 0d. Fix RLS: owner sees ALL their own posts (active, archived, deleted)
 -- =============================================
 DROP POLICY IF EXISTS "posts_select_own_archived" ON public.posts;
 CREATE POLICY "posts_select_own_archived" ON public.posts FOR SELECT USING (
-  user_id = auth.uid() AND deleted_at IS NULL AND archived_at IS NOT NULL
+  user_id = auth.uid()
 );
+
+-- =============================================
+-- 0e. Fix get_following_feed to exclude archived posts
+-- =============================================
+CREATE OR REPLACE FUNCTION public.get_following_feed(
+  p_user_id uuid,
+  p_limit int DEFAULT 20,
+  p_exclude_ids uuid[] DEFAULT ARRAY[]::uuid[]
+)
+RETURNS TABLE (
+  id uuid,
+  user_id uuid,
+  content text,
+  location text,
+  created_at timestamptz,
+  like_count int,
+  comment_count int,
+  save_count int,
+  share_count int,
+  is_liked boolean,
+  is_saved boolean,
+  display_name text,
+  username text,
+  avatar_url text,
+  is_verified boolean,
+  media jsonb
+) AS $$
+DECLARE
+  v_following uuid[];
+  v_blocked uuid[];
+  v_muted uuid[];
+BEGIN
+  SELECT array_agg(f.following_id) INTO v_following FROM follows f WHERE f.follower_id = p_user_id;
+  SELECT array_agg(b.blocked_id) INTO v_blocked FROM blocks b WHERE b.blocker_id = p_user_id;
+  SELECT array_agg(m.muted_id) INTO v_muted FROM mutes m WHERE m.muter_id = p_user_id;
+
+  RETURN QUERY
+  SELECT
+    p.id, p.user_id, p.content, p.location, p.created_at,
+    (SELECT count(*) FROM post_likes pl WHERE pl.post_id = p.id)::int,
+    (SELECT count(*) FROM comments cm WHERE cm.post_id = p.id AND cm.deleted_at IS NULL)::int,
+    (SELECT count(*) FROM saved_posts sp WHERE sp.post_id = p.id)::int,
+    COALESCE(p.shares, 0)::int,
+    EXISTS (SELECT 1 FROM post_likes pl WHERE pl.post_id = p.id AND pl.user_id = p_user_id),
+    EXISTS (SELECT 1 FROM saved_posts sp WHERE sp.post_id = p.id AND sp.user_id = p_user_id),
+    pr.display_name, pr.username, pr.avatar_url, pr.is_verified,
+    (SELECT jsonb_agg(jsonb_build_object('id', pm.id, 'storage_path', pm.storage_path, 'media_type', pm.media_type, 'sort_order', pm.sort_order) ORDER BY pm.sort_order)
+     FROM post_media pm WHERE pm.post_id = p.id)
+  FROM posts p
+  JOIN profiles pr ON pr.id = p.user_id
+  WHERE p.deleted_at IS NULL
+    AND p.archived_at IS NULL
+    AND (p_exclude_ids IS NULL OR NOT (p.id = ANY(p_exclude_ids)))
+    AND (
+      p.user_id = p_user_id
+      OR (
+        v_following IS NOT NULL
+        AND p.user_id = ANY(v_following)
+        AND (p.visibility IS NULL OR p.visibility = 'public'
+          OR (p.visibility = 'followers' AND EXISTS (SELECT 1 FROM follows WHERE following_id = p.user_id AND follower_id = p_user_id))
+        )
+      )
+    )
+    AND (v_blocked IS NULL OR NOT (p.user_id = ANY(v_blocked)))
+    AND (v_muted IS NULL OR NOT (p.user_id = ANY(v_muted)))
+  ORDER BY p.created_at DESC
+  LIMIT p_limit;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
 
 -- =============================================
 -- 1. STORY HIGHLIGHTS TABLE

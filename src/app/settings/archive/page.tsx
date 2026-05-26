@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { MainLayout } from '@/components/layout/main-layout'
 import { createClient } from '@/lib/supabase/client'
@@ -17,6 +18,7 @@ export default function ArchivePage() {
   const [activeTab, setActiveTab] = useState<'stories' | 'posts'>('stories')
   const [viewerStories, setViewerStories] = useState<ArchivedStory[] | null>(null)
   const [viewerIndex, setViewerIndex] = useState(0)
+  const router = useRouter()
   const supabase = createClient()
 
   return (
@@ -71,8 +73,7 @@ export default function ArchivePage() {
         ) : (
           <PostsArchiveGrid
             onPostClick={(post) => {
-              // Navigate to the post or show a viewer
-              window.location.href = `/post/${post.id}`
+              router.push(`/post/${post.id}`)
             }}
           />
         )}

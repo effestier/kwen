@@ -32,6 +32,11 @@ const FollowersModal = dynamic(() => import('@/components/modals/followers-modal
   ssr: false,
 });
 
+const PostOwnerActionsSheet = dynamic(() => import('@/components/post/post-owner-actions').then(mod => ({ default: mod.PostOwnerActionsSheet })), {
+  loading: () => null,
+  ssr: false,
+});
+
 const tabs = ['posts', 'reels', 'likes', 'saved'];
 
 interface Profile {
@@ -49,6 +54,8 @@ interface Post {
   images: string[];
   likes: number;
   comments: number;
+  hideLikes: boolean;
+  disableComments: boolean;
 }
 
 export function ProfileClient({ username }: { username: string }) {
@@ -70,6 +77,9 @@ export function ProfileClient({ username }: { username: string }) {
   const [selectedHighlight, setSelectedHighlight] = useState<Highlight | null>(null);
   const [highlightStories, setHighlightStories] = useState<HighlightStory[]>([]);
   const [showCreateHighlight, setShowCreateHighlight] = useState(false);
+
+  // Owner actions sheet state
+  const [selectedOwnerPost, setSelectedOwnerPost] = useState<Post | null>(null);
 
   const supabase = createClient();
   const router = useRouter();
@@ -188,7 +198,7 @@ export function ProfileClient({ username }: { username: string }) {
 
         const { data: userPosts } = await supabase
           .from('posts')
-          .select('id, user_id, content, location, created_at')
+          .select('id, user_id, content, location, created_at, hide_likes, disable_comments')
           .eq('user_id', targetProfile.id)
           .is('deleted_at', null)
           .order('created_at', { ascending: false })
@@ -234,6 +244,8 @@ export function ProfileClient({ username }: { username: string }) {
               images: mediaMap.get(p.id) ? [mediaMap.get(p.id)!] : [],
               likes: likesMap.get(p.id) || 0,
               comments: commentsMap.get(p.id) || 0,
+              hideLikes: p.hide_likes ?? false,
+              disableComments: p.disable_comments ?? false,
             })));
           }
         } else {
@@ -472,19 +484,40 @@ export function ProfileClient({ username }: { username: string }) {
             posts.length > 0 ? (
               <div className="grid grid-cols-3 gap-0.5">
                 {posts.map((post) => (
-                  <Link key={post.id} href={`/post/${post.id}`} className="aspect-square bg-[var(--bg-secondary)] relative group block focus:outline-none focus:ring-2 focus:ring-white/20 focus:ring-inset cursor-pointer">
-                    {post.images?.[0] ? (
-                      <img src={post.images[0]} alt={`Post by ${profile.display_name}`} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center p-2">
-                        <p className="text-xs text-[var(--text-muted)] text-center line-clamp-3">{post.content}</p>
+                  isOwnProfile ? (
+                    <button
+                      key={post.id}
+                      onClick={() => setSelectedOwnerPost(post)}
+                      className="aspect-square bg-[var(--bg-secondary)] relative group block focus:outline-none focus:ring-2 focus:ring-white/20 focus:ring-inset cursor-pointer"
+                    >
+                      {post.images?.[0] ? (
+                        <img src={post.images[0]} alt={`Post by ${profile.display_name}`} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center p-2">
+                          <p className="text-xs text-[var(--text-muted)] text-center line-clamp-3">{post.content}</p>
+                        </div>
+                      )}
+                      <div aria-hidden="true" className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z" />
+                        </svg>
                       </div>
-                    )}
-                    <div aria-hidden="true" className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-4 text-white text-sm">
-                      <span>♥ {formatNumber(post.likes)}</span>
-                      <span>💬 {formatNumber(post.comments)}</span>
-                    </div>
-                  </Link>
+                    </button>
+                  ) : (
+                    <Link key={post.id} href={`/post/${post.id}`} className="aspect-square bg-[var(--bg-secondary)] relative group block focus:outline-none focus:ring-2 focus:ring-white/20 focus:ring-inset cursor-pointer">
+                      {post.images?.[0] ? (
+                        <img src={post.images[0]} alt={`Post by ${profile.display_name}`} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center p-2">
+                          <p className="text-xs text-[var(--text-muted)] text-center line-clamp-3">{post.content}</p>
+                        </div>
+                      )}
+                      <div aria-hidden="true" className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-4 text-white text-sm">
+                        <span>♥ {formatNumber(post.likes)}</span>
+                        <span>💬 {formatNumber(post.comments)}</span>
+                      </div>
+                    </Link>
+                  )
                 ))}
               </div>
             ) : (
@@ -554,6 +587,34 @@ export function ProfileClient({ username }: { username: string }) {
             if (user) {
               const updated = await getUserHighlights(user.id);
               setHighlights(updated);
+            }
+          }}
+        />
+      )}
+
+      {/* Owner actions sheet */}
+      {selectedOwnerPost && (
+        <PostOwnerActionsSheet
+          postId={selectedOwnerPost.id}
+          hideLikes={selectedOwnerPost.hideLikes}
+          disableComments={selectedOwnerPost.disableComments}
+          onClose={() => setSelectedOwnerPost(null)}
+          onDeleted={() => {
+            setPosts(prev => prev.filter(p => p.id !== selectedOwnerPost.id));
+            setStats(prev => ({ ...prev, posts: prev.posts - 1 }));
+            setSelectedOwnerPost(null);
+          }}
+          onUpdated={(updates) => {
+            if (updates.archived) {
+              setPosts(prev => prev.filter(p => p.id !== selectedOwnerPost.id));
+              setStats(prev => ({ ...prev, posts: prev.posts - 1 }));
+              setSelectedOwnerPost(null);
+            } else {
+              setPosts(prev => prev.map(p => p.id !== selectedOwnerPost.id ? p : {
+                ...p,
+                hideLikes: updates.hideLikes ?? p.hideLikes,
+                disableComments: updates.disableComments ?? p.disableComments,
+              }));
             }
           }}
         />

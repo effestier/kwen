@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { Providers } from '@/components/providers';
 import { BRAND } from '@/lib/brand/config';
+import { AntiTamper } from '@/components/security/anti-tamper';
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -154,6 +155,7 @@ export default function RootLayout({
           Skip to main content
         </a>
         <Providers>
+          <AntiTamper />
           {children}
         </Providers>
       </body>

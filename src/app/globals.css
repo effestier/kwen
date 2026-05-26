@@ -208,6 +208,14 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   letter-spacing: -0.01em;
+  /* Anti-tamper: disable text selection, drag, tap highlight */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  /* Anti-tamper: block print */
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
   line-height: 1.5;
   min-height: 100svh;
   /* Prevent horizontal scroll on mobile */
@@ -249,6 +257,27 @@ body {
 ::selection {
   background: rgba(255, 255, 255, 0.15);
   color: var(--text-primary);
+}
+
+/* Re-enable selection on editable elements */
+input, textarea, select, [contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
+/* Anti-tamper: blank page on print */
+@media print {
+  body {
+    display: none !important;
+  }
+  body::after {
+    content: "Printing is not allowed.";
+    display: block;
+    text-align: center;
+    padding: 4rem;
+    font-size: 1.5rem;
+  }
 }
 
 /* ===========================================

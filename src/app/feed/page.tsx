@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/client';
 import { CardSkeleton } from '@/components/design-system/skeleton';
 import { SuggestedUsers } from '@/components/explore/suggested-users';
 import { usePullToRefresh, useScrollPreservation } from '@/lib/hooks/use-pull-to-refresh';
+import { PullIndicator } from '@/components/feed/pull-indicator';
 import Link from 'next/link';
 
 interface FeedPost {
@@ -86,7 +87,7 @@ export default function FeedPage() {
     setHasMore(freshPosts.length >= 20);
   }, [loadPosts, supabase]);
 
-  const { pullDistance, isRefreshing, handlers: pullHandlers } = usePullToRefresh({
+  const { pullDistance, isRefreshing, phase, progress, handlers: pullHandlers } = usePullToRefresh({
     onRefresh: handleRefresh,
   });
 
@@ -270,12 +271,15 @@ export default function FeedPage() {
 
   return (
     <MainLayout>
-      <div className="min-h-screen" {...pullHandlers} style={{ transform: pullDistance > 0 ? `translateY(${pullDistance}px)` : undefined, transition: pullDistance === 0 ? 'transform 0.3s ease' : undefined }}>
-        {pullDistance > 0 && (
-          <div className="flex items-center justify-center py-3 text-sm text-[var(--text-muted)]" style={{ marginTop: -pullDistance }}>
-            {isRefreshing ? 'Refreshing...' : pullDistance > 60 ? 'Release to refresh' : 'Pull to refresh'}
-          </div>
-        )}
+      <div className="min-h-screen" {...pullHandlers}>
+        {/* Pull indicator — sits above feed, height creates the gap */}
+        <div style={{
+          height: pullDistance > 0 || isRefreshing ? Math.max(pullDistance, isRefreshing ? 48 : 0) : 0,
+          transition: pullDistance === 0 ? 'height 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'none',
+          overflow: 'hidden',
+        }}>
+          <PullIndicator pullDistance={Math.max(pullDistance, isRefreshing ? 48 : 0)} progress={progress} phase={phase} isRefreshing={isRefreshing} />
+        </div>
 
         {/* Mobile Header */}
         <div className="lg:hidden sticky top-0 z-20 bg-[var(--bg-primary)]/90 backdrop-blur-xl border-b border-[var(--border-subtle)] px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2.5">

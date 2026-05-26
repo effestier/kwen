@@ -169,13 +169,13 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
 
   return (
     <>
-      <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4">
+      <div className="flex gap-3.5 overflow-x-auto scrollbar-hide -mx-4 px-4 py-0.5">
         {/* My Story button - only show if logged in */}
         {currentUser && (
           <button
             onClick={handleMyStoryClick}
             disabled={isUploading}
-            className="flex flex-col items-center gap-1.5 flex-shrink-0"
+            className="flex flex-col items-center gap-1 flex-shrink-0"
           >
             <div className="relative">
               <div
@@ -212,7 +212,7 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
                 </svg>
               </div>
             </div>
-            <span className="text-xs text-[var(--text-muted)] max-w-[56px] truncate">
+            <span className="text-[11px] text-[var(--text-muted)] max-w-[62px] truncate text-center">
               {myStories.length > 0 ? 'My story' : 'Add story'}
             </span>
           </button>
@@ -228,17 +228,17 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
               <button
                 key={user.userId}
                 onClick={() => handleUserClick(idx)}
-                className="flex flex-col items-center gap-1.5 flex-shrink-0"
+                className="flex flex-col items-center gap-1 flex-shrink-0"
               >
                 <div
                   className={cn(
-                    'w-14 h-14 rounded-full p-0.5',
+                    'w-[62px] h-[62px] rounded-full p-[2.5px]',
                     allViewed
                       ? 'bg-[var(--border-subtle)]'
                       : 'bg-gradient-to-br from-blue-500 via-blue-300 to-white'
                   )}
                 >
-                  <div className="w-full h-full rounded-full p-0.5 bg-[var(--bg-primary)] overflow-hidden">
+                  <div className="w-full h-full rounded-full p-[2px] bg-[var(--bg-primary)] overflow-hidden">
                     <Avatar
                       src={user.avatarUrl}
                       name={user.displayName}
@@ -247,7 +247,7 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
                     />
                   </div>
                 </div>
-                <span className="text-xs text-[var(--text-muted)] max-w-[56px] truncate">
+                <span className="text-[11px] text-[var(--text-muted)] max-w-[62px] truncate text-center">
                   {user.displayName.split(' ')[0]}
                 </span>
               </button>

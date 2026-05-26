@@ -278,11 +278,11 @@ export default function FeedPage() {
         )}
 
         {/* Mobile Header */}
-        <div className="lg:hidden sticky top-0 z-20 bg-[var(--bg-primary)]/90 backdrop-blur-xl border-b border-[var(--border-subtle)] px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2">
+        <div className="lg:hidden sticky top-0 z-20 bg-[var(--bg-primary)]/90 backdrop-blur-xl border-b border-[var(--border-subtle)] px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2.5">
           <div className="flex items-center justify-between">
-            <h1 className="text-lg font-bold text-[var(--text-primary)]">KWEN</h1>
-            <Link href="/notifications" aria-label="Notifications" className="p-2 rounded-full hover:bg-[var(--bg-secondary)] transition-colors-fast relative">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--text-secondary)]" aria-hidden="true">
+            <h1 className="text-[22px] font-bold text-[var(--text-primary)] tracking-tight">KWEN</h1>
+            <Link href="/notifications" aria-label="Notifications" className="p-1.5 -mr-1.5 rounded-full active:bg-[var(--bg-secondary)] transition-colors relative">
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--text-secondary)]" aria-hidden="true">
                 <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
               </svg>
             </Link>
@@ -299,11 +299,11 @@ export default function FeedPage() {
         <div className="feed-container">
           {/* Composer */}
           {user && (
-            <div className="py-2 border-b border-[var(--border-subtle)]">
-              <Link href="/create" aria-label="Create a new post" className="flex items-start gap-3 group">
+            <div className="py-2.5 px-0.5 border-b border-[var(--border-subtle)]">
+              <Link href="/create" aria-label="Create a new post" className="flex items-center gap-3 group">
                 <Avatar src={user.avatar_url} name={user.display_name} size="md" />
                 <div className="flex-1 min-w-0">
-                  <div className="text-[15px] text-[var(--text-muted)] py-2 px-4 rounded-xl bg-[var(--bg-secondary)] border border-transparent group-hover:border-[var(--border-soft)] transition-colors-fast">
+                  <div className="text-[14px] text-[var(--text-muted)] py-2.5 px-3.5 rounded-full bg-[var(--bg-secondary)] border border-transparent group-active:border-[var(--border-soft)] transition-colors-fast">
                     What&apos;s happening?
                   </div>
                 </div>
@@ -313,7 +313,7 @@ export default function FeedPage() {
 
           {/* Stories */}
           {(stories.length > 0 || user) && (
-            <div className="py-2 border-b border-[var(--border-subtle)]">
+            <div className="py-3 border-b border-[var(--border-subtle)]">
               <Stories
                 stories={stories}
                 currentUser={user ? { id: user.id, username: user.username, display_name: user.display_name, avatar_url: user.avatar_url } : undefined}

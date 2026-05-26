@@ -176,35 +176,28 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete }: PostCardProps) => 
 
   return (
     <>
-      <article className="post-card border-b border-[var(--border-subtle)] px-4 py-2.5">
+      <article className="post-card border-b border-[var(--border-subtle)] py-3">
         {/* Header */}
-        <div className="flex items-start gap-3 mb-2">
+        <div className="flex items-center gap-2.5 mb-2">
           <Link href={`/profile/${post.user.username}`} className="flex-shrink-0">
-            <Avatar src={post.user.avatar} name={post.user.displayName} size="md" />
+            <Avatar src={post.user.avatar} name={post.user.displayName} size="sm" />
           </Link>
 
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1">
-              <Link href={`/profile/${post.user.username}`} className="font-semibold text-[15px] text-[var(--text-primary)] hover:underline truncate">
+            <div className="flex items-center gap-1.5">
+              <Link href={`/profile/${post.user.username}`} className="font-semibold text-sm text-[var(--text-primary)] hover:underline truncate">
                 {post.user.displayName}
               </Link>
               {post.user.isVerified && (
-                <svg aria-label="Verified" className="w-4 h-4 text-[var(--accent-primary)] flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                <svg aria-label="Verified" className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143z" clipRule="evenodd" />
                 </svg>
               )}
-              <span className="text-[var(--text-muted)]">&middot;</span>
-              <span className="text-xs text-[var(--text-muted)]">{formatTimeAgo(post.createdAt)}</span>
-            </div>
-            <div className="flex items-center gap-1 text-xs text-[var(--text-muted)]">
-              <span>@{post.user.username}</span>
               {post.location && (
-                <>
-                  <span>&middot;</span>
-                  <span>{post.location}</span>
-                </>
+                <span className="text-[11px] text-[var(--text-muted)]">&middot; {post.location}</span>
               )}
             </div>
+            <span className="text-[11px] text-[var(--text-muted)]">{formatTimeAgo(post.createdAt)}</span>
           </div>
 
           <div className="relative">
@@ -350,50 +343,52 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete }: PostCardProps) => 
         )}
 
         {/* Actions */}
-        <div className="flex items-center gap-1 mt-1">
-          <button
-            onClick={handleLike}
-            disabled={likeLoading}
-            className={cn(
-              'p-2 rounded-full transition-all duration-200 active:scale-90',
-              liked ? 'text-[var(--destructive)]' : 'text-[var(--text-muted)] hover:text-[var(--destructive)] hover:bg-[var(--bg-tertiary)]',
-              likeLoading && 'opacity-50'
-            )}
-            aria-label={liked ? 'Unlike' : 'Like'}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
-            </svg>
-          </button>
-
-          {!disableComments && (
+        <div className="flex items-center justify-between mt-1">
+          <div className="flex items-center gap-1">
             <button
-              onClick={() => setShowComments(true)}
-              className="p-2 rounded-full text-[var(--text-muted)] hover:text-[var(--accent-primary)] hover:bg-[var(--bg-tertiary)] transition-all duration-200 active:scale-90"
-              aria-label="Comments"
+              onClick={handleLike}
+              disabled={likeLoading}
+              className={cn(
+                'p-1.5 -ml-1.5 rounded-full transition-all duration-200 active:scale-90',
+                liked ? 'text-[var(--destructive)]' : 'text-[var(--text-muted)]',
+                likeLoading && 'opacity-50'
+              )}
+              aria-label={liked ? 'Unlike' : 'Like'}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
               </svg>
             </button>
-          )}
 
-          <button
-            onClick={() => setShowShare(true)}
-            className="p-2 rounded-full text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-all duration-200 active:scale-90"
-            aria-label="Share"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" /><polyline points="16 6 12 2 8 6" /><line x1="12" x2="12" y1="2" y2="15" />
-            </svg>
-          </button>
+            {!disableComments && (
+              <button
+                onClick={() => setShowComments(true)}
+                className="p-1.5 rounded-full text-[var(--text-muted)] transition-all duration-200 active:scale-90"
+                aria-label="Comments"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+              </button>
+            )}
+
+            <button
+              onClick={() => setShowShare(true)}
+              className="p-1.5 rounded-full text-[var(--text-muted)] transition-all duration-200 active:scale-90"
+              aria-label="Share"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" /><polyline points="16 6 12 2 8 6" /><line x1="12" x2="12" y1="2" y2="15" />
+              </svg>
+            </button>
+          </div>
 
           <button
             onClick={handleSave}
             disabled={saveLoading}
             className={cn(
-              'p-2 rounded-full ml-auto transition-all duration-200 active:scale-90',
-              saved ? 'text-[var(--accent-primary)]' : 'text-[var(--text-muted)] hover:text-[var(--accent-primary)] hover:bg-[var(--bg-tertiary)]',
+              'p-1.5 -mr-1.5 rounded-full transition-all duration-200 active:scale-90',
+              saved ? 'text-[var(--accent-primary)]' : 'text-[var(--text-muted)]',
               saveLoading && 'opacity-50'
             )}
             aria-label={saved ? 'Unsave' : 'Save'}
@@ -405,17 +400,17 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete }: PostCardProps) => 
         </div>
 
         {/* Engagement Stats */}
-        <div className="flex items-center gap-3 mt-0.5 text-xs text-[var(--text-muted)]">
+        <div className="flex items-center gap-2 mt-1.5 text-xs text-[var(--text-muted)]">
           {!hideLikes && (
-            <span className="font-semibold text-[var(--text-secondary)] cursor-default">{formatNumber(likeCount)} likes</span>
+            <span className="font-medium cursor-default">{formatNumber(likeCount)} likes</span>
           )}
           {!disableComments && (
-            <button onClick={() => setShowComments(true)} className="hover:underline">
-              <span className="font-semibold text-[var(--text-secondary)]">{formatNumber(commentCount)}</span> comments
+            <button onClick={() => setShowComments(true)} className="font-medium hover:underline">
+              {formatNumber(commentCount)} comments
             </button>
           )}
           {post.shares > 0 && (
-            <span className="cursor-default">{formatNumber(post.shares)} shares</span>
+            <span className="cursor-default font-medium">{formatNumber(post.shares)} shares</span>
           )}
         </div>
       </article>

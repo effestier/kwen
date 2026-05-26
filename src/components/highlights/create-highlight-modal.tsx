@@ -69,6 +69,11 @@ export function CreateHighlightModal({ onClose, onSuccess }: CreateHighlightModa
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       <div className="w-full sm:max-w-lg bg-[var(--bg-primary)] rounded-t-2xl sm:rounded-2xl max-h-[85vh] flex flex-col">
+        {/* Drag handle */}
+        <div className="flex justify-center pt-2 pb-0 flex-shrink-0 sm:hidden">
+          <div className="w-10 h-1 rounded-full bg-[var(--border-soft)]" />
+        </div>
+
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-subtle)] flex-shrink-0">
           <button onClick={onClose} className="text-[var(--text-muted)] text-[15px] font-medium active:opacity-60">
@@ -120,9 +125,9 @@ export function CreateHighlightModal({ onClose, onSuccess }: CreateHighlightModa
 
           <div className="px-1 pb-4">
             {loading ? (
-              <div className="grid grid-cols-3 gap-0.5">
+              <div className="grid grid-cols-3 gap-1 px-1">
                 {Array.from({ length: 9 }).map((_, i) => (
-                  <div key={i} className="aspect-[3/4] bg-[var(--bg-tertiary)] animate-pulse" />
+                  <div key={i} className="aspect-[3/4] bg-[var(--bg-tertiary)] animate-pulse rounded-lg" />
                 ))}
               </div>
             ) : stories.length === 0 ? (
@@ -136,22 +141,27 @@ export function CreateHighlightModal({ onClose, onSuccess }: CreateHighlightModa
                 <p className="text-xs text-[var(--text-muted)] mt-1">Stories will appear here after they expire</p>
               </div>
             ) : (
-              <div className="grid grid-cols-3 gap-0.5">
+              <div className="grid grid-cols-3 gap-1 px-1">
                 {stories.map((story) => {
                   const isSelected = selected.has(story.id)
                   return (
                     <button
                       key={story.id}
                       onClick={() => toggleStory(story.id)}
-                      className="relative aspect-[3/4] bg-[var(--bg-secondary)] overflow-hidden"
+                      className="relative aspect-[3/4] bg-[var(--bg-secondary)] overflow-hidden rounded-lg"
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={story.media_url}
                         alt=""
-                        className={`w-full h-full object-cover transition-opacity ${isSelected ? 'opacity-70' : ''}`}
+                        className={`w-full h-full object-cover transition-opacity ${isSelected ? 'opacity-60' : ''}`}
                         loading="lazy"
                       />
+
+                      {/* Blue tint overlay when selected */}
+                      {isSelected && (
+                        <div className="absolute inset-0 bg-blue-500/20 rounded-lg" />
+                      )}
 
                       {/* Selection checkbox */}
                       <div className={`absolute top-1.5 right-1.5 w-5 h-5 rounded-full border-[1.5px] flex items-center justify-center transition-colors ${

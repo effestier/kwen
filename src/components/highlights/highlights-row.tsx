@@ -18,14 +18,14 @@ export function HighlightsRow({
   onCreateHighlight,
 }: HighlightsRowProps) {
   return (
-    <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4">
+    <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4">
       {/* Add highlight button (only on own profile) */}
       {isOwnProfile && (
         <button
           onClick={onCreateHighlight}
           className="flex flex-col items-center gap-1.5 flex-shrink-0"
         >
-          <div className="w-16 h-16 rounded-full border-2 border-dashed border-[var(--border-subtle)] flex items-center justify-center bg-[var(--bg-secondary)]">
+          <div className="w-[77px] h-[77px] rounded-full border-2 border-dashed border-[var(--border-soft)] flex items-center justify-center bg-[var(--bg-secondary)]">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               width="24"
@@ -42,7 +42,7 @@ export function HighlightsRow({
               <path d="M12 5v14" />
             </svg>
           </div>
-          <span className="text-xs text-[var(--text-muted)] max-w-[64px] truncate">
+          <span className="text-xs text-[var(--text-muted)] max-w-[77px] truncate">
             New
           </span>
         </button>
@@ -55,8 +55,8 @@ export function HighlightsRow({
           onClick={() => onHighlightClick(highlight)}
           className="flex flex-col items-center gap-1.5 flex-shrink-0"
         >
-          <div className="w-16 h-16 rounded-full p-0.5 bg-gradient-to-br from-[var(--accent-primary)] to-[var(--accent-secondary)]">
-            <div className="w-full h-full rounded-full p-0.5 bg-[var(--bg-primary)] overflow-hidden">
+          <div className="w-[77px] h-[77px] rounded-full p-[2.5px] bg-gradient-to-tr from-yellow-500 via-red-500 to-purple-600">
+            <div className="w-full h-full rounded-full p-[2px] bg-[var(--bg-primary)] overflow-hidden">
               {highlight.cover_url ? (
                 <img
                   src={highlight.cover_url}
@@ -84,7 +84,7 @@ export function HighlightsRow({
               )}
             </div>
           </div>
-          <span className="text-xs text-[var(--text-primary)] max-w-[64px] truncate">
+          <span className="text-xs text-[var(--text-primary)] max-w-[77px] truncate">
             {highlight.title}
           </span>
           {highlight.story_count !== undefined && highlight.story_count > 0 && (

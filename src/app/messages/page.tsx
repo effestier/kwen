@@ -167,22 +167,7 @@ export default function MessagesPage() {
   useEffect(() => { currentUserProfileRef.current = currentUserProfile; }, [currentUserProfile]);
   useEffect(() => { selectedIdRef.current = selectedId; }, [selectedId]);
 
-  // Get current user + profile on mount
-  useEffect(() => {
-    async function initUser() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setCurrentUserId(user.id);
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('id, username, display_name, avatar_url')
-          .eq('id', user.id)
-          .single();
-        if (profile) setCurrentUserProfile(profile);
-      }
-    }
-    initUser();
-  }, []);
+  // User + conversations loaded together (merged to save one auth roundtrip)
 
   const deduplicateMessages = useCallback((newMessages: Message[]): Message[] => {
     const seen = new Set<string>();
@@ -195,15 +180,28 @@ export default function MessagesPage() {
 
   // Load conversations
   useEffect(() => {
+    let cancelled = false;
+
     async function loadConversations() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setLoading(false); return; }
 
-      const { data: participants, error: participantsErr } = await supabase
-        .from('conversation_participants')
-        .select('conversation_id, unread_count, last_read_at, conversations!inner(updated_at)')
-        .eq('user_id', user.id)
-        .limit(100);
+      setCurrentUserId(user.id);
+
+      // Fetch user profile + conversations in parallel
+      const [profileRes, participantsRes] = await Promise.all([
+        supabase.from('profiles').select('id, username, display_name, avatar_url').eq('id', user.id).single(),
+        supabase
+          .from('conversation_participants')
+          .select('conversation_id, unread_count, last_read_at, conversations!inner(updated_at)')
+          .eq('user_id', user.id)
+          .limit(100),
+      ]);
+
+      if (!cancelled && profileRes.data) setCurrentUserProfile(profileRes.data);
+      if (cancelled) return;
+
+      const { data: participants, error: participantsErr } = participantsRes;
 
       if (participantsErr) {
         console.error('[MESSAGES] Failed to load conversations:', participantsErr);
@@ -228,29 +226,40 @@ export default function MessagesPage() {
       const conversationIds = pagedParticipants.map(p => p.conversation_id);
       const participantMap = new Map(pagedParticipants.map(p => [p.conversation_id, p]));
 
-      const { data: others } = await supabase
-        .from('conversation_participants')
-        .select('conversation_id, user_id')
-        .in('conversation_id', conversationIds)
-        .neq('user_id', user.id);
+      // Parallel: others + last messages + conversations
+      const [othersRes, lastMessagesRes, convsRes] = await Promise.all([
+        supabase
+          .from('conversation_participants')
+          .select('conversation_id, user_id')
+          .in('conversation_id', conversationIds)
+          .neq('user_id', user.id),
+        supabase
+          .from('messages')
+          .select('conversation_id, content, created_at, message_type, deleted_at')
+          .in('conversation_id', conversationIds)
+          .is('deleted_at', null)
+          .order('created_at', { ascending: false })
+          .limit(conversationIds.length * 5),
+        supabase
+          .from('conversations')
+          .select('id, updated_at')
+          .in('id', conversationIds),
+      ]);
 
+      const others = othersRes.data;
       const otherUserIds = [...new Set(others?.map(o => o.user_id) || [])];
+      const otherMap = new Map(others?.map(o => [o.conversation_id, o]) || []);
+
+      // Fetch profiles for other users
       const { data: profiles } = await supabase
         .from('profiles')
         .select('id, username, display_name, avatar_url')
         .in('id', otherUserIds);
 
       const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
-      const otherMap = new Map(others?.map(o => [o.conversation_id, o]) || []);
 
       // M3: Limit to reasonable count instead of fetching ALL messages
-      const { data: lastMessages } = await supabase
-        .from('messages')
-        .select('conversation_id, content, created_at, message_type, deleted_at')
-        .in('conversation_id', conversationIds)
-        .is('deleted_at', null)
-        .order('created_at', { ascending: false })
-        .limit(conversationIds.length * 5);
+      const lastMessages = lastMessagesRes.data;
 
       const lastMessageMap = new Map<string, { content: string; created_at: string; message_type?: string }>();
       lastMessages?.forEach(m => {
@@ -259,10 +268,7 @@ export default function MessagesPage() {
         }
       });
 
-      const { data: convs } = await supabase
-        .from('conversations')
-        .select('id, updated_at')
-        .in('id', conversationIds);
+      const convs = convsRes.data;
 
       setConversations(convs?.map(c => {
         const other = otherMap.get(c.id);
@@ -336,7 +342,7 @@ export default function MessagesPage() {
       })
       .subscribe();
 
-    return () => { supabase.removeChannel(convChannel); };
+    return () => { cancelled = true; supabase.removeChannel(convChannel); };
   }, []);
 
   // H15: Load more conversations pagination

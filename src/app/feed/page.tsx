@@ -90,95 +90,97 @@ export default function FeedPage() {
     onRefresh: handleRefresh,
   });
 
-  // Initial load
+  // Initial load — parallelized for speed
   useEffect(() => {
     async function loadData() {
       try {
         setError(null);
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) { setLoading(false); return; }
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (!authUser) { setLoading(false); return; }
 
-      let { data: profile } = await supabase
-        .from('profiles')
-        .select('id, username, display_name, avatar_url')
-        .eq('id', authUser.id)
-        .single();
+        // Phase 1: profile + following in parallel
+        const [profileRes, followingRes] = await Promise.all([
+          supabase.from('profiles').select('id, username, display_name, avatar_url').eq('id', authUser.id).single(),
+          supabase.from('follows').select('following_id').eq('follower_id', authUser.id),
+        ]);
 
-      if (!profile) {
-        const tempUsername = `user_${authUser.id.slice(0, 8)}`;
-        const { data: newProfile } = await supabase
-          .from('profiles')
-          .upsert({ id: authUser.id, username: tempUsername, display_name: authUser.email?.split('@')[0] || 'User' }, { onConflict: 'id' })
-          .select('id, username, display_name, avatar_url')
-          .single();
-        profile = newProfile;
-      }
+        let profile = profileRes.data;
+        if (!profile) {
+          const tempUsername = `user_${authUser.id.slice(0, 8)}`;
+          const { data: newProfile } = await supabase
+            .from('profiles')
+            .upsert({ id: authUser.id, username: tempUsername, display_name: authUser.email?.split('@')[0] || 'User' }, { onConflict: 'id' })
+            .select('id, username, display_name, avatar_url')
+            .single();
+          profile = newProfile;
+        }
 
-      setUser(profile);
-      userRef.current = profile;
+        if (!profile) { setLoading(false); return; }
+        setUser(profile);
+        userRef.current = profile;
 
-      // Fetch following list
-      const { data: following } = await supabase
-        .from('follows')
-        .select('following_id')
-        .eq('follower_id', authUser.id);
-      const fIds = new Set(following?.map(f => f.following_id) || []);
-      setFollowingIds(fIds);
-      setFollowingCount(fIds.size);
+        const fIds = new Set(followingRes.data?.map(f => f.following_id) || []);
+        setFollowingIds(fIds);
+        setFollowingCount(fIds.size);
 
-      const feedPosts = await loadPosts(authUser.id, []);
-      seenIdsRef.current = new Set(feedPosts.map((p: FeedPost) => p.id));
-      setPosts(feedPosts);
-      postsRef.current = feedPosts;
-      if (feedPosts.length < 20) setHasMore(false);
+        // Show shell immediately — posts + stories load in background
+        setLoading(false);
 
-      // Stories
-      const allUserIds = [authUser.id, ...Array.from(fIds)];
-      const { data: userStories } = await supabase
-        .from('stories')
-        .select('id, user_id, media_url, media_type, visibility, expires_at, created_at, user:profiles!inner(id, username, display_name, avatar_url, is_verified)')
-        .in('user_id', allUserIds)
-        .gt('expires_at', new Date().toISOString())
-        .order('created_at', { ascending: false })
-        .limit(50);
+        // Phase 2: posts + stories in parallel (non-blocking)
+        const allUserIds = [authUser.id, ...Array.from(fIds)];
+        const [postsRes, storiesRes, viewsRes] = await Promise.all([
+          loadPosts(authUser.id, []),
+          supabase
+            .from('stories')
+            .select('id, user_id, media_url, media_type, visibility, expires_at, created_at, user:profiles!inner(id, username, display_name, avatar_url, is_verified)')
+            .in('user_id', allUserIds)
+            .gt('expires_at', new Date().toISOString())
+            .order('created_at', { ascending: false })
+            .limit(50),
+          supabase.from('story_views').select('story_id').eq('user_id', authUser.id),
+        ]);
 
-      let filteredStories = userStories || [];
+        // Process posts
+        const feedPosts = postsRes || [];
+        seenIdsRef.current = new Set(feedPosts.map((p: FeedPost) => p.id));
+        setPosts(feedPosts);
+        postsRef.current = feedPosts;
+        if (feedPosts.length < 20) setHasMore(false);
 
-      const closeFriendOwnerIds = filteredStories
-        .filter((s: any) => s.visibility === 'close_friends' && s.user_id !== authUser.id)
-        .map((s: any) => s.user_id);
+        // Process stories
+        let filteredStories = storiesRes.data || [];
+        const closeFriendOwnerIds = filteredStories
+          .filter((s: any) => s.visibility === 'close_friends' && s.user_id !== authUser.id)
+          .map((s: any) => s.user_id);
 
-      if (closeFriendOwnerIds.length > 0) {
-        const { data: closeFriendRows } = await supabase
-          .from('close_friends')
-          .select('user_id')
-          .in('user_id', [...new Set(closeFriendOwnerIds)])
-          .eq('friend_id', authUser.id);
-        const closeFriendSet = new Set(closeFriendRows?.map(r => r.user_id) || []);
-        filteredStories = filteredStories.filter((s: any) => {
-          if (s.user_id === authUser.id) return true;
-          if (!s.visibility || s.visibility === 'public') return true;
-          if (s.visibility === 'followers') return true;
-          if (s.visibility === 'close_friends') return closeFriendSet.has(s.user_id);
-          return true;
-        });
-      }
+        if (closeFriendOwnerIds.length > 0) {
+          const { data: closeFriendRows } = await supabase
+            .from('close_friends')
+            .select('user_id')
+            .in('user_id', [...new Set(closeFriendOwnerIds)])
+            .eq('friend_id', authUser.id);
+          const closeFriendSet = new Set(closeFriendRows?.map(r => r.user_id) || []);
+          filteredStories = filteredStories.filter((s: any) => {
+            if (s.user_id === authUser.id) return true;
+            if (!s.visibility || s.visibility === 'public') return true;
+            if (s.visibility === 'followers') return true;
+            if (s.visibility === 'close_friends') return closeFriendSet.has(s.user_id);
+            return true;
+          });
+        }
 
-      const { data: views } = await supabase.from('story_views').select('story_id').eq('user_id', authUser.id);
-      const viewedSet = new Set(views?.map(v => v.story_id) || []);
+        const viewedSet = new Set(viewsRes.data?.map(v => v.story_id) || []);
+        const mutedUsers = JSON.parse(localStorage.getItem('kw-muted-users') || '[]') as string[];
+        if (mutedUsers.length > 0) {
+          const mutedSet = new Set(mutedUsers);
+          filteredStories = filteredStories.filter((s: any) => !mutedSet.has(s.user_id));
+        }
 
-      const mutedUsers = JSON.parse(localStorage.getItem('kw-muted-users') || '[]') as string[];
-      if (mutedUsers.length > 0) {
-        const mutedSet = new Set(mutedUsers);
-        filteredStories = filteredStories.filter((s: any) => !mutedSet.has(s.user_id));
-      }
+        setStories(filteredStories.map((s: any) => ({
+          id: s.id, user_id: s.user_id, media_url: s.media_url, media_type: s.media_type || 'image',
+          expires_at: s.expires_at, created_at: s.created_at, user: s.user, hasViewed: viewedSet.has(s.id),
+        })));
 
-      setStories(filteredStories.map((s: any) => ({
-        id: s.id, user_id: s.user_id, media_url: s.media_url, media_type: s.media_type || 'image',
-        expires_at: s.expires_at, created_at: s.created_at, user: s.user, hasViewed: viewedSet.has(s.id),
-      })));
-
-      setLoading(false);
       } catch (e) {
         setError('Failed to load your feed. Please try again.');
         setLoading(false);

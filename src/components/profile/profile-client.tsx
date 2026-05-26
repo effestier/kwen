@@ -156,56 +156,61 @@ export function ProfileClient({ username }: { username: string }) {
         if (cancelled) return;
         setProfile(targetProfile);
 
+        // Show shell immediately — everything else loads in background
+        setLoading(false);
+
         const { data: { user: authUser } } = await supabase.auth.getUser();
 
-        if (authUser) {
-          const { data: currentProfile } = await supabase
-            .from('profiles')
-            .select('id, username, display_name, avatar_url, bio, is_verified')
-            .eq('id', authUser.id)
-            .single();
-
-          if (cancelled) return;
-          setCurrentUser(currentProfile);
-
-          if (targetProfile.id !== authUser.id) {
-            const { data: follow } = await supabase
-              .from('follows')
-              .select('id')
-              .eq('follower_id', authUser.id)
-              .eq('following_id', targetProfile.id)
-              .single();
-
-            if (cancelled) return;
-            setIsFollowing(!!follow);
-          }
-        }
-
-        const [{ count: postsCount }, { count: followersCount }, { count: followingCount }] = await Promise.all([
+        // Parallel: auth profile, follow status, counts, highlights, posts
+        const promises: Promise<unknown>[] = [
           supabase.from('posts').select('id', { count: 'exact', head: true }).eq('user_id', targetProfile.id).is('deleted_at', null).is('archived_at', null),
           supabase.from('follows').select('id', { count: 'exact', head: true }).eq('following_id', targetProfile.id),
           supabase.from('follows').select('id', { count: 'exact', head: true }).eq('follower_id', targetProfile.id),
-        ]);
+          getUserHighlights(targetProfile.id),
+          supabase
+            .from('posts')
+            .select('id, user_id, content, location, created_at, hide_likes, disable_comments')
+            .eq('user_id', targetProfile.id)
+            .is('deleted_at', null)
+            .is('archived_at', null)
+            .order('created_at', { ascending: false })
+            .limit(9),
+        ];
+
+        if (authUser) {
+          promises.push(
+            supabase.from('profiles').select('id, username, display_name, avatar_url, bio, is_verified').eq('id', authUser.id).single(),
+            targetProfile.id !== authUser.id
+              ? supabase.from('follows').select('id').eq('follower_id', authUser.id).eq('following_id', targetProfile.id).single()
+              : Promise.resolve({ data: null })
+          );
+        }
+
+        const results = await Promise.all(promises);
 
         if (cancelled) return;
+
+        const postsCount = (results[0] as any).count;
+        const followersCount = (results[1] as any).count;
+        const followingCount = (results[2] as any).count;
+        const userHighlights = results[3] as any[];
+        const userPostsResult = results[4] as any;
+
         setStats({
           posts: postsCount || 0,
           followers: followersCount || 0,
           following: followingCount || 0,
         });
+        setHighlights(userHighlights);
 
-        // Load highlights
-        const userHighlights = await getUserHighlights(targetProfile.id);
-        if (!cancelled) setHighlights(userHighlights);
+        if (authUser && results.length > 5) {
+          setCurrentUser((results[5] as any).data);
+          if (targetProfile.id !== authUser.id) {
+            setIsFollowing(!!(results[6] as any).data);
+          }
+        }
 
-        const { data: userPosts } = await supabase
-          .from('posts')
-          .select('id, user_id, content, location, created_at, hide_likes, disable_comments')
-          .eq('user_id', targetProfile.id)
-          .is('deleted_at', null)
-          .is('archived_at', null)
-          .order('created_at', { ascending: false })
-          .limit(9);
+        const userPosts = userPostsResult.data;
 
         if (cancelled) return;
 

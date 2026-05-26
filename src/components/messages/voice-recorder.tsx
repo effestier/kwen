@@ -16,11 +16,10 @@ export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
   }
 
   // Lifecycle states
-  const [phase, setPhase] = useState<'initializing' | 'recording' | 'locked'>('initializing');
+  const [phase, setPhase] = useState<'initializing' | 'recording'>('initializing');
   const [isPaused, setIsPaused] = useState(false);
   const [duration, setDuration] = useState(0);
   const [waveform, setWaveform] = useState<number[]>(new Array(40).fill(0));
-  const [slideCancelled, setSlideCancelled] = useState(false);
   const [isUnsupported, setIsUnsupported] = useState(false);
   const [permissionDenied, setPermissionDenied] = useState(false);
 
@@ -236,9 +235,6 @@ export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ARCHITECTURAL GUARD: only process touch events when recorder is active
-  const isRecorderActive = phase === 'recording' || phase === 'locked';
-
   // Pause/resume
   const togglePause = useCallback(() => {
     const recorder = mediaRecorderRef.current;
@@ -266,55 +262,6 @@ export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
       }
     }
   }, []);
-
-  // Touch handlers — slide left to cancel, slide up to lock
-  // ALL guarded by isRecorderActive — no events processed during initializing phase
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    // eslint-disable-next-line no-console
-    console.log('[VOICE] touchstart', { isRecorderActive });
-    if (!isRecorderActive) return;
-    touchStartXRef.current = e.touches[0].clientX;
-    touchStartYRef.current = e.touches[0].clientY;
-  }, [isRecorderActive]);
-
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    // eslint-disable-next-line no-console
-    console.log('[VOICE] touchmove', { isRecorderActive });
-    if (!isRecorderActive) return;
-    const dx = touchStartXRef.current - e.touches[0].clientX;
-    const dy = touchStartYRef.current - e.touches[0].clientY;
-
-    if (dx > 80 && phase !== 'locked') {
-      if (!slideCancelled) {
-        cancelledRef.current = true;
-        setSlideCancelled(true);
-      }
-    } else if (slideCancelled) {
-      cancelledRef.current = false;
-      setSlideCancelled(false);
-    }
-
-    if (dy > 80 && phase !== 'locked') {
-      // M4: Reset cancelled state when locking — user changed their mind
-      if (slideCancelled) {
-        cancelledRef.current = false;
-        setSlideCancelled(false);
-      }
-      setPhase('locked');
-    }
-  }, [isRecorderActive, phase, slideCancelled]);
-
-  const handleTouchEnd = useCallback(() => {
-    // eslint-disable-next-line no-console
-    console.log('[VOICE] touchend', { isRecorderActive, phase });
-    if (!isRecorderActive) return;
-    if (phase === 'locked') return;
-    if (cancelledRef.current) {
-      doCancel();
-    } else {
-      stopAndSend();
-    }
-  }, [isRecorderActive, phase, doCancel, stopAndSend]);
 
   const formatDuration = (sec: number) => {
     const m = Math.floor(sec / 60);
@@ -388,28 +335,22 @@ export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
   }
 
   return (
-    <div
-      className={cn(
-        'flex items-center gap-3 px-3 py-2.5 transition-all touch-none select-none',
-        slideCancelled ? 'bg-[var(--bg-tertiary)]' : 'bg-[var(--bg-secondary)]'
-      )}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
+    <div className="flex items-center gap-3 px-3 py-2.5 bg-[var(--bg-secondary)] touch-none select-none">
       {/* Left: send button */}
       <button
         type="button"
-        onClick={stopAndSend}
+        onClick={(e) => { e.stopPropagation(); stopAndSend(); }}
+        onTouchEnd={(e) => { e.stopPropagation(); e.preventDefault(); stopAndSend(); }}
         aria-label="Send voice message"
-        className="w-9 h-9 rounded-full bg-[var(--accent-primary)] flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform"
+        disabled={phase === 'initializing'}
+        className="w-9 h-9 rounded-full bg-[var(--accent-primary)] flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform disabled:opacity-40"
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-inverse)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" />
         </svg>
       </button>
 
-      {/* Center: duration + waveform + pause */}
+      {/* Center: duration + waveform */}
       <div className="flex-1 flex items-center gap-2 min-w-0">
         <div className="flex items-center gap-1.5 flex-shrink-0">
           <div className={cn(
@@ -421,45 +362,43 @@ export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
           </span>
         </div>
 
-        {/* Waveform */}
         <div className="flex-1 flex items-center gap-[1px] h-6 min-w-0">
           {waveform.map((v, i) => (
             <div
               key={i}
               className={cn(
                 'flex-1 rounded-full transition-all duration-75 min-w-[2px]',
-                slideCancelled ? 'bg-[var(--text-muted)]/30' : isPaused ? 'bg-[var(--text-muted)]/40' : 'bg-[var(--accent-primary)]/60'
+                isPaused ? 'bg-[var(--text-muted)]/40' : 'bg-[var(--accent-primary)]/60'
               )}
               style={{ height: `${Math.max(3, v * 24)}px` }}
             />
           ))}
         </div>
 
-        {/* Pause toggle (locked phase only) */}
-        {phase === 'locked' && (
-          <button
-            type="button"
-            onClick={togglePause}
-            aria-label={isPaused ? 'Resume' : 'Pause'}
-            className="p-1.5 text-[var(--text-muted)] active:text-[var(--text-primary)] flex-shrink-0"
-          >
-            {isPaused ? (
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <polygon points="5 3 19 12 5 21 5 3" />
-              </svg>
-            ) : (
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" />
-              </svg>
-            )}
-          </button>
-        )}
+        {/* Pause toggle */}
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); togglePause(); }}
+          aria-label={isPaused ? 'Resume' : 'Pause'}
+          className="p-1.5 text-[var(--text-muted)] active:text-[var(--text-primary)] flex-shrink-0"
+        >
+          {isPaused ? (
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="5 3 19 12 5 21 5 3" />
+            </svg>
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" />
+            </svg>
+          )}
+        </button>
       </div>
 
       {/* Right: cancel button */}
       <button
         type="button"
-        onClick={doCancel}
+        onClick={(e) => { e.stopPropagation(); doCancel(); }}
+        onTouchEnd={(e) => { e.stopPropagation(); e.preventDefault(); doCancel(); }}
         aria-label="Cancel recording"
         className="w-9 h-9 rounded-full bg-[var(--bg-tertiary)] flex items-center justify-center flex-shrink-0 active:opacity-60 transition-opacity"
       >

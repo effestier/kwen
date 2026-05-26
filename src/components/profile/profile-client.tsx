@@ -61,6 +61,8 @@ interface Post {
 export function ProfileClient({ username }: { username: string }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
+  const [savedPosts, setSavedPosts] = useState<Post[]>([]);
+  const [savedLoaded, setSavedLoaded] = useState(false);
   const [currentUser, setCurrentUser] = useState<Profile | null>(null);
   const [isFollowing, setIsFollowing] = useState(false);
   const [stats, setStats] = useState({ posts: 0, followers: 0, following: 0 });
@@ -265,6 +267,66 @@ export function ProfileClient({ username }: { username: string }) {
     loadData();
     return () => { cancelled = true; };
   }, [username, supabase]);
+
+  // Load saved posts when tab is activated on own profile
+  useEffect(() => {
+    if (activeTab !== 'saved' || savedLoaded || !profile || !currentUser || profile.id !== currentUser.id) return;
+
+    let cancelled = false;
+
+    async function loadSaved() {
+      const supabase2 = createClient();
+      const { data: { user } } = await supabase2.auth.getUser();
+      if (!user || cancelled) return;
+
+      const { data: saved } = await supabase2
+        .from('saved_posts')
+        .select('post_id')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(18);
+
+      if (cancelled) return;
+      if (!saved || saved.length === 0) {
+        setSavedLoaded(true);
+        return;
+      }
+
+      const postIds = saved.map(s => s.post_id);
+      const { data: dbPosts } = await supabase2
+        .from('posts')
+        .select('id, content, hide_likes, disable_comments, post_media(storage_path, sort_order)')
+        .in('id', postIds)
+        .is('deleted_at', null);
+
+      if (cancelled) return;
+      if (!dbPosts) { setSavedLoaded(true); return; }
+
+      const { data: likes } = await supabase2.from('post_likes').select('post_id').in('post_id', postIds);
+      const { data: comments } = await supabase2.from('comments').select('post_id').in('post_id', postIds);
+
+      const likesMap = new Map<string, number>();
+      likes?.forEach(l => likesMap.set(l.post_id, (likesMap.get(l.post_id) || 0) + 1));
+      const commentsMap = new Map<string, number>();
+      comments?.forEach(c => commentsMap.set(c.post_id, (commentsMap.get(c.post_id) || 0) + 1));
+
+      if (!cancelled) {
+        setSavedPosts(dbPosts.map((p: any) => ({
+          id: p.id,
+          content: p.content,
+          images: (p.post_media || []).sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0)).map((m: any) => m.storage_path),
+          likes: likesMap.get(p.id) || 0,
+          comments: commentsMap.get(p.id) || 0,
+          hideLikes: p.hide_likes ?? false,
+          disableComments: p.disable_comments ?? false,
+        })));
+        setSavedLoaded(true);
+      }
+    }
+
+    loadSaved();
+    return () => { cancelled = true; };
+  }, [activeTab, savedLoaded, profile, currentUser]);
 
   const handleFollow = async () => {
     if (!profile || !currentUser) return;
@@ -563,9 +625,60 @@ export function ProfileClient({ username }: { username: string }) {
             </div>
           )}
           {activeTab === 'saved' && (
-            <div className="text-center py-12">
-              <p className="text-[var(--text-muted)]">No saved posts yet</p>
-            </div>
+            (() => {
+              if (!isOwnProfile) {
+                return (
+                  <div className="text-center py-12">
+                    <p className="text-[var(--text-muted)]">Saved posts are private</p>
+                  </div>
+                );
+              }
+              if (!savedLoaded) {
+                return (
+                  <div className="grid grid-cols-3 gap-[2px] mt-1">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <div key={i} className="aspect-square bg-[var(--bg-secondary)] animate-pulse" />
+                    ))}
+                  </div>
+                );
+              }
+              if (savedPosts.length === 0) {
+                return (
+                  <div className="flex flex-col items-center justify-center py-12 text-center px-4">
+                    <div className="w-12 h-12 rounded-full bg-[var(--bg-secondary)] flex items-center justify-center mb-3">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--text-muted)]">
+                        <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
+                      </svg>
+                    </div>
+                    <p className="text-sm text-[var(--text-muted)]">Save posts to see them here</p>
+                  </div>
+                );
+              }
+              return (
+                <div className="grid grid-cols-3 gap-[2px] mt-1">
+                  {savedPosts.map((post) => (
+                    <button
+                      key={post.id}
+                      onClick={() => setSelectedOwnerPost(post)}
+                      className="aspect-square bg-[var(--bg-secondary)] relative group block focus:outline-none cursor-pointer"
+                    >
+                      {post.images?.[0] ? (
+                        <img src={post.images[0]} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center p-2">
+                          <p className="text-xs text-[var(--text-muted)] text-center line-clamp-3">{post.content}</p>
+                        </div>
+                      )}
+                      <div aria-hidden="true" className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
+                        </svg>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              );
+            })()
           )}
         </div>
       </div>

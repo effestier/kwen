@@ -8,6 +8,7 @@ import { cn, formatNumber, formatTimeAgo } from '@/lib/utils';
 import { getPost, toggleLike, toggleSave } from '@/services/posts';
 import { getComments, getReplies, addComment, toggleCommentLike, deleteComment, getCommentCount, type Comment } from '@/services/comments';
 import { createClient } from '@/lib/supabase/client';
+import { Spinner } from '@/components/ui/loader';
 
 interface PostDetail {
   id: string;
@@ -279,7 +280,7 @@ export function PostDetailClient({ postId }: { postId: string }) {
   if (loading) {
     return (
       <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-2 border-[var(--text-muted)] border-t-transparent rounded-full" />
+        <Spinner size="lg" />
       </div>
     );
   }
@@ -445,7 +446,7 @@ export function PostDetailClient({ postId }: { postId: string }) {
 
               {commentsLoading ? (
                 <div className="flex justify-center py-4">
-                  <div className="animate-spin w-5 h-5 border-2 border-[var(--text-muted)] border-t-transparent rounded-full" />
+                  <Spinner size="xs" color="muted" />
                 </div>
               ) : comments.length === 0 ? (
                 <div className="text-center py-4">

@@ -173,8 +173,15 @@ export default function NotificationsPage() {
     window.dispatchEvent(new CustomEvent('notifications-read'));
   };
 
+  const handleRefresh = async () => {
+    if (!currentUserId.current) return;
+    const notifs = await loadNotifications(currentUserId.current, 0);
+    setNotifications(notifs);
+  };
+
   return (
     <MainLayout>
+      <PullToRefresh onRefresh={handleRefresh}>
       <div className="min-h-screen">
         <div className="sticky top-0 z-10 bg-[var(--bg-primary)]/90 backdrop-blur-xl border-b border-[var(--border-subtle)] px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-3">
           <div className="flex items-center justify-between">
@@ -236,6 +243,7 @@ export default function NotificationsPage() {
           </div>
         )}
       </div>
+      </PullToRefresh>
     </MainLayout>
   );
 }

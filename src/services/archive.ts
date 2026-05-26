@@ -17,6 +17,7 @@ export interface ArchiveMonth {
 
 /**
  * Get archived stories for a user, paginated
+ * Includes both archived stories AND expired active stories not yet cleaned by cron
  */
 export async function getArchivedStories(
   userId: string,
@@ -27,38 +28,104 @@ export async function getArchivedStories(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { stories: [], hasMore: false }
 
-  const { data, error } = await supabase.rpc('get_archived_stories', {
+  // Try the unified RPC first (migration 050)
+  const { data: rpcData, error: rpcError } = await supabase.rpc('get_user_available_stories', {
     p_user_id: userId,
-    p_cursor: cursor || null,
-    p_limit: limit + 1, // fetch one extra to check hasMore
+    p_limit: limit + 1,
   })
 
-  if (error || !data) return { stories: [], hasMore: false }
+  if (!rpcError && rpcData) {
+    const stories = (rpcData as Array<{ id: string; media_url: string; media_type: string; created_at: string }>)
+      .slice(0, limit)
+      .map(s => ({
+        id: s.id,
+        media_url: s.media_url,
+        media_type: s.media_type || 'image',
+        visibility: 'public' as const,
+        overlays: [] as ArchivedStory['overlays'],
+        created_at: s.created_at,
+        archived_at: s.created_at,
+      })) as ArchivedStory[]
+    return { stories, hasMore: rpcData.length > limit }
+  }
 
-  const stories = data.slice(0, limit) as ArchivedStory[]
-  const hasMore = data.length > limit
+  // Fallback: query both tables manually
+  const [archiveResult, expiredResult] = await Promise.all([
+    supabase.rpc('get_archived_stories', {
+      p_user_id: userId,
+      p_cursor: cursor || null,
+      p_limit: limit + 1,
+    }),
+    supabase
+      .from('stories')
+      .select('id, media_url, media_type, created_at, visibility')
+      .eq('user_id', userId)
+      .lt('expires_at', new Date().toISOString())
+      .order('created_at', { ascending: false })
+      .limit(100),
+  ])
+
+  const archived = ((archiveResult.data || []) as ArchivedStory[])
+  const expired: ArchivedStory[] = (expiredResult.data || []).map(s => ({
+    id: s.id,
+    media_url: s.media_url,
+    media_type: s.media_type || 'image',
+    visibility: s.visibility || 'public',
+    overlays: [],
+    created_at: s.created_at,
+    archived_at: s.created_at,
+  }))
+
+  // Merge and deduplicate by id
+  const seen = new Set<string>()
+  const merged: ArchivedStory[] = []
+  for (const s of [...archived, ...expired]) {
+    if (!seen.has(s.id)) {
+      seen.add(s.id)
+      merged.push(s)
+    }
+  }
+
+  merged.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+
+  const stories = merged.slice(0, limit)
+  const hasMore = merged.length > limit
 
   return { stories, hasMore }
 }
 
 /**
  * Get month groupings for archive grid
+ * Includes expired stories not yet cleaned by cron
  */
 export async function getArchiveMonths(userId: string): Promise<ArchiveMonth[]> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
 
-  const { data, error } = await supabase.rpc('get_archive_months', {
-    p_user_id: userId,
-  })
+  const [archiveResult, expiredResult] = await Promise.all([
+    supabase.rpc('get_archive_months', { p_user_id: userId }),
+    supabase
+      .from('stories')
+      .select('created_at')
+      .eq('user_id', userId)
+      .lt('expires_at', new Date().toISOString()),
+  ])
 
-  if (error || !data) return []
+  const archiveMonths = new Map<string, number>()
+  for (const m of (archiveResult.data || []) as Array<{ month: string; count: number }>) {
+    archiveMonths.set(m.month, Number(m.count))
+  }
 
-  return (data as Array<{ month: string; count: number }>).map(m => ({
-    month: m.month,
-    count: Number(m.count),
-  }))
+  // Add expired stories to month counts
+  for (const s of (expiredResult.data || [])) {
+    const month = s.created_at.substring(0, 7)
+    archiveMonths.set(month, (archiveMonths.get(month) || 0) + 1)
+  }
+
+  return Array.from(archiveMonths.entries())
+    .map(([month, count]) => ({ month, count }))
+    .sort((a, b) => b.month.localeCompare(a.month))
 }
 
 /**
@@ -159,4 +226,71 @@ export async function downloadArchivedStory(archiveId: string): Promise<{ succes
   } catch {
     return { error: 'Failed to download' }
   }
+}
+
+/**
+ * Get all stories available for highlight creation (active + expired + archived)
+ */
+export interface AvailableStory {
+  id: string
+  media_url: string
+  media_type: string
+  created_at: string
+}
+
+export async function getUserAvailableStories(userId: string): Promise<AvailableStory[]> {
+  const supabase = createClient()
+
+  // Try the RPC first (migration 050)
+  const { data: rpcData, error: rpcError } = await supabase.rpc('get_user_available_stories', {
+    p_user_id: userId,
+    p_limit: 100,
+  })
+
+  if (!rpcError && rpcData) {
+    return rpcData as AvailableStory[]
+  }
+
+  // Fallback: query both tables manually
+  const [activeResult, archiveResult] = await Promise.all([
+    supabase
+      .from('stories')
+      .select('id, media_url, media_type, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('story_archive')
+      .select('id, original_story_id, media_url, media_type, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false }),
+  ])
+
+  const active = (activeResult.data || []).map(s => ({
+    id: s.id,
+    media_url: s.media_url,
+    media_type: s.media_type || 'image',
+    created_at: s.created_at,
+  })) as AvailableStory[]
+
+  // For archived stories, use original_story_id so highlights can reference them
+  const archived = (archiveResult.data || []).map(s => ({
+    id: s.original_story_id || s.id,
+    media_url: s.media_url,
+    media_type: s.media_type || 'image',
+    created_at: s.created_at,
+  })) as AvailableStory[]
+
+  // Deduplicate by id, prefer active
+  const seen = new Set<string>()
+  const merged: AvailableStory[] = []
+  for (const s of [...active, ...archived]) {
+    if (!seen.has(s.id)) {
+      seen.add(s.id)
+      merged.push(s)
+    }
+  }
+
+  // Sort by created_at descending
+  merged.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  return merged
 }

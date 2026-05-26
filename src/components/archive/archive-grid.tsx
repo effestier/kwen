@@ -27,7 +27,7 @@ export function ArchiveGrid({ onStoryClick }: ArchiveGridProps) {
       const monthList = await getArchiveMonths(user.id)
       setMonths(monthList)
 
-      // Load first batch for each month (or first 2 months)
+      // Load first batch for each month (first 2)
       for (const m of monthList.slice(0, 2)) {
         await loadMonthStories(user.id, m.month)
       }

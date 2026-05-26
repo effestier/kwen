@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { getArchivedStories, type ArchivedStory } from '@/services/archive'
+import { getUserAvailableStories, type AvailableStory } from '@/services/archive'
 import { addStoryToHighlight } from '@/services/highlights'
 
 interface ArchivePickerModalProps {
@@ -12,7 +12,7 @@ interface ArchivePickerModalProps {
 }
 
 export function ArchivePickerModal({ highlightId, onClose, onAdded }: ArchivePickerModalProps) {
-  const [stories, setStories] = useState<ArchivedStory[]>([])
+  const [stories, setStories] = useState<AvailableStory[]>([])
   const [loading, setLoading] = useState(true)
   const [adding, setAdding] = useState<string | null>(null)
   const [added, setAdded] = useState<Set<string>>(new Set())
@@ -24,8 +24,8 @@ export function ArchivePickerModal({ highlightId, onClose, onAdded }: ArchivePic
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { setLoading(false); return }
 
-      const { stories: archived } = await getArchivedStories(user.id, undefined, 100)
-      setStories(archived)
+      const available = await getUserAvailableStories(user.id)
+      setStories(available)
       setLoading(false)
     }
     load()

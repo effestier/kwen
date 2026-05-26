@@ -36,8 +36,9 @@ export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
   const cancelledRef = useRef<boolean>(false);
   const sentRef = useRef<boolean>(false);
   const mimeTypeRef = useRef<string>('audio/webm');
-  const touchStartXRef = useRef<number>(0);
-  const touchStartYRef = useRef<number>(0);
+  // Keep a stable ref to onSend so onstop closure always has the latest
+  const onSendRef = useRef(onSend);
+  onSendRef.current = onSend;
 
   const cleanup = useCallback(() => {
     // eslint-disable-next-line no-console
@@ -58,8 +59,6 @@ export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
 
   // Single authoritative send
   const stopAndSend = useCallback(() => {
-    // eslint-disable-next-line no-console
-    console.log('[VOICE] stopAndSend()', { sentRef: sentRef.current, cancelledRef: cancelledRef.current, mediaRecorderState: mediaRecorderRef.current?.state });
     if (sentRef.current || cancelledRef.current) return;
 
     if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
@@ -69,13 +68,21 @@ export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
     if (recorder && (recorder.state === 'recording' || recorder.state === 'paused')) {
       sentRef.current = true;
       recorder.stop();
+      // Don't cleanup here — onstop handler will call onSend, then cleanup
     } else {
+      // Recorder not available or already stopped — send whatever chunks we have
       sentRef.current = true;
+      const cleanType = mimeTypeRef.current.split(';')[0];
+      const blob = new Blob(chunksRef.current, { type: cleanType });
+      chunksRef.current = [];
       cleanup();
-      const blob = new Blob(chunksRef.current, { type: mimeTypeRef.current });
-      onSend(blob, durationRef.current);
+      if (blob.size > 0) {
+        onSendRef.current(blob, durationRef.current);
+      } else {
+        onCancel();
+      }
     }
-  }, [onSend, cleanup]);
+  }, [onCancel, cleanup]);
 
   // Single authoritative cancel
   const doCancel = useCallback(() => {
@@ -158,16 +165,20 @@ export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
       };
 
       recorder.onstop = () => {
-        // eslint-disable-next-line no-console
-        console.log('[VOICE] recorder.onstop', { cancelledRef: cancelledRef.current, chunks: chunksRef.current.length });
         stream.getTracks().forEach(t => t.stop());
         if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
           audioCtxRef.current.close().catch(() => {});
         }
-        if (!cancelledRef.current) {
-          const blob = new Blob(chunksRef.current, { type: mimeType });
-          onSend(blob, durationRef.current);
+        // Use sentRef, not cancelledRef — sentRef is set BEFORE stop(), so it's
+        // guaranteed to be true when we're sending. cancelledRef can race with
+        // the unmount effect if the parent unmounts us during onSend.
+        if (sentRef.current && chunksRef.current.length > 0) {
+          const cleanType = mimeType.split(';')[0];
+          const blob = new Blob(chunksRef.current, { type: cleanType });
+          chunksRef.current = [];
+          onSendRef.current(blob, durationRef.current);
         }
+        cleanup();
       };
 
       mediaRecorderRef.current = recorder;
@@ -214,7 +225,7 @@ export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
         doCancel();
       }
     }
-  }, [doCancel, onSend]);
+  }, [doCancel]);
 
   // Auto-start on mount
   useEffect(() => {
@@ -222,16 +233,19 @@ export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
     console.log('[VOICE] useEffect mount -> startRecording()');
     startRecording();
     return () => {
-      // eslint-disable-next-line no-console
-      console.log('[VOICE][UNMOUNT] VoiceRecorder unmounting');
-      cancelledRef.current = true;
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
       if (durationTimerRef.current) clearInterval(durationTimerRef.current);
-      if (mediaRecorderRef.current?.state === 'recording' || mediaRecorderRef.current?.state === 'paused') {
-        mediaRecorderRef.current.ondataavailable = null;
-        mediaRecorderRef.current.stop();
+      // If we already triggered send (sentRef), let the onstop handler
+      // finish — don't kill data collection or set cancelledRef.
+      if (!sentRef.current) {
+        cancelledRef.current = true;
+        const recorder = mediaRecorderRef.current;
+        if (recorder && (recorder.state === 'recording' || recorder.state === 'paused')) {
+          recorder.ondataavailable = null;
+          recorder.stop();
+        }
+        cleanup();
       }
-      cleanup();
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

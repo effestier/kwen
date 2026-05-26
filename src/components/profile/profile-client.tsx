@@ -477,9 +477,23 @@ export function ProfileClient({ username }: { username: string }) {
           {isLoggedIn && (
             <div className="mt-3 flex gap-2">
               {isOwnProfile ? (
-                <Link href="/settings" className="flex-1 text-center py-[7px] rounded-xl bg-[var(--bg-tertiary)] text-[13px] font-semibold text-[var(--text-primary)] active:opacity-70 transition-opacity">
-                  Edit profile
-                </Link>
+                <>
+                  <Link href="/settings" className="flex-1 text-center py-[7px] rounded-xl bg-[var(--bg-tertiary)] text-[13px] font-semibold text-[var(--text-primary)] active:opacity-70 transition-opacity">
+                    Edit profile
+                  </Link>
+                  <button
+                    onClick={() => {
+                      if (navigator.share) {
+                        navigator.share({ title: profile?.display_name, url: window.location.href });
+                      } else {
+                        navigator.clipboard.writeText(window.location.href);
+                      }
+                    }}
+                    className="flex-1 py-[7px] rounded-xl bg-[var(--bg-tertiary)] text-[13px] font-semibold text-[var(--text-primary)] active:opacity-70 transition-opacity"
+                  >
+                    Share profile
+                  </button>
+                </>
               ) : (
                 <>
                   <button

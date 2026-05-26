@@ -158,30 +158,49 @@ export function VoiceMessage({ mediaUrl, duration, isMine, onRefreshUrl }: Voice
   const bars = 30;
 
   return (
-    <div className="flex items-center gap-2 min-w-[180px]">
-      <button
-        onClick={togglePlay}
-        className={cn(
-          'w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0',
-          isMine ? 'bg-white/20' : 'bg-[var(--bg-tertiary)]'
-        )}
-        aria-label={isPlaying ? 'Pause voice message' : 'Play voice message'}
-      >
-        {isPlaying ? (
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-            <rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" />
-          </svg>
-        ) : (
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-            <path d="m5 3 14 9-14 9V3Z" />
-          </svg>
-        )}
-      </button>
+    <div className="min-w-[200px] max-w-[260px]">
+      {/* Time + speed — outside/before the message content */}
+      <div className="flex items-center gap-2 mb-1.5">
+        <span className={cn(
+          'text-[11px] font-medium',
+          isMine ? 'text-white/70' : 'text-[var(--text-muted)]'
+        )}>
+          {isPlaying ? formatTime(currentTime) : formatTime(duration)}
+        </span>
+        <button
+          onClick={cycleSpeed}
+          className={cn(
+            'text-[9px] font-medium px-1.5 py-0.5 rounded',
+            isMine ? 'bg-white/20 text-white/70' : 'bg-[var(--bg-tertiary)] text-[var(--text-muted)]'
+          )}
+        >
+          {speed}x
+        </button>
+      </div>
 
-      <div className="flex-1 flex flex-col gap-1">
-        {/* Waveform bars — clickable for scrubbing */}
+      {/* Play + waveform */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={togglePlay}
+          className={cn(
+            'w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0',
+            isMine ? 'bg-white/20' : 'bg-[var(--bg-tertiary)]'
+          )}
+          aria-label={isPlaying ? 'Pause voice message' : 'Play voice message'}
+        >
+          {isPlaying ? (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" />
+            </svg>
+          ) : (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path d="m5 3 14 9-14 9V3Z" />
+            </svg>
+          )}
+        </button>
+
         <div
-          className="flex items-center gap-0.5 h-5 cursor-pointer"
+          className="flex-1 flex items-center gap-0.5 h-5 cursor-pointer"
           onClick={handleWaveformClick}
           role="slider"
           aria-label="Seek voice message"
@@ -206,25 +225,6 @@ export function VoiceMessage({ mediaUrl, duration, isMine, onRefreshUrl }: Voice
               />
             );
           })}
-        </div>
-
-        {/* Time + speed */}
-        <div className="flex items-center gap-2">
-          <span className={cn(
-            'text-[10px]',
-            isMine ? 'text-white/60' : 'text-[var(--text-muted)]'
-          )}>
-            {isPlaying ? formatTime(currentTime) : formatTime(duration)}
-          </span>
-          <button
-            onClick={cycleSpeed}
-            className={cn(
-              'text-[9px] font-medium px-1 py-0.5 rounded',
-              isMine ? 'bg-white/20 text-white/70' : 'bg-[var(--bg-tertiary)] text-[var(--text-muted)]'
-            )}
-          >
-            {speed}x
-          </button>
         </div>
       </div>
     </div>

@@ -124,8 +124,8 @@ export async function sendMessage(conversationId: string, content: string, media
       .select()
       .single();
 
-    // If insert fails (e.g., duration column doesn't exist from migration 041),
-    // retry without optional columns
+    // If insert fails, retry with progressively fewer columns
+    // Fallback 1: remove duration column (migration 041 not applied)
     if (error && insertData.duration != null) {
       const { duration: _, ...fallbackData } = insertData;
       const retry = await supabase
@@ -135,6 +135,18 @@ export async function sendMessage(conversationId: string, content: string, media
         .single();
       message = retry.data;
       error = retry.error;
+    }
+
+    // Fallback 2: voice message_type not in CHECK constraint — use 'mixed'
+    if (error && insertData.message_type === 'voice') {
+      insertData.message_type = 'mixed';
+      const retry2 = await supabase
+        .from('messages')
+        .insert(insertData)
+        .select()
+        .single();
+      message = retry2.data;
+      error = retry2.error;
     }
 
     if (error) return { error: 'Failed to send message' };

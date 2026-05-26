@@ -256,7 +256,8 @@ export function MediaPicker({ onMediaSelected, onCancel }: MediaPickerProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black flex flex-col"
+      className="fixed inset-0 z-[9999] bg-black flex flex-col"
+      style={{ height: '100dvh' }}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}

@@ -3,7 +3,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { MainLayout } from '@/components/layout/main-layout';
 import { createClient } from '@/lib/supabase/client';
 import { MediaPicker } from '@/components/story/creator/media-picker';
 import { CanvasEditor } from '@/components/story/creator/canvas-editor';
@@ -405,16 +404,16 @@ export default function CreateStoryPage() {
 
   if (!media) {
     return (
-      <MainLayout>
+      <div className="fixed inset-0 z-[9999] bg-[var(--bg-primary)]" style={{ height: '100dvh' }}>
         <MediaPicker onMediaSelected={handleMediaSelected} onCancel={() => router.push('/feed')} />
-      </MainLayout>
+      </div>
     );
   }
 
   // ---- Render editor ----
 
   return (
-    <MainLayout>
+    <>
       <CanvasEditor
         media={media}
         filters={filters}
@@ -545,15 +544,15 @@ export default function CreateStoryPage() {
         />
       )}
 
-      {/* Rate limit toast */}
+      {/* Rate limit toast — top safe area */}
       {toast && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[70] bg-red-600 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-3 max-w-sm">
+        <div className="fixed left-1/2 -translate-x-1/2 z-[70] bg-red-600 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-3 max-w-sm" style={{ top: 'max(env(safe-area-inset-top), 12px)' }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="8" y2="12" /><line x1="12" x2="12.01" y1="16" y2="16" />
           </svg>
           <span className="text-sm font-medium">{toast.message} ({toast.countdown}s)</span>
         </div>
       )}
-    </MainLayout>
+    </>
   );
 }

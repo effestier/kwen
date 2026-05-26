@@ -348,7 +348,7 @@ export function CanvasEditor({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black flex flex-col">
+    <div className="fixed inset-0 z-[9999] bg-black flex flex-col" style={{ height: '100dvh' }}>
       {/* Top toolbar */}
       <div className="flex items-center justify-between px-4 py-3 z-20" style={{ paddingTop: 'max(12px, env(safe-area-inset-top))' }}>
         <button onClick={onClose} className="text-white p-2 bg-black/40 rounded-full backdrop-blur-sm">
@@ -389,11 +389,11 @@ export function CanvasEditor({
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
       >
-        {/* Media background */}
+        {/* Media background — cover to fill the canvas like IG stories */}
         {media.type === 'video' ? (
           <video
             src={media.url}
-            className="absolute inset-0 w-full h-full object-contain"
+            className="absolute inset-0 w-full h-full object-cover"
             style={filterStyle}
             autoPlay
             muted
@@ -405,7 +405,7 @@ export function CanvasEditor({
           <img
             src={media.url}
             alt="Story"
-            className="absolute inset-0 w-full h-full object-contain"
+            className="absolute inset-0 w-full h-full object-cover"
             style={filterStyle}
             draggable={false}
           />
@@ -417,7 +417,7 @@ export function CanvasEditor({
           <img
             src={drawingData}
             alt="Drawing"
-            className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+            className="absolute inset-0 w-full h-full object-cover pointer-events-none"
           />
         )}
 

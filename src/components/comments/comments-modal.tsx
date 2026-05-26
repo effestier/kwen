@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Avatar } from '@/components/ui/avatar';
 import { formatTimeAgo } from '@/lib/utils';
@@ -93,9 +93,23 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [currentUser, setCurrentUser] = useState<{ id: string; username: string; avatar_url: string | null } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isVisible, setIsVisible] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragY, setDragY] = useState(0);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const commentsListRef = useRef<HTMLDivElement>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const dragStartY = useRef(0);
   const supabase = createClient();
+
+  // Animate in on open
+  useEffect(() => {
+    if (isOpen) {
+      setIsVisible(true);
+      document.body.style.overflow = 'hidden';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [isOpen]);
 
   // Load current user
   useEffect(() => {
@@ -110,8 +124,8 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
         if (profile) setCurrentUser(profile);
       }
     }
-    loadUser();
-  }, []);
+    if (isOpen) loadUser();
+  }, [isOpen]);
 
   // Load comments when modal opens
   useEffect(() => {
@@ -126,6 +140,46 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
       commentsListRef.current.scrollTop = commentsListRef.current.scrollHeight;
     }
   }, [comments, repliesMap]);
+
+  // Keyboard viewport handling — scroll input into view when keyboard opens
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleResize = () => {
+      if (inputRef.current && document.activeElement === inputRef.current) {
+        setTimeout(() => {
+          inputRef.current?.scrollIntoView({ block: 'end' });
+        }, 100);
+      }
+    };
+
+    window.visualViewport?.addEventListener('resize', handleResize);
+    return () => window.visualViewport?.removeEventListener('resize', handleResize);
+  }, [isOpen]);
+
+  // Drag-to-close
+  const handleSheetDragStart = useCallback((e: React.TouchEvent) => {
+    const target = e.target as HTMLElement;
+    // Don't drag if touching the input or comments list
+    if (target.closest('textarea') || target.closest('[data-scrollable]')) return;
+    dragStartY.current = e.touches[0].clientY;
+    setIsDragging(true);
+  }, []);
+
+  const handleSheetDragMove = useCallback((e: React.TouchEvent) => {
+    if (!isDragging) return;
+    const diff = e.touches[0].clientY - dragStartY.current;
+    setDragY(Math.max(0, diff));
+  }, [isDragging]);
+
+  const handleSheetDragEnd = useCallback(() => {
+    if (!isDragging) return;
+    setIsDragging(false);
+    if (dragY > 120) {
+      onClose();
+    }
+    setDragY(0);
+  }, [isDragging, dragY, onClose]);
 
   async function loadComments() {
     setLoading(true);
@@ -160,7 +214,8 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
   const handleReply = (comment: Comment) => {
     setReplyingTo(comment);
     setNewComment(`@${comment.user.username} `);
-    inputRef.current?.focus();
+    setShowEmojiPicker(false);
+    setTimeout(() => inputRef.current?.focus(), 50);
   };
 
   const cancelReply = () => {
@@ -169,29 +224,18 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
   };
 
   const handleLike = async (commentId: string) => {
-    // Optimistic update in parent comments
     setComments(prev => prev.map(c => {
       if (c.id === commentId) {
-        return {
-          ...c,
-          is_liked: !c.is_liked,
-          like_count: (c.like_count ?? 0) + (c.is_liked ? -1 : 1),
-        };
+        return { ...c, is_liked: !c.is_liked, like_count: (c.like_count ?? 0) + (c.is_liked ? -1 : 1) };
       }
       return c;
     }));
-
-    // Optimistic update in replies
     setRepliesMap(prev => {
       const next = new Map(prev);
       for (const [parentId, replies] of next) {
         next.set(parentId, replies.map(r => {
           if (r.id === commentId) {
-            return {
-              ...r,
-              is_liked: !r.is_liked,
-              like_count: (r.like_count ?? 0) + (r.is_liked ? -1 : 1),
-            };
+            return { ...r, is_liked: !r.is_liked, like_count: (r.like_count ?? 0) + (r.is_liked ? -1 : 1) };
           }
           return r;
         }));
@@ -201,14 +245,9 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
 
     const result = await toggleCommentLike(commentId);
     if (!result.success) {
-      // H6: Revert on failure — parent comments AND replies
       setComments(prev => prev.map(c => {
         if (c.id === commentId) {
-          return {
-            ...c,
-            is_liked: !c.is_liked,
-            like_count: (c.like_count ?? 0) + (c.is_liked ? -1 : 1),
-          };
+          return { ...c, is_liked: !c.is_liked, like_count: (c.like_count ?? 0) + (c.is_liked ? -1 : 1) };
         }
         return c;
       }));
@@ -217,11 +256,7 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
         for (const [parentId, replies] of next) {
           next.set(parentId, replies.map(r => {
             if (r.id === commentId) {
-              return {
-                ...r,
-                is_liked: !r.is_liked,
-                like_count: (r.like_count ?? 0) + (r.is_liked ? -1 : 1),
-              };
+              return { ...r, is_liked: !r.is_liked, like_count: (r.like_count ?? 0) + (r.is_liked ? -1 : 1) };
             }
             return r;
           }));
@@ -232,11 +267,8 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
   };
 
   const handleDelete = async (commentId: string) => {
-    // Optimistic remove
     const removedComment = comments.find(c => c.id === commentId);
     setComments(prev => prev.filter(c => c.id !== commentId));
-
-    // Also remove from replies if it's a reply
     setRepliesMap(prev => {
       const next = new Map(prev);
       for (const [parentId, replies] of next) {
@@ -261,7 +293,6 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
     setSubmitting(true);
     setError(null);
 
-    // Optimistic add
     const tempId = `temp-${Date.now()}`;
     const tempComment: Comment = {
       id: tempId,
@@ -281,18 +312,15 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
     };
 
     if (parentId) {
-      // Add to replies
       setRepliesMap(prev => {
         const next = new Map(prev);
         const existing = next.get(parentId) || [];
         next.set(parentId, [...existing, tempComment]);
         return next;
       });
-      // Update reply count
       setComments(prev => prev.map(c =>
         c.id === parentId ? { ...c, reply_count: (c.reply_count ?? 0) + 1 } : c
       ));
-      // Ensure thread is expanded
       setExpandedThreads(prev => new Set(prev).add(parentId));
     } else {
       setComments(prev => [...prev, tempComment]);
@@ -300,6 +328,7 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
 
     setNewComment('');
     setReplyingTo(null);
+    setShowEmojiPicker(false);
 
     try {
       const result = await addComment(postId, commentText, parentId);
@@ -316,7 +345,6 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
           setComments(prev => prev.map(c => c.id === tempId ? result.comment! : c));
         }
       } else {
-        // Rollback
         if (parentId) {
           setRepliesMap(prev => {
             const next = new Map(prev);
@@ -382,31 +410,58 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+    <div
+      className="fixed inset-0 z-[9999] flex flex-col justify-end"
+      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+    >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-[var(--modal-backdrop)] backdrop-blur-sm" onClick={onClose} />
+      <div
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        onClick={onClose}
+        style={{ opacity: isDragging ? Math.max(0, 1 - dragY / 300) : 1 }}
+      />
 
-      {/* Modal Content */}
-      <div className={cn(
-        'relative w-full bg-[var(--bg-primary)] border border-[var(--border-subtle)]',
-        'sm:max-w-lg sm:rounded-2xl sm:max-h-[80vh]',
-        'max-h-[85vh] rounded-t-3xl overflow-hidden',
-        'animate-fadeInUp'
-      )}>
+      {/* Sheet */}
+      <div
+        ref={sheetRef}
+        onTouchStart={handleSheetDragStart}
+        onTouchMove={handleSheetDragMove}
+        onTouchEnd={handleSheetDragEnd}
+        className={cn(
+          'relative flex flex-col bg-[var(--bg-primary)] rounded-t-2xl',
+          'w-full max-w-lg mx-auto',
+          'transition-transform duration-300 ease-out',
+          isVisible && dragY === 0 ? 'translate-y-0' : '',
+        )}
+        style={{
+          height: 'min(88dvh, 600px)',
+          transform: isDragging ? `translateY(${dragY}px)` : undefined,
+          transition: isDragging ? 'none' : undefined,
+        }}
+      >
+        {/* Drag handle */}
+        <div className="flex justify-center pt-2.5 pb-1 flex-shrink-0 cursor-grab active:cursor-grabbing">
+          <div className="w-9 h-1 rounded-full bg-[var(--border-subtle)]" />
+        </div>
+
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-subtle)]">
-          <h2 className="text-lg font-semibold text-[var(--text-primary)]">Comments</h2>
+        <div className="flex items-center justify-between px-4 py-2 border-b border-[var(--border-subtle)] flex-shrink-0">
+          <h2 className="text-[15px] font-semibold text-[var(--text-primary)]">Comments</h2>
           <button
             onClick={onClose}
             aria-label="Close comments"
-            className="p-2 rounded-full hover:bg-[var(--bg-secondary)] text-[var(--text-muted)] transition-colors-fast"
+            className="p-1.5 -mr-1.5 rounded-full active:bg-[var(--bg-secondary)] text-[var(--text-muted)] transition-colors"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
           </button>
         </div>
 
-        {/* Comments List */}
-        <div ref={commentsListRef} className="overflow-y-auto max-h-[calc(85vh-140px)] sm:max-h-[calc(80vh-140px)] px-4 py-3">
+        {/* Comments List — fills available space */}
+        <div
+          ref={commentsListRef}
+          data-scrollable
+          className="flex-1 overflow-y-auto overscroll-contain px-4 py-3"
+        >
           {loading ? (
             <div className="space-y-3 py-2">
               {Array.from({ length: 4 }).map((_, i) => (
@@ -421,15 +476,19 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
               ))}
             </div>
           ) : comments.length === 0 ? (
-            <div className="text-center py-6">
-              <p className="text-[var(--text-muted)]">No comments yet</p>
-              <p className="text-sm text-[var(--text-muted)] mt-1">Be the first to comment</p>
+            <div className="flex flex-col items-center justify-center py-12">
+              <div className="w-12 h-12 rounded-full bg-[var(--bg-secondary)] flex items-center justify-center mb-3">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[var(--text-muted)]">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+              </div>
+              <p className="text-sm text-[var(--text-muted)]">No comments yet</p>
+              <p className="text-xs text-[var(--text-muted)] mt-0.5">Be the first to comment</p>
             </div>
           ) : (
             <div className="space-y-3">
               {comments.map((comment) => (
                 <div key={comment.id}>
-                  {/* Parent Comment */}
                   <CommentItem
                     comment={comment}
                     currentUserId={currentUser?.id}
@@ -438,7 +497,6 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
                     onLike={handleLike}
                   />
 
-                  {/* View Replies Toggle */}
                   {(comment.reply_count ?? 0) > 0 && (
                     <button
                       onClick={() => toggleThread(comment.id)}
@@ -449,7 +507,6 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
                     </button>
                   )}
 
-                  {/* Replies */}
                   {expandedThreads.has(comment.id) && repliesMap.has(comment.id) && (
                     <div className="mt-2 space-y-3">
                       {repliesMap.get(comment.id)!.map((reply) => (
@@ -471,37 +528,35 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
           )}
         </div>
 
-        {/* Error message */}
+        {/* Error */}
         {error && (
-          <div className="px-4 py-2 bg-[var(--destructive)]/10 border-t border-[var(--destructive)]/20">
+          <div className="px-4 py-1.5 bg-[var(--destructive)]/10 flex-shrink-0">
             <p className="text-xs text-[var(--destructive)] text-center">{error}</p>
           </div>
         )}
 
         {/* Reply indicator */}
         {replyingTo && (
-          <div className="px-4 py-2 bg-[var(--bg-secondary)] border-t border-[var(--border-subtle)] flex items-center justify-between">
-            <p className="text-xs text-[var(--text-muted)]">
+          <div className="px-4 py-1.5 bg-[var(--bg-secondary)] border-t border-[var(--border-subtle)] flex items-center justify-between flex-shrink-0">
+            <p className="text-xs text-[var(--text-muted)] truncate">
               Replying to <span className="font-medium text-[var(--text-secondary)]">@{replyingTo.user.username}</span>
             </p>
-            <button onClick={cancelReply} className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)]">
-              Cancel
-            </button>
+            <button onClick={cancelReply} className="text-xs text-[var(--text-muted)] flex-shrink-0 ml-2">Cancel</button>
           </div>
         )}
 
         {/* Emoji Picker */}
         {showEmojiPicker && (
-          <div className="border-t border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-3 max-h-48 overflow-y-auto">
+          <div className="border-t border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-2 max-h-40 overflow-y-auto overscroll-contain flex-shrink-0">
             {Object.entries(EMOJI_CATEGORIES).map(([category, emojis]) => (
-              <div key={category} className="mb-2">
-                <p className="text-xs text-[var(--text-muted)] capitalize mb-1">{category}</p>
-                <div className="flex flex-wrap gap-1">
+              <div key={category} className="mb-1.5">
+                <p className="text-[10px] text-[var(--text-muted)] capitalize mb-0.5 px-1">{category}</p>
+                <div className="flex flex-wrap gap-0.5">
                   {emojis.map((emoji) => (
                     <button
                       key={emoji}
                       onClick={() => insertEmoji(emoji)}
-                      className="p-1.5 hover:bg-[var(--bg-tertiary)] rounded text-lg transition-colors-fast active:scale-95"
+                      className="p-1.5 active:bg-[var(--bg-tertiary)] rounded text-base transition-colors-fast"
                     >
                       {emoji}
                     </button>
@@ -512,10 +567,13 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
           </div>
         )}
 
-        {/* Input Area */}
-        <div className="border-t border-[var(--border-subtle)] p-3">
+        {/* Input — sticky at bottom */}
+        <div className="border-t border-[var(--border-subtle)] p-2.5 flex-shrink-0 bg-[var(--bg-primary)]" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0px)' }}>
           <div className="flex items-end gap-2">
-            <div className="flex-1">
+            {currentUser && (
+              <Avatar src={currentUser.avatar_url} name={currentUser.username} size="sm" className="flex-shrink-0 mb-0.5" />
+            )}
+            <div className="flex-1 relative">
               <label htmlFor="comment-input" className="sr-only">{replyingTo ? `Reply to @${replyingTo.user.username}` : 'Add a comment'}</label>
               <textarea
                 ref={inputRef}
@@ -525,39 +583,41 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
                 onKeyDown={handleKeyDown}
                 placeholder={replyingTo ? `Reply to @${replyingTo.user.username}...` : 'Add a comment...'}
                 aria-label={replyingTo ? `Reply to @${replyingTo.user.username}` : 'Add a comment'}
-                className="w-full min-h-[44px] max-h-32 px-4 py-2.5 rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] resize-none focus:outline-none focus:border-[var(--border-strong)]"
+                className="w-full min-h-[38px] max-h-24 px-3.5 py-2 rounded-full bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] resize-none focus:outline-none focus:border-[var(--border-strong)]"
                 rows={1}
               />
             </div>
 
-            <button
-              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-              aria-label="Toggle emoji picker"
-              className={cn(
-                'p-2.5 rounded-full transition-all duration-200 active:scale-95',
-                showEmojiPicker ? 'bg-[var(--accent-primary)] text-[var(--text-inverse)]' : 'text-[var(--text-muted)] hover:bg-[var(--bg-secondary)]'
-              )}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M8 14s1.5 2 4 2 4-2 4-2" /><line x1="9" x2="9.01" y1="9" y2="9" /><line x1="15" x2="15.01" y1="9" y2="9" /></svg>
-            </button>
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <button
+                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                aria-label="Toggle emoji picker"
+                className={cn(
+                  'p-2 rounded-full transition-colors active:scale-95',
+                  showEmojiPicker ? 'text-[var(--accent-primary)]' : 'text-[var(--text-muted)]'
+                )}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M8 14s1.5 2 4 2 4-2 4-2" /><line x1="9" x2="9.01" y1="9" y2="9" /><line x1="15" x2="15.01" y1="9" y2="9" /></svg>
+              </button>
 
-            <button
-              onClick={handleSubmit}
-              disabled={!newComment.trim() || submitting}
-              aria-label={replyingTo ? 'Post reply' : 'Post comment'}
-              className={cn(
-                'p-2.5 rounded-full transition-all duration-200 active:scale-95',
-                newComment.trim() && !submitting
-                  ? 'bg-[var(--accent-primary)] text-[var(--text-inverse)] hover:bg-[var(--accent-hover)]'
-                  : 'bg-[var(--bg-tertiary)] text-[var(--text-muted)] cursor-not-allowed'
-              )}
-            >
-              {submitting ? (
-                <div className="w-5 h-5 border-2 border-[var(--text-inverse)] border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></svg>
-              )}
-            </button>
+              <button
+                onClick={handleSubmit}
+                disabled={!newComment.trim() || submitting}
+                aria-label={replyingTo ? 'Post reply' : 'Post comment'}
+                className={cn(
+                  'p-2 rounded-full transition-all active:scale-95',
+                  newComment.trim() && !submitting
+                    ? 'text-[var(--accent-primary)]'
+                    : 'text-[var(--text-muted)]/40 cursor-not-allowed'
+                )}
+              >
+                {submitting ? (
+                  <div className="w-[18px] h-[18px] border-2 border-[var(--accent-primary)] border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></svg>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>

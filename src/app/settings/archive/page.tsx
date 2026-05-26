@@ -20,7 +20,7 @@ export default function ArchivePage() {
   const supabase = createClient()
 
   return (
-    <MainLayout>
+    <MainLayout showSidebar={false} showMobileNav={false}>
       {/* Header */}
       <div className="sticky top-0 z-40 bg-[var(--bg-primary)] border-b border-[var(--border-subtle)]">
         <div className="flex items-center gap-3 px-4 py-3">

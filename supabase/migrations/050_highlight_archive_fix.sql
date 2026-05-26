@@ -97,6 +97,64 @@ DO $$ BEGIN
 END $$;
 
 -- =============================================
+-- 0b2. Ensure post archive columns and RPCs exist (migration 049 dependency)
+-- =============================================
+ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS archived_at timestamptz;
+ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS hide_likes boolean DEFAULT false;
+ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS disable_comments boolean DEFAULT false;
+
+CREATE INDEX IF NOT EXISTS idx_posts_archived_at ON public.posts(user_id, archived_at DESC) WHERE archived_at IS NOT NULL;
+
+CREATE OR REPLACE FUNCTION public.archive_post(p_post_id uuid)
+RETURNS void AS $$
+BEGIN
+  UPDATE posts
+  SET archived_at = now()
+  WHERE id = p_post_id
+    AND user_id = auth.uid()
+    AND archived_at IS NULL
+    AND deleted_at IS NULL;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.unarchive_post(p_post_id uuid)
+RETURNS void AS $$
+BEGIN
+  UPDATE posts
+  SET archived_at = NULL
+  WHERE id = p_post_id
+    AND user_id = auth.uid()
+    AND archived_at IS NOT NULL;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.toggle_hide_likes(p_post_id uuid)
+RETURNS boolean AS $$
+DECLARE
+  new_val boolean;
+BEGIN
+  UPDATE posts
+  SET hide_likes = NOT hide_likes
+  WHERE id = p_post_id AND user_id = auth.uid()
+  RETURNING hide_likes INTO new_val;
+  RETURN COALESCE(new_val, false);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.toggle_disable_comments(p_post_id uuid)
+RETURNS boolean AS $$
+DECLARE
+  new_val boolean;
+BEGIN
+  UPDATE posts
+  SET disable_comments = NOT disable_comments
+  WHERE id = p_post_id AND user_id = auth.uid()
+  RETURNING disable_comments INTO new_val;
+  RETURN COALESCE(new_val, false);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- =============================================
 -- 0c. Ensure cleanup function exists
 -- =============================================
 CREATE OR REPLACE FUNCTION public.cleanup_expired_stories()
@@ -111,7 +169,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- =============================================
 DROP POLICY IF EXISTS "posts_select_own_archived" ON public.posts;
 CREATE POLICY "posts_select_own_archived" ON public.posts FOR SELECT USING (
-  user_id = auth.uid()
+  user_id = auth.uid() AND deleted_at IS NULL AND archived_at IS NOT NULL
 );
 
 -- =============================================

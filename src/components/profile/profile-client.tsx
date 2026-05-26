@@ -180,7 +180,7 @@ export function ProfileClient({ username }: { username: string }) {
         }
 
         const [{ count: postsCount }, { count: followersCount }, { count: followingCount }] = await Promise.all([
-          supabase.from('posts').select('id', { count: 'exact', head: true }).eq('user_id', targetProfile.id).is('deleted_at', null),
+          supabase.from('posts').select('id', { count: 'exact', head: true }).eq('user_id', targetProfile.id).is('deleted_at', null).is('archived_at', null),
           supabase.from('follows').select('id', { count: 'exact', head: true }).eq('following_id', targetProfile.id),
           supabase.from('follows').select('id', { count: 'exact', head: true }).eq('follower_id', targetProfile.id),
         ]);
@@ -201,6 +201,7 @@ export function ProfileClient({ username }: { username: string }) {
           .select('id, user_id, content, location, created_at, hide_likes, disable_comments')
           .eq('user_id', targetProfile.id)
           .is('deleted_at', null)
+          .is('archived_at', null)
           .order('created_at', { ascending: false })
           .limit(9);
 
@@ -573,6 +574,12 @@ export function ProfileClient({ username }: { username: string }) {
           }}
           isOwner={isOwnProfile}
           onStoriesChanged={(updated) => setHighlightStories(updated)}
+          onDeleted={() => {
+            setHighlights(prev => prev.filter(h => h.id !== selectedHighlight.id));
+            setShowHighlightViewer(false);
+            setSelectedHighlight(null);
+            setHighlightStories([]);
+          }}
         />
       )}
 

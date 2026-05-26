@@ -129,6 +129,9 @@ export default function SettingsLayout({ children }: SettingsLayoutProps) {
   const [user, setUser] = useState<{ display_name: string; username: string; avatar_url: string | null } | null>(null);
   const [signingOut, setSigningOut] = useState(false);
 
+  // On mobile, hide sidebar when on a sub-page (not /settings root)
+  const isSubPage = pathname !== '/settings';
+
   useEffect(() => {
     async function loadUser() {
       const { data: { user: authUser } } = await supabase.auth.getUser();
@@ -148,28 +151,34 @@ export default function SettingsLayout({ children }: SettingsLayoutProps) {
   return (
     <div className="min-h-screen bg-[var(--bg-primary)]">
       <div className="max-w-6xl mx-auto px-4 py-5">
-        <div className="flex items-center gap-4 mb-5">
+        <div className={`flex items-center gap-4 ${isSubPage ? 'mb-3' : 'mb-5'}`}>
           <button
-            onClick={() => router.push('/feed')}
+            onClick={() => isSubPage ? router.back() : router.push('/feed')}
             className="flex items-center justify-center w-9 h-9 rounded-lg bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)] transition-all"
-            aria-label="Back to Feed"
+            aria-label={isSubPage ? "Back" : "Back to Feed"}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="m15 18-6-6 6-6" />
             </svg>
           </button>
-          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Settings</h1>
-          {user && (
-            <div className="ml-auto flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--bg-secondary)]">
-              <Avatar src={user.avatar_url} name={user.display_name} size="sm" />
-              <span className="text-sm text-[var(--text-secondary)]">@{user.username}</span>
-            </div>
+          {isSubPage ? (
+            <h1 className="text-lg font-semibold text-[var(--text-primary)]">Settings</h1>
+          ) : (
+            <>
+              <h1 className="text-2xl font-bold text-[var(--text-primary)]">Settings</h1>
+              {user && (
+                <div className="ml-auto flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--bg-secondary)]">
+                  <Avatar src={user.avatar_url} name={user.display_name} size="sm" />
+                  <span className="text-sm text-[var(--text-secondary)]">@{user.username}</span>
+                </div>
+              )}
+            </>
           )}
         </div>
 
         <div className="flex flex-col lg:flex-row gap-5">
-          {/* Sidebar */}
-          <nav aria-label="Settings navigation" className="lg:w-64 flex-shrink-0">
+          {/* Sidebar - hidden on mobile sub-pages */}
+          <nav aria-label="Settings navigation" className={`lg:w-64 flex-shrink-0 ${isSubPage ? 'hidden lg:block' : ''}`}>
             <div className="space-y-1">
               {categories.map((cat) => {
                 const isActive = pathname === cat.href || pathname.startsWith(cat.href + '/');

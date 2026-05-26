@@ -278,7 +278,17 @@ export async function archivePost(postId: string) {
     if (!user) return { error: 'Not authenticated' };
 
     const { error } = await supabase.rpc('archive_post', { p_post_id: postId });
-    if (error) return { error: 'Failed to archive post' };
+    if (error) {
+      // Fallback: direct update if RPC doesn't exist
+      const { error: fallbackError } = await supabase
+        .from('posts')
+        .update({ archived_at: new Date().toISOString() })
+        .eq('id', postId)
+        .eq('user_id', user.id)
+        .is('archived_at', null)
+        .is('deleted_at', null);
+      if (fallbackError) return { error: 'Failed to archive post' };
+    }
     return { success: true };
   } catch {
     return { error: 'Failed to archive post' };
@@ -292,7 +302,16 @@ export async function unarchivePost(postId: string) {
     if (!user) return { error: 'Not authenticated' };
 
     const { error } = await supabase.rpc('unarchive_post', { p_post_id: postId });
-    if (error) return { error: 'Failed to unarchive post' };
+    if (error) {
+      // Fallback: direct update if RPC doesn't exist
+      const { error: fallbackError } = await supabase
+        .from('posts')
+        .update({ archived_at: null })
+        .eq('id', postId)
+        .eq('user_id', user.id)
+        .not('archived_at', 'is', null);
+      if (fallbackError) return { error: 'Failed to unarchive post' };
+    }
     return { success: true };
   } catch {
     return { error: 'Failed to unarchive post' };

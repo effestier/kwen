@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/design-system/skeleton'
 import { pushOverlay, popOverlay } from '@/lib/overlay-stack'
-import { updateHighlightTitle, removeStoryFromHighlight, updateHighlightCover, getHighlightStories } from '@/services/highlights'
+import { updateHighlightTitle, removeStoryFromHighlight, updateHighlightCover, getHighlightStories, deleteHighlight } from '@/services/highlights'
 import type { HighlightStory } from '@/services/highlights'
 import { ArchivePickerModal } from './archive-picker-modal'
 
@@ -17,6 +17,7 @@ interface HighlightViewerProps {
   onClose: () => void
   isOwner?: boolean
   onStoriesChanged?: (stories: HighlightStory[]) => void
+  onDeleted?: () => void
 }
 
 export function HighlightViewer({
@@ -27,6 +28,7 @@ export function HighlightViewer({
   onClose,
   isOwner = false,
   onStoriesChanged,
+  onDeleted,
 }: HighlightViewerProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex)
   const [progress, setProgress] = useState(0)
@@ -49,6 +51,7 @@ export function HighlightViewer({
   const [titleValue, setTitleValue] = useState(highlightTitle)
   const [showCoverPicker, setShowCoverPicker] = useState(false)
   const [showArchivePicker, setShowArchivePicker] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   const supabase = createClient()
   const currentStory = stories[currentIndex]
@@ -304,6 +307,21 @@ export function HighlightViewer({
             </svg>
             Remove from highlight
           </button>
+          <div className="h-px bg-[var(--border-subtle)] mx-2" />
+          <button
+            onClick={() => {
+              setShowEditMenu(false)
+              setShowDeleteConfirm(true)
+            }}
+            className="w-full px-4 py-3 text-left text-[var(--destructive)] hover:bg-[var(--bg-tertiary)] flex items-center gap-3"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 6h18" />
+              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+            </svg>
+            Delete highlight
+          </button>
         </div>
       )}
 
@@ -490,6 +508,39 @@ export function HighlightViewer({
             onStoriesChanged?.(updated)
           }}
         />
+      )}
+
+      {/* Delete highlight confirmation */}
+      {showDeleteConfirm && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-xs bg-[var(--bg-primary)] rounded-2xl overflow-hidden">
+            <div className="p-4 text-center">
+              <h3 className="text-base font-semibold text-[var(--text-primary)]">Delete highlight?</h3>
+              <p className="text-sm text-[var(--text-muted)] mt-1">This will permanently delete &quot;{highlightTitle}&quot; and remove all stories from it.</p>
+            </div>
+            <div className="flex border-t border-[var(--border-subtle)]">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 py-3 text-sm text-[var(--text-muted)] hover:bg-[var(--bg-secondary)]"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const result = await deleteHighlight(highlightId)
+                  if (result.success !== false) {
+                    setShowDeleteConfirm(false)
+                    onDeleted?.()
+                    onClose()
+                  }
+                }}
+                className="flex-1 py-3 text-sm font-semibold text-[var(--destructive)] hover:bg-[var(--bg-secondary)]"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

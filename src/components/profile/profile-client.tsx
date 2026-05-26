@@ -7,7 +7,8 @@ import { Avatar } from '@/components/ui/avatar';
 import { createClient } from '@/lib/supabase/client';
 import { formatNumber } from '@/lib/utils';
 import { cn } from '@/lib/utils';
-import { Skeleton } from '@/components/design-system/skeleton';
+import { PageLoader } from '@/components/ui/loader';
+import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import Link from 'next/link';
 import { toggleFollow } from '@/services/follows';
 import { getOrCreateConversation } from '@/services/messages';
@@ -375,21 +376,7 @@ export function ProfileClient({ username }: { username: string }) {
   if (loading) {
     return (
       <MainLayout>
-        <div className="max-w-2xl mx-auto px-4 py-3 space-y-3">
-          <div className="flex items-center gap-4">
-            <Skeleton variant="circular" width={80} height={80} />
-            <div className="flex-1 space-y-2">
-              <Skeleton variant="text" width="40%" />
-              <Skeleton variant="text" width="25%" />
-            </div>
-          </div>
-          <Skeleton variant="text" width="60%" />
-          <div className="grid grid-cols-3 gap-1">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} className="aspect-square" />
-            ))}
-          </div>
-        </div>
+        <PageLoader />
       </MainLayout>
     );
   }
@@ -425,8 +412,40 @@ export function ProfileClient({ username }: { username: string }) {
   const isOwnProfile = currentUser?.id === profile.id;
   const isLoggedIn = !!currentUser;
 
+  const handleRefresh = async () => {
+    // Reload counts and posts
+    if (!profile) return;
+    const supabase2 = createClient();
+    const [{ count: postsCount }, { count: followersCount }, { count: followingCount }, postsData] = await Promise.all([
+      supabase2.from('posts').select('id', { count: 'exact', head: true }).eq('user_id', profile.id).is('deleted_at', null).is('archived_at', null),
+      supabase2.from('follows').select('id', { count: 'exact', head: true }).eq('following_id', profile.id),
+      supabase2.from('follows').select('id', { count: 'exact', head: true }).eq('follower_id', profile.id),
+      supabase2.from('posts').select('id, user_id, content, location, created_at, hide_likes, disable_comments').eq('user_id', profile.id).is('deleted_at', null).is('archived_at', null).order('created_at', { ascending: false }).limit(18),
+    ]);
+    setStats({ posts: postsCount || 0, followers: followersCount || 0, following: followingCount || 0 });
+    if (postsData.data) {
+      const postIds = postsData.data.map((p: any) => p.id);
+      const [mediaRes, likesRes, commentsRes] = await Promise.all([
+        supabase2.from('post_media').select('post_id, storage_path, sort_order').in('post_id', postIds),
+        supabase2.from('post_likes').select('post_id').in('post_id', postIds),
+        supabase2.from('comments').select('post_id').in('post_id', postIds),
+      ]);
+      const likesMap = new Map<string, number>();
+      likesRes.data?.forEach(l => likesMap.set(l.post_id, (likesMap.get(l.post_id) || 0) + 1));
+      const commentsMap = new Map<string, number>();
+      commentsRes.data?.forEach(c => commentsMap.set(c.post_id, (commentsMap.get(c.post_id) || 0) + 1));
+      setPosts(postsData.data.map((p: any) => ({
+        id: p.id, content: p.content, user_id: p.user_id, location: p.location,
+        images: (mediaRes.data || []).filter((m: any) => m.post_id === p.id).sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0)).map((m: any) => m.storage_path),
+        likes: likesMap.get(p.id) || 0, comments: commentsMap.get(p.id) || 0,
+        hideLikes: p.hide_likes ?? false, disableComments: p.disable_comments ?? false,
+      })));
+    }
+  };
+
   return (
     <MainLayout>
+      <PullToRefresh onRefresh={handleRefresh}>
       <div className="min-h-screen">
         {/* Profile header — centered */}
         <div className="px-5 pt-5 pb-2">
@@ -783,6 +802,7 @@ export function ProfileClient({ username }: { username: string }) {
           }}
         />
       )}
+      </PullToRefresh>
     </MainLayout>
   );
 }

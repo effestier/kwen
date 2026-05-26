@@ -5,8 +5,9 @@ import { MainLayout } from '@/components/layout/main-layout';
 import { Avatar } from '@/components/ui/avatar';
 import { createClient } from '@/lib/supabase/client';
 import { formatNumber } from '@/lib/utils';
-import { GridSkeleton } from '@/components/design-system/skeleton';
-import { usePullToRefresh, useScrollPreservation } from '@/lib/hooks/use-pull-to-refresh';
+import { PageLoader, PaginationLoader } from '@/components/ui/loader';
+import { PullToRefresh } from '@/components/ui/pull-to-refresh';
+import { useScrollPreservation } from '@/lib/hooks/use-pull-to-refresh';
 import { TrendingTags } from '@/components/explore/trending-tags';
 import { SuggestedUsers } from '@/components/explore/suggested-users';
 import Link from 'next/link';
@@ -100,9 +101,6 @@ export default function ExplorePage() {
     setHasMore(freshPosts.length >= 30);
   }, [loadPosts]);
 
-  const { pullDistance, isRefreshing, handlers: pullHandlers } = usePullToRefresh({
-    onRefresh: handleRefresh,
-  });
 
   // Initial load
   useEffect(() => {
@@ -234,29 +232,15 @@ export default function ExplorePage() {
   if (loading) {
     return (
       <MainLayout>
-        <div className="max-w-5xl mx-auto px-2 py-2">
-          <GridSkeleton columns={3} rows={4} gap={0.5} />
-        </div>
+        <PageLoader />
       </MainLayout>
     );
   }
 
   return (
     <MainLayout>
-      <div
-        className="min-h-screen"
-        {...pullHandlers}
-        style={{
-          transform: pullDistance > 0 ? `translateY(${pullDistance}px)` : undefined,
-          transition: pullDistance === 0 ? 'transform 0.3s ease' : undefined,
-        }}
-      >
-        {/* Pull-to-refresh indicator */}
-        {pullDistance > 0 && (
-          <div className="flex items-center justify-center py-3 text-sm text-[var(--text-muted)]" style={{ marginTop: -pullDistance }}>
-            {isRefreshing ? 'Refreshing...' : pullDistance > 60 ? 'Release to refresh' : 'Pull to refresh'}
-          </div>
-        )}
+      <PullToRefresh onRefresh={handleRefresh}>
+      <div className="min-h-screen">
 
         {/* Mobile Header */}
         <div className="lg:hidden sticky top-0 z-20 bg-[var(--bg-primary)]/90 backdrop-blur-xl border-b border-[var(--border-subtle)] px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
@@ -542,13 +526,10 @@ export default function ExplorePage() {
 
           {/* Infinite scroll sentinel */}
           <div ref={sentinelRef} className="h-1" />
-          {loadingMore && (
-            <div className="py-4 flex justify-center">
-              <div className="animate-spin h-5 w-5 border-2 border-[var(--text-muted)] border-t-transparent rounded-full" />
-            </div>
-          )}
+          {loadingMore && <PaginationLoader />}
         </div>
       </div>
+      </PullToRefresh>
     </MainLayout>
   );
 }

@@ -6,10 +6,10 @@ import { Stories } from '@/components/story/stories';
 import { PostCard } from '@/components/post/post-card';
 import { Avatar } from '@/components/ui/avatar';
 import { createClient } from '@/lib/supabase/client';
-import { CardSkeleton } from '@/components/design-system/skeleton';
+import { PageLoader, PaginationLoader } from '@/components/ui/loader';
+import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { SuggestedUsers } from '@/components/explore/suggested-users';
-import { usePullToRefresh, useScrollPreservation } from '@/lib/hooks/use-pull-to-refresh';
-import { PullIndicator } from '@/components/feed/pull-indicator';
+import { useScrollPreservation } from '@/lib/hooks/use-pull-to-refresh';
 import Link from 'next/link';
 
 interface FeedPost {
@@ -86,10 +86,6 @@ export default function FeedPage() {
     postsRef.current = freshPosts;
     setHasMore(freshPosts.length >= 20);
   }, [loadPosts, supabase]);
-
-  const { pullDistance, isRefreshing, phase, progress, handlers: pullHandlers } = usePullToRefresh({
-    onRefresh: handleRefresh,
-  });
 
   // Initial load — parallelized for speed
   useEffect(() => {
@@ -244,11 +240,7 @@ export default function FeedPage() {
   if (loading) {
     return (
       <MainLayout>
-        <div className="feed-container py-2 space-y-0">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <CardSkeleton key={i} />
-          ))}
-        </div>
+        <PageLoader />
       </MainLayout>
     );
   }
@@ -256,11 +248,11 @@ export default function FeedPage() {
   if (error) {
     return (
       <MainLayout>
-        <div className="feed-container py-8 text-center">
-          <p className="text-[var(--text-muted)] mb-4">{error}</p>
+        <div className="feed-container py-12 text-center">
+          <p className="text-sm text-[var(--text-muted)] mb-4">{error}</p>
           <button
             onClick={() => { setError(null); setLoading(true); window.location.reload(); }}
-            className="px-4 py-2 bg-[var(--accent-primary)] text-[var(--text-inverse)] rounded-lg text-sm font-medium"
+            className="px-5 py-2 bg-[var(--accent-primary)] text-[var(--text-inverse)] rounded-full text-sm font-medium active:opacity-80 transition-opacity"
           >
             Try Again
           </button>
@@ -271,15 +263,8 @@ export default function FeedPage() {
 
   return (
     <MainLayout>
-      <div className="min-h-screen" {...pullHandlers}>
-        {/* Pull indicator — sits above feed, height creates the gap */}
-        <div style={{
-          height: pullDistance > 0 || isRefreshing ? Math.max(pullDistance, isRefreshing ? 48 : 0) : 0,
-          transition: pullDistance === 0 ? 'height 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'none',
-          overflow: 'hidden',
-        }}>
-          <PullIndicator pullDistance={Math.max(pullDistance, isRefreshing ? 48 : 0)} progress={progress} phase={phase} isRefreshing={isRefreshing} />
-        </div>
+      <PullToRefresh onRefresh={handleRefresh}>
+      <div className="min-h-screen">
 
         {/* Mobile Header */}
         <div className="lg:hidden sticky top-0 z-20 bg-[var(--bg-primary)]/90 backdrop-blur-xl border-b border-[var(--border-subtle)] px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2.5">
@@ -350,11 +335,7 @@ export default function FeedPage() {
                 }} />
               ))}
               <div ref={sentinelRef} className="h-1" />
-              {loadingMore && (
-                <div className="py-4 flex justify-center">
-                  <div className="animate-spin h-5 w-5 border-2 border-[var(--text-muted)] border-t-transparent rounded-full" />
-                </div>
-              )}
+              {loadingMore && <PaginationLoader />}
             </div>
           ) : (
             <div className="py-10 text-center text-[var(--text-muted)]">
@@ -363,6 +344,7 @@ export default function FeedPage() {
           )}
         </div>
       </div>
+      </PullToRefresh>
     </MainLayout>
   );
 }

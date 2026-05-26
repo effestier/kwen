@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { Spinner } from '@/components/ui/loader';
 
 export default function LandingPage() {
   const router = useRouter();
@@ -18,5 +19,9 @@ export default function LandingPage() {
     });
   }, [router]);
 
-  return null;
+  return (
+    <div className="fixed inset-0 flex items-center justify-center bg-[var(--bg-primary)]">
+      <Spinner size="lg" />
+    </div>
+  );
 }

@@ -7,7 +7,8 @@ import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import { formatTimeAgo } from '@/lib/utils';
 import { markAllNotificationsAsRead } from '@/services/notifications';
-import { Skeleton } from '@/components/design-system/skeleton';
+import { PageLoader, PaginationLoader } from '@/components/ui/loader';
+import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import Link from 'next/link';
 
 interface Notification {
@@ -50,18 +51,6 @@ function getNotificationLink(notif: Notification): string {
   return `/profile/${notif.actor_username}`;
 }
 
-function NotificationSkeleton() {
-  return (
-    <div className="p-3 flex items-start gap-3">
-      <Skeleton variant="circular" width={28} height={28} />
-      <Skeleton variant="circular" width={40} height={40} />
-      <div className="flex-1 space-y-2">
-        <Skeleton variant="text" width="70%" />
-        <Skeleton variant="text" width="30%" />
-      </div>
-    </div>
-  );
-}
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -202,11 +191,7 @@ export default function NotificationsPage() {
         </div>
 
         {loading ? (
-          <div>
-            {Array.from({ length: 8 }).map((_, i) => (
-              <NotificationSkeleton key={i} />
-            ))}
-          </div>
+          <PageLoader />
         ) : notifications.length > 0 ? (
           <div role="feed" aria-label="Notifications" className="divide-y divide-[var(--border-subtle)]">
             {notifications.map((notif) => (
@@ -242,11 +227,7 @@ export default function NotificationsPage() {
             ))}
             <div ref={sentinelRef} className="h-1" />
             {loadingMore && (
-              <div className="p-3 space-y-3">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <NotificationSkeleton key={i} />
-                ))}
-              </div>
+              <PaginationLoader />
             )}
           </div>
         ) : (

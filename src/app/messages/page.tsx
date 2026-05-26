@@ -127,6 +127,7 @@ export default function MessagesPage() {
   const [enlargedImage, setEnlargedImage] = useState<{ url: string; mediaPath?: string } | null>(null);
   const [failedMessages, setFailedMessages] = useState<Map<string, FailedMessageData>>(new Map());
   const [replyTo, setReplyTo] = useState<MessageBubbleData | null>(null);
+  const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' } | null>(null);
   const [isRecordingVoice, setIsRecordingVoice] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1506,6 +1507,8 @@ export default function MessagesPage() {
                                 setEnlargedImage({ url, mediaPath: imgMsg?.media_path || undefined });
                               }}
                               onRefreshUrl={getOrRefreshSignedUrl}
+                              selectedMessageId={selectedMessageId}
+                              onSelectMessage={setSelectedMessageId}
                             />
                           </div>
                         </div>

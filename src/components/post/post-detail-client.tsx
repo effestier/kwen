@@ -10,7 +10,6 @@ import { getComments, getReplies, addComment, toggleCommentLike, deleteComment, 
 import { createClient } from '@/lib/supabase/client';
 import { Spinner } from '@/components/ui/loader';
 import { hapticLight } from '@/lib/haptics';
-import { HeartAnimation } from '@/components/post/heart-animation';
 
 interface PostDetail {
   id: string;
@@ -47,7 +46,6 @@ export function PostDetailClient({ postId }: { postId: string }) {
   const [commentCount, setCommentCount] = useState(0);
   const [actionLoading, setActionLoading] = useState(false);
   const [likeBounce, setLikeBounce] = useState(false);
-  const [heartTrigger, setHeartTrigger] = useState(0);
 
   const [comments, setComments] = useState<Comment[]>([]);
   const [repliesMap, setRepliesMap] = useState<Map<string, Comment[]>>(new Map());
@@ -208,7 +206,7 @@ export function PostDetailClient({ postId }: { postId: string }) {
       await deleteComment(commentId);
     } catch {
       // Revert on error
-      if (deleted) setComments(prev => [...prev, deleted].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()));
+      if (deleted) setComments(prev => [...prev, deleted].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()));
       setRepliesMap(prev => {
         const next = new Map(prev);
         for (const [pid, items] of deletedFromReplies) {

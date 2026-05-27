@@ -72,13 +72,11 @@ export function validateFile(file: File, type: UploadType): string | null {
     return `Invalid file extension. Allowed: ${config.allowedExtensions.join(', ')}`
   }
 
-  // Reject double extensions and executable patterns
-  const nameLower = file.name.toLowerCase()
-  const dangerousPatterns = ['.exe', '.bat', '.cmd', '.sh', '.ps1', '.js', '.mjs', '.html', '.htm', '.svg', '.php', '.py', '.rb']
-  for (const pattern of dangerousPatterns) {
-    if (nameLower.includes(pattern)) {
-      return 'File type not allowed'
-    }
+  // Reject executable extensions (check each extension segment, not substring)
+  const dangerousExts = new Set(['exe', 'bat', 'cmd', 'sh', 'ps1', 'js', 'mjs', 'html', 'htm', 'svg', 'php', 'py', 'rb'])
+  const parts = file.name.toLowerCase().split('.')
+  for (let i = 1; i < parts.length; i++) {
+    if (dangerousExts.has(parts[i])) return 'File type not allowed'
   }
 
   return null

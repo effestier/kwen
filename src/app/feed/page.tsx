@@ -63,7 +63,8 @@ export default function FeedPage() {
   const postsRef = useRef<FeedPost[]>([]);
   const userRef = useRef<Profile | null>(null);
   const seenIdsRef = useRef<Set<string>>(new Set());
-  const supabase = createClient();
+  const supabaseRef = useRef(createClient());
+  const supabase = supabaseRef.current;
 
   useScrollPreservation({ key: 'feed' });
 
@@ -167,7 +168,8 @@ export default function FeedPage() {
         }
 
         const viewedSet = new Set(viewsRes.data?.map(v => v.story_id) || []);
-        const mutedUsers = JSON.parse(localStorage.getItem('kw-muted-users') || '[]') as string[];
+        let mutedUsers: string[] = [];
+        try { const stored = localStorage.getItem('kw-muted-users'); if (stored) mutedUsers = JSON.parse(stored); } catch { /* ignore */ }
         if (mutedUsers.length > 0) {
           const mutedSet = new Set(mutedUsers);
           filteredStories = filteredStories.filter((s: any) => !mutedSet.has(s.user_id));

@@ -69,6 +69,16 @@ export default function CreatePage() {
     loadUser()
   }, [])
 
+  // Skip crop step if no images
+  useEffect(() => {
+    if (step === 'crop') {
+      const imageItems = mediaItems.filter(m => m.type === 'image')
+      if (imageItems.length === 0 || cropIndex >= imageItems.length) {
+        setStep('preview')
+      }
+    }
+  }, [step, cropIndex, mediaItems])
+
   // Auto-save draft every 30s
   useEffect(() => {
     if (step !== 'details' || (!content.trim() && mediaItems.length === 0)) return
@@ -281,8 +291,6 @@ export default function CreatePage() {
             const imageItems = mediaItems.filter(m => m.type === 'image')
             const currentItem = imageItems[cropIndex]
             if (!currentItem) {
-              // No images left, skip to preview
-              setStep('preview')
               return null
             }
             return (
@@ -513,7 +521,7 @@ export default function CreatePage() {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-[var(--text-primary)] truncate">{draft.content || 'No caption'}</p>
                         <p className="text-xs text-[var(--text-muted)]">
-                          {new Date(draft.updated_at).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          {new Date(draft.updated_at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                         </p>
                       </div>
                     </button>

@@ -736,21 +736,31 @@ export async function deleteMessage(messageId: string, deleteForEveryone: boolea
       if (error) return { error: 'Failed to delete message' };
       return { success: true, action: 'deleted_for_everyone' };
     } else {
-      const { data: current } = await supabase
-        .from('messages')
-        .select('deleted_for')
-        .eq('id', messageId)
-        .single();
+      // Use RPC to atomically append to array (avoids race condition)
+      const { error } = await supabase.rpc('add_to_deleted_for', {
+        p_message_id: messageId,
+        p_user_id: user.id,
+      }).single()
 
-      const deletedFor = current?.deleted_for || [];
-      if (!deletedFor.includes(user.id)) {
-        deletedFor.push(user.id);
+      // Fallback: if RPC doesn't exist, use read-then-write
+      if (error) {
+        const { data: current } = await supabase
+          .from('messages')
+          .select('deleted_for')
+          .eq('id', messageId)
+          .single();
+
+        const deletedFor = current?.deleted_for || [];
+        if (!deletedFor.includes(user.id)) {
+          deletedFor.push(user.id);
+        }
+
+        const { error: updateError } = await supabase
+          .from('messages')
+          .update({ deleted_for: deletedFor })
+          .eq('id', messageId);
+        if (updateError) return { error: 'Failed to delete message' };
       }
-
-      const { error } = await supabase
-        .from('messages')
-        .update({ deleted_for: deletedFor })
-        .eq('id', messageId);
 
       if (error) return { error: 'Failed to delete message' };
       return { success: true, action: 'deleted_for_me' };

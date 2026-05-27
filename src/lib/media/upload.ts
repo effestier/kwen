@@ -182,7 +182,7 @@ async function uploadDirect(
     }
   }
 
-  const { data: mediaRow } = await supabase
+  const { data: mediaRow, error: insertError } = await supabase
     .from('media')
     .insert({
       user_id: user.id,
@@ -202,8 +202,10 @@ async function uploadDirect(
     .select()
     .single()
 
+  if (insertError || !mediaRow) throw new Error('Failed to save media metadata')
+
   return {
-    id: mediaRow?.id || '',
+    id: mediaRow.id,
     url: urlData.publicUrl,
     thumbnailUrl,
     width,

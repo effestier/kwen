@@ -17,6 +17,7 @@ export function usePullToRefresh({ onRefresh, threshold = 80, maxPull = 140, ena
   const startY = useRef(0);
   const currentY = useRef(0);
   const isPulling = useRef(false);
+  const pullDistanceRef = useRef(0);
   const hapticTriggered = useRef(false);
   const animFrame = useRef<number | null>(null);
 
@@ -53,6 +54,7 @@ export function usePullToRefresh({ onRefresh, threshold = 80, maxPull = 140, ena
     distance = Math.min(distance, maxPull);
     setPullDistance(distance);
 
+    pullDistanceRef.current = distance;
     if (distance >= threshold * 0.6 && !hapticTriggered.current) {
       hapticTriggered.current = true;
       hapticLight();
@@ -64,7 +66,7 @@ export function usePullToRefresh({ onRefresh, threshold = 80, maxPull = 140, ena
     if (!isPulling.current) return;
     isPulling.current = false;
 
-    if (pullDistance >= threshold * 0.6) {
+    if (pullDistanceRef.current >= threshold * 0.6) {
       setPhase('refreshing');
       setIsRefreshing(true);
       setPullDistance(threshold * 0.45);
@@ -81,7 +83,7 @@ export function usePullToRefresh({ onRefresh, threshold = 80, maxPull = 140, ena
       setPullDistance(0);
       setPhase('idle');
     }
-  }, [pullDistance, threshold, onRefresh]);
+  }, [threshold, onRefresh]);
 
   // Calculate normalized progress (0-1) for the circular indicator
   const progress = Math.min(pullDistance / (threshold * 0.6), 1);

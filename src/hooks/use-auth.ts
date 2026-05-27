@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/client'
 import { User } from '@supabase/supabase-js'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 
 type AuthState = {
   user: User | null
@@ -25,7 +25,8 @@ export function useAuth() {
     loading: true,
     profile: null,
   })
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
 
   useEffect(() => {
     const fetchProfile = async (userId: string): Promise<Profile | null> => {
@@ -52,41 +53,36 @@ export function useAuth() {
       return newProfile as Profile | null
     }
 
+    let initialHandled = false
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
+        initialHandled = true
         if (session?.user) {
           const profile = await fetchProfile(session.user.id)
-          setState({
-            user: session.user,
-            loading: false,
-            profile,
-          })
+          setState({ user: session.user, loading: false, profile })
         } else {
-          setState({
-            user: null,
-            loading: false,
-            profile: null,
-          })
+          setState({ user: null, loading: false, profile: null })
         }
       }
     )
 
-    // Initial check
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    // Fallback: if onAuthStateChange doesn't fire within 3s
+    const fallbackTimer = setTimeout(async () => {
+      if (initialHandled) return
+      const { data: { user } } = await supabase.auth.getUser()
       if (user) {
-        fetchProfile(user.id).then((profile) => {
-          setState({
-            user,
-            loading: false,
-            profile,
-          })
-        })
+        const profile = await fetchProfile(user.id)
+        setState({ user, loading: false, profile })
       } else {
-        setState((prev) => ({ ...prev, loading: false }))
+        setState(prev => ({ ...prev, loading: false }))
       }
-    })
+    }, 3000)
 
-    return () => subscription.unsubscribe()
+    return () => {
+      clearTimeout(fallbackTimer)
+      subscription.unsubscribe()
+    }
   }, [])
 
   return state

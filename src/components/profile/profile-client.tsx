@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { MainLayout } from '@/components/layout/main-layout';
 import { Avatar } from '@/components/ui/avatar';
@@ -84,7 +84,8 @@ export function ProfileClient({ username }: { username: string }) {
   // Owner actions sheet state
   const [selectedOwnerPost, setSelectedOwnerPost] = useState<Post | null>(null);
 
-  const supabase = createClient();
+  const supabaseRef = useRef(createClient());
+  const supabase = supabaseRef.current;
   const router = useRouter();
 
   useEffect(() => {

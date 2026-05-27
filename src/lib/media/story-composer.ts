@@ -508,7 +508,7 @@ export async function compositeVideoStory(options: CompositeOptions): Promise<Fi
   if (hasCrop) {
     const cropW = Math.round(STORY_WIDTH / crop.scale)
     const cropH = Math.round(STORY_HEIGHT / crop.scale)
-    const cropX = Math.round((videoData.length > 0 ? STORY_WIDTH : STORY_WIDTH) / 2 - cropW / 2 - (crop.offsetX / 100) * STORY_WIDTH)
+    const cropX = Math.round(STORY_WIDTH / 2 - cropW / 2 - (crop.offsetX / 100) * STORY_WIDTH)
     const cropY = Math.round(STORY_HEIGHT / 2 - cropH / 2 - (crop.offsetY / 100) * STORY_HEIGHT)
     filterParts.push(`crop=${cropW}:${cropH}:${Math.max(0, cropX)}:${Math.max(0, cropY)}`)
   }

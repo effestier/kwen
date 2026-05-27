@@ -97,7 +97,7 @@ export const getInitialTheme = async (
   if (supabase) {
     const dbTheme = await loadThemeFromDatabase(supabase);
     if (dbTheme) {
-      localStorage.setItem(THEME_SOURCE_KEY, 'database');
+      if (typeof window !== 'undefined') localStorage.setItem(THEME_SOURCE_KEY, 'database');
       return dbTheme;
     }
   }

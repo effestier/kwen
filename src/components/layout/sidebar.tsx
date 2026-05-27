@@ -70,7 +70,9 @@ export function Sidebar() {
   const [messageCount, setMessageCount] = useState(0);
   const searchRef = useRef<HTMLDivElement>(null);
   const accountMenuRef = useRef<HTMLDivElement>(null);
-  const supabase = createClient();
+  const userIdRef = useRef<string | null>(null);
+  const supabaseRef = useRef(createClient());
+  const supabase = supabaseRef.current;
 
   useEffect(() => {
     async function loadUser() {
@@ -99,6 +101,7 @@ export function Sidebar() {
       }
 
       setUser(profile);
+      userIdRef.current = profile.id;
     }
 
     loadUser();
@@ -139,7 +142,7 @@ export function Sidebar() {
     const channel = supabase
       .channel('notifications')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload) => {
-        if (payload.new && (payload.new as any).user_id === user?.id) {
+        if (payload.new && (payload.new as any).user_id === userIdRef.current) {
           setNotificationCount(prev => prev + 1);
         }
       })
@@ -150,7 +153,7 @@ export function Sidebar() {
       .channel('sidebar-messages')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversation_participants' }, (payload) => {
         const updated = payload.new as { user_id: string; unread_count: number };
-        if (updated.user_id === user?.id) {
+        if (updated.user_id === userIdRef.current) {
           // Reload message count
           loadMessageCount();
         }

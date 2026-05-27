@@ -58,7 +58,7 @@ export async function sendOTP(email: string): Promise<AuthResult> {
       email: cleanEmail,
       options: {
         shouldCreateUser: true,
-        emailRedirectTo: '',
+        emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}/auth/callback` : 'https://kwen.in/auth/callback',
       },
     });
 

@@ -7,6 +7,7 @@ import { formatTimeAgo } from '@/lib/utils';
 import { getComments, getReplies, addComment, toggleCommentLike, deleteComment, type Comment } from '@/services/comments';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { hapticLight } from '@/lib/haptics';
 import { Skeleton } from '@/components/design-system/skeleton';
 
 interface CommentsModalProps {
@@ -53,12 +54,14 @@ function CommentItem({ comment, currentUserId, onReply, onDelete, onLike, isRepl
           <button
             onClick={() => onLike(comment.id)}
             className={cn(
-              'text-xs font-medium transition-colors-fast',
+              'flex items-center gap-1 text-xs font-medium transition-all active:scale-90',
               comment.is_liked ? 'text-[var(--destructive)]' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
             )}
           >
-            {comment.is_liked ? 'Liked' : 'Like'}
-            {(comment.like_count ?? 0) > 0 && ` · ${comment.like_count}`}
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill={comment.is_liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+            </svg>
+            {(comment.like_count ?? 0) > 0 && <span>{comment.like_count}</span>}
           </button>
           {!isReply && (
             <button
@@ -100,7 +103,8 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
   const commentsListRef = useRef<HTMLDivElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
   const dragStartY = useRef(0);
-  const supabase = createClient();
+  const supabaseRef = useRef(createClient());
+  const supabase = supabaseRef.current;
 
   // Animate in on open
   useEffect(() => {
@@ -224,6 +228,7 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
   };
 
   const handleLike = async (commentId: string) => {
+    hapticLight();
     setComments(prev => prev.map(c => {
       if (c.id === commentId) {
         return { ...c, is_liked: !c.is_liked, like_count: (c.like_count ?? 0) + (c.is_liked ? -1 : 1) };
@@ -289,7 +294,7 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
     if (!newComment.trim() || submitting) return;
 
     const commentText = newComment.trim();
-    const parentId = replyingTo?.id || replyingTo?.parent_id || undefined;
+    const parentId = replyingTo?.parent_id || replyingTo?.id || undefined;
     setSubmitting(true);
     setError(null);
 

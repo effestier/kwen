@@ -101,19 +101,21 @@ export function MediaPicker({ selected, onSelect, maxItems = 10 }: MediaPickerPr
       {selected.length === 0 ? (
         // Empty state - drag/drop zone
         <div
-          className="flex-1 flex flex-col items-center justify-center gap-4 p-8 cursor-pointer"
+          className="flex-1 flex flex-col items-center justify-center gap-5 p-8 cursor-pointer group"
           onClick={() => fileInputRef.current?.click()}
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[var(--text-muted)]" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-            <circle cx="8.5" cy="8.5" r="1.5" />
-            <polyline points="21 15 16 10 5 21" />
-          </svg>
-          <div className="text-center">
-            <p className="text-[var(--text-primary)] font-medium">Drag photos and videos here</p>
-            <p className="text-sm text-[var(--text-muted)] mt-1">or tap to select from your device</p>
+          <div className="w-16 h-16 rounded-2xl bg-[var(--accent-primary)]/10 flex items-center justify-center group-active:scale-95 transition-transform">
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <polyline points="21 15 16 10 5 21" />
+            </svg>
           </div>
-          <button className="px-6 py-2.5 bg-[var(--accent-primary)] text-[var(--text-inverse)] rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity">
+          <div className="text-center">
+            <p className="text-[var(--text-primary)] font-semibold text-base">Add photos & videos</p>
+            <p className="text-sm text-[var(--text-muted)] mt-1">Drag & drop or tap to select</p>
+          </div>
+          <button className="px-6 py-2.5 bg-[var(--accent-primary)] text-[var(--text-inverse)] rounded-full text-sm font-semibold active:scale-95 transition-transform">
             Select from device
           </button>
         </div>

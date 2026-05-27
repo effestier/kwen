@@ -82,12 +82,19 @@ export async function getVideoDuration(file: File): Promise<number> {
     const video = document.createElement('video')
     video.preload = 'metadata'
 
+    const timeout = setTimeout(() => {
+      URL.revokeObjectURL(video.src)
+      reject(new Error('Video metadata load timeout'))
+    }, 15000)
+
     video.onloadedmetadata = () => {
+      clearTimeout(timeout)
       URL.revokeObjectURL(video.src)
       resolve(video.duration)
     }
 
     video.onerror = () => {
+      clearTimeout(timeout)
       URL.revokeObjectURL(video.src)
       reject(new Error('Failed to load video metadata'))
     }
@@ -212,12 +219,19 @@ function getVideoDimensions(file: File): Promise<{ width: number; height: number
     const video = document.createElement('video')
     video.preload = 'metadata'
 
+    const timeout = setTimeout(() => {
+      URL.revokeObjectURL(video.src)
+      reject(new Error('Video dimensions load timeout'))
+    }, 15000)
+
     video.onloadedmetadata = () => {
+      clearTimeout(timeout)
       URL.revokeObjectURL(video.src)
       resolve({ width: video.videoWidth, height: video.videoHeight })
     }
 
     video.onerror = () => {
+      clearTimeout(timeout)
       URL.revokeObjectURL(video.src)
       reject(new Error('Failed to load video metadata'))
     }

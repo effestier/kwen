@@ -143,7 +143,7 @@ export function PasswordLoginForm() {
     if (newCode.join('').length === 6) {
       setTimeout(() => {
         const form = document.getElementById('otp-form') as HTMLFormElement | null;
-        if (form) form.dispatchEvent(new Event('submit', { bubbles: true }));
+        if (form) form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
       }, 200);
     }
   };

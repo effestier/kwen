@@ -17,6 +17,7 @@ export function formatNumber(num: number): string {
 
 export function formatTimeAgo(dateString: string): string {
   const date = new Date(dateString);
+  if (isNaN(date.getTime())) return '';
   const now = new Date();
   const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 

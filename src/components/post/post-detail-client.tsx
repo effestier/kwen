@@ -9,6 +9,8 @@ import { getPost, toggleLike, toggleSave } from '@/services/posts';
 import { getComments, getReplies, addComment, toggleCommentLike, deleteComment, getCommentCount, type Comment } from '@/services/comments';
 import { createClient } from '@/lib/supabase/client';
 import { Spinner } from '@/components/ui/loader';
+import { hapticLight } from '@/lib/haptics';
+import { HeartAnimation } from '@/components/post/heart-animation';
 
 interface PostDetail {
   id: string;
@@ -32,7 +34,8 @@ interface PostDetail {
 
 export function PostDetailClient({ postId }: { postId: string }) {
   const router = useRouter();
-  const supabase = createClient();
+  const supabaseRef = useRef(createClient());
+  const supabase = supabaseRef.current;
 
   const [post, setPost] = useState<PostDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -43,6 +46,8 @@ export function PostDetailClient({ postId }: { postId: string }) {
   const [saved, setSaved] = useState(false);
   const [commentCount, setCommentCount] = useState(0);
   const [actionLoading, setActionLoading] = useState(false);
+  const [likeBounce, setLikeBounce] = useState(false);
+  const [heartTrigger, setHeartTrigger] = useState(0);
 
   const [comments, setComments] = useState<Comment[]>([]);
   const [repliesMap, setRepliesMap] = useState<Map<string, Comment[]>>(new Map());
@@ -116,17 +121,23 @@ export function PostDetailClient({ postId }: { postId: string }) {
   const handleLike = useCallback(async () => {
     if (actionLoading) return;
     setActionLoading(true);
-    setLiked(prev => !prev);
-    setLikeCount(prev => liked ? prev - 1 : prev + 1);
+    const wasLiked = liked;
+    if (!wasLiked) {
+      hapticLight();
+      setLikeBounce(true);
+      setTimeout(() => setLikeBounce(false), 400);
+    }
+    setLiked(!wasLiked);
+    setLikeCount(prev => wasLiked ? prev - 1 : prev + 1);
     try {
       await toggleLike(postId);
     } catch {
-      setLiked(liked);
-      setLikeCount(likeCount);
+      setLiked(wasLiked);
+      setLikeCount(prev => wasLiked ? prev + 1 : prev - 1);
     } finally {
       setActionLoading(false);
     }
-  }, [liked, likeCount, actionLoading, postId]);
+  }, [liked, actionLoading, postId]);
 
   const handleSave = useCallback(async () => {
     if (actionLoading) return;
@@ -135,11 +146,11 @@ export function PostDetailClient({ postId }: { postId: string }) {
     try {
       await toggleSave(postId);
     } catch {
-      setSaved(saved);
+      setSaved(prev => !prev);
     } finally {
       setActionLoading(false);
     }
-  }, [saved, actionLoading, postId]);
+  }, [actionLoading, postId]);
 
   async function loadReplies(parentId: string) {
     if (repliesMap.has(parentId)) return;
@@ -180,16 +191,33 @@ export function PostDetailClient({ postId }: { postId: string }) {
   };
 
   const handleCommentDelete = async (commentId: string) => {
-    setComments(prev => prev.filter(c => c.id !== commentId));
+    const deleted = comments.find(c => c.id === commentId);
+    const deletedFromReplies = new Map<string, Comment[]>();
     setRepliesMap(prev => {
       const next = new Map(prev);
       for (const [pid, replies] of next) {
+        const found = replies.find(r => r.id === commentId);
+        if (found) deletedFromReplies.set(pid, [found]);
         next.set(pid, replies.filter(r => r.id !== commentId));
       }
       return next;
     });
+    setComments(prev => prev.filter(c => c.id !== commentId));
     setCommentCount(prev => Math.max(0, prev - 1));
-    await deleteComment(commentId);
+    try {
+      await deleteComment(commentId);
+    } catch {
+      // Revert on error
+      if (deleted) setComments(prev => [...prev, deleted].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()));
+      setRepliesMap(prev => {
+        const next = new Map(prev);
+        for (const [pid, items] of deletedFromReplies) {
+          next.set(pid, [...(next.get(pid) || []), ...items]);
+        }
+        return next;
+      });
+      setCommentCount(prev => prev + 1);
+    }
   };
 
   const handleAddComment = async () => {
@@ -469,8 +497,9 @@ export function PostDetailClient({ postId }: { postId: string }) {
                         </div>
                         <p className="text-sm text-[var(--text-secondary)] mt-0.5 whitespace-pre-wrap break-words">{comment.content}</p>
                         <div className="flex items-center gap-3 mt-1">
-                          <button onClick={() => handleCommentLike(comment.id)} className={cn('text-xs font-medium transition-colors-fast', comment.is_liked ? 'text-[var(--destructive)]' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]')}>
-                            {comment.is_liked ? 'Liked' : 'Like'}{(comment.like_count ?? 0) > 0 && ` · ${comment.like_count}`}
+                          <button onClick={() => { hapticLight(); handleCommentLike(comment.id); }} className={cn('flex items-center gap-1 text-xs font-medium transition-all active:scale-90', comment.is_liked ? 'text-[var(--destructive)]' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]')}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill={comment.is_liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" /></svg>
+                            {(comment.like_count ?? 0) > 0 && <span>{comment.like_count}</span>}
                           </button>
                           <button onClick={() => handleReplyClick(comment)} className="text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors-fast">Reply</button>
                           {comment.user_id === currentUser?.id && (
@@ -503,8 +532,9 @@ export function PostDetailClient({ postId }: { postId: string }) {
                               </div>
                               <p className="text-sm text-[var(--text-secondary)] mt-0.5 whitespace-pre-wrap break-words">{reply.content}</p>
                               <div className="flex items-center gap-3 mt-1">
-                                <button onClick={() => handleCommentLike(reply.id)} className={cn('text-xs font-medium transition-colors-fast', reply.is_liked ? 'text-[var(--destructive)]' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]')}>
-                                  {reply.is_liked ? 'Liked' : 'Like'}{(reply.like_count ?? 0) > 0 && ` · ${reply.like_count}`}
+                                <button onClick={() => { hapticLight(); handleCommentLike(reply.id); }} className={cn('flex items-center gap-1 text-xs font-medium transition-all active:scale-90', reply.is_liked ? 'text-[var(--destructive)]' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]')}>
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill={reply.is_liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" /></svg>
+                                  {(reply.like_count ?? 0) > 0 && <span>{reply.like_count}</span>}
                                 </button>
                                 <button onClick={() => handleReplyClick(reply)} className="text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors-fast">Reply</button>
                                 {reply.user_id === currentUser?.id && (
@@ -531,7 +561,8 @@ export function PostDetailClient({ postId }: { postId: string }) {
                     aria-label={liked ? 'Unlike' : 'Like'}
                     className={cn(
                       'flex items-center gap-1.5 transition-all active:scale-95',
-                      liked ? 'text-[var(--destructive)]' : 'text-[var(--text-muted)] hover:text-[var(--destructive)]'
+                      liked ? 'text-[var(--destructive)]' : 'text-[var(--text-muted)] hover:text-[var(--destructive)]',
+                      likeBounce && 'like-bounce'
                     )}
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -613,7 +644,7 @@ export function PostDetailClient({ postId }: { postId: string }) {
                     onKeyDown={handleCommentKeyDown}
                     placeholder={replyingTo ? `Reply to @${replyingTo.user.username}...` : 'Add a comment...'}
                     aria-label={replyingTo ? `Reply to @${replyingTo.user.username}` : 'Add a comment'}
-                    className="w-full min-h-[40px] max-h-24 px-3 py-2 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] resize-none focus:outline-none focus:border-[var(--border-strong)]"
+                    className="w-full min-h-[38px] max-h-24 px-3.5 py-2 rounded-full bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] resize-none focus:outline-none focus:border-[var(--border-strong)]"
                     rows={1}
                   />
                 </div>
@@ -624,8 +655,8 @@ export function PostDetailClient({ postId }: { postId: string }) {
                   className={cn(
                     'p-2 rounded-full transition-all active:scale-90',
                     newComment.trim() && !submitting
-                      ? 'bg-[var(--accent-primary)] text-[var(--text-inverse)]'
-                      : 'bg-[var(--bg-tertiary)] text-[var(--text-muted)] cursor-not-allowed'
+                      ? 'text-[var(--accent-primary)]'
+                      : 'text-[var(--text-muted)]/40 cursor-not-allowed'
                   )}
                 >
                   {submitting ? (

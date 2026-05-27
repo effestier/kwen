@@ -173,8 +173,12 @@ export function useAntiTamper() {
 
     // ─── Prevent iframe embedding (clickjacking) ───
     if (window.self !== window.top) {
-      document.documentElement.innerHTML = '';
-      window.top!.location.href = window.self.location.href;
+      try {
+        document.documentElement.innerHTML = '';
+        window.top!.location.href = window.self.location.href;
+      } catch {
+        document.documentElement.innerHTML = '';
+      }
     }
 
     // ─── Register listeners ───

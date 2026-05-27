@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Avatar } from '@/components/ui/avatar';
 import Link from 'next/link';
@@ -18,7 +18,8 @@ interface SuggestedUser {
 export function SuggestedUsers() {
   const [users, setUsers] = useState<SuggestedUser[]>([]);
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
-  const supabase = createClient();
+  const supabaseRef = useRef(createClient());
+  const supabase = supabaseRef.current;
 
   useEffect(() => {
     async function load() {
@@ -30,7 +31,7 @@ export function SuggestedUsers() {
         p_limit: 10,
       });
       if (error) {
-        console.warn('[SUGGESTED_USERS] RPC error:', error.message);
+        if (process.env.NODE_ENV === 'development') console.warn('[SUGGESTED_USERS] RPC error:', error.message);
         return;
       }
       if (data) setUsers(data);

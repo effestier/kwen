@@ -268,7 +268,7 @@ export function PageSkeleton({ className }: { className?: string }) {
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <div key={i} className="flex items-center gap-3 px-3 py-2">
               <Skeleton variant="rectangular" width={20} height={20} className="rounded" />
-              <Skeleton variant="text" width={80 + Math.random() * 40} />
+              <Skeleton variant="text" width={80 + (i % 3) * 15} />
             </div>
           ))}
         </div>

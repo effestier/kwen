@@ -55,7 +55,8 @@ export function EditPostModal({
   const [error, setError] = useState<string | null>(null)
   const [visible, setVisible] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
 
   const charCount = content.length
   const maxChars = 2200
@@ -97,6 +98,12 @@ export function EditPostModal({
       setSaving(false)
       return
     }
+
+    // Save hideLikes/disableComments (not in edit_post RPC)
+    await supabase.from('posts').update({
+      hide_likes: hideLikes,
+      disable_comments: disableComments,
+    }).eq('id', postId)
 
     onSave({
       content,
@@ -243,7 +250,7 @@ export function EditPostModal({
               {initialMedia.length > 0 && (
                 <div className="border-t border-[var(--border-subtle)] px-4 py-3 flex-shrink-0">
                   <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
-                    {initialMedia.sort((a, b) => a.sort_order - b.sort_order).map((m, i) => (
+                    {[...initialMedia].sort((a, b) => a.sort_order - b.sort_order).map((m, i) => (
                       <div key={m.id} className="flex-shrink-0 w-16 h-16 rounded-xl overflow-hidden bg-[var(--bg-tertiary)] relative">
                         {m.media_type === 'video' ? (
                           <div className="w-full h-full flex items-center justify-center bg-[var(--bg-tertiary)]">

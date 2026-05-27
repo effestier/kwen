@@ -56,7 +56,7 @@ export function VideoPlayer({ src, className, active = true }: VideoPlayerProps)
     overlayTimer.current = setTimeout(() => setShowOverlay(false), 500);
   }, []);
 
-  const handleTogglePlay = useCallback((e: React.MouseEvent) => {
+  const handleTogglePlay = useCallback((_e: React.MouseEvent) => {
     // H1/H6: Don't stopPropagation — let click bubble to carousel for double-tap detection
     const video = videoRef.current;
     if (!video) return;

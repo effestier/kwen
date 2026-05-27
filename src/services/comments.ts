@@ -47,36 +47,23 @@ export async function getComments(postId: string, limit = 50): Promise<Comment[]
 
     const commentIds = comments.map(c => c.id);
 
-    const { data: replyCounts } = await supabase
-      .from('comments')
-      .select('parent_id')
-      .in('parent_id', commentIds)
-      .is('deleted_at', null);
+    const [replyCountsRes, likeCountsRes, userLikesRes] = await Promise.all([
+      supabase.from('comments').select('parent_id').in('parent_id', commentIds).is('deleted_at', null),
+      supabase.from('comment_likes').select('comment_id').in('comment_id', commentIds),
+      user ? supabase.from('comment_likes').select('comment_id').eq('user_id', user.id).in('comment_id', commentIds) : Promise.resolve({ data: [] }),
+    ]);
 
     const replyCountMap = new Map<string, number>();
-    replyCounts?.forEach(r => {
+    replyCountsRes.data?.forEach(r => {
       replyCountMap.set(r.parent_id!, (replyCountMap.get(r.parent_id!) || 0) + 1);
     });
 
-    const { data: likeCounts } = await supabase
-      .from('comment_likes')
-      .select('comment_id')
-      .in('comment_id', commentIds);
-
     const likeCountMap = new Map<string, number>();
-    likeCounts?.forEach(l => {
+    likeCountsRes.data?.forEach(l => {
       likeCountMap.set(l.comment_id, (likeCountMap.get(l.comment_id) || 0) + 1);
     });
 
-    let userLikes = new Set<string>();
-    if (user) {
-      const { data: likes } = await supabase
-        .from('comment_likes')
-        .select('comment_id')
-        .eq('user_id', user.id)
-        .in('comment_id', commentIds);
-      userLikes = new Set(likes?.map(l => l.comment_id) || []);
-    }
+    const userLikes = new Set(userLikesRes.data?.map(l => l.comment_id) || []);
 
     return comments.map(c => ({
       ...c,

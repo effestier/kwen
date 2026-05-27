@@ -100,18 +100,17 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete, feedIndex, isInfinit
     setLikeBounce(true);
     setTimeout(() => setLikeBounce(false), 400);
     const prevLiked = liked;
-    const prevCount = likeCount;
-    setLiked(!liked);
-    setLikeCount(liked ? likeCount - 1 : likeCount + 1);
+    setLiked(!prevLiked);
+    setLikeCount(c => prevLiked ? c - 1 : c + 1);
     try {
       await togglePostLike(post.id);
     } catch {
       setLiked(prevLiked);
-      setLikeCount(prevCount);
+      setLikeCount(c => prevLiked ? c + 1 : c - 1);
     } finally {
       setLikeLoading(false);
     }
-  }, [liked, likeCount, likeLoading, post.id]);
+  }, [liked, likeLoading, post.id]);
 
   // H1/H6: Carousel already detects double-tap — this handler just fires the like + animation
   const handleMediaDoubleTap = useCallback(() => {

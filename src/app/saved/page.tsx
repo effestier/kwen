@@ -63,6 +63,14 @@ export default function SavedPage() {
 
     const orderedPosts = postIds.map(id => dbPosts.find((p: any) => p.id === id)).filter(Boolean) as any[];
 
+    // Fetch user profiles for these posts
+    const userIds = [...new Set(orderedPosts.map(p => p.user_id))];
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, username, display_name, avatar_url, is_verified')
+      .in('id', userIds);
+    const profileMap = new Map(profiles?.map((pr: any) => [pr.id, pr]) || []);
+
     const [likesRes, commentsRes, likedRes] = await Promise.all([
       supabase.from('post_likes').select('post_id').in('post_id', postIds),
       supabase.from('comments').select('post_id').in('post_id', postIds).is('deleted_at', null),
@@ -79,7 +87,7 @@ export default function SavedPage() {
       const media = (p.post_media || []).sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0));
       return {
         id: p.id,
-        user: { id: p.user_id, username: '', displayName: '', avatar: '', isVerified: false, bio: '', followers: 0, following: 0, posts: 0 },
+        user: (() => { const pr = profileMap.get(p.user_id); return { id: p.user_id, username: pr?.username || '', displayName: pr?.display_name || '', avatar: pr?.avatar_url || '', isVerified: pr?.is_verified || false, bio: '', followers: 0, following: 0, posts: 0 }; })(),
         content: p.content || '',
         images: media.map((m: any) => m.storage_path),
         mediaTypes: media.map((m: any) => m.media_type),

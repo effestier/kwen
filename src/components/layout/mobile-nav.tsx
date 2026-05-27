@@ -16,7 +16,8 @@ export function MobileNav() {
   const pathname = usePathname();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [messageCount, setMessageCount] = useState(0);
-  const supabase = createClient();
+  const supabaseRef = useRef(createClient());
+  const supabase = supabaseRef.current;
   const userIdRef = useRef<string | null>(null);
 
   useEffect(() => {

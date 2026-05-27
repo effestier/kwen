@@ -69,8 +69,11 @@ export async function initCapacitor() {
         App.exitApp();
       } else {
         lastBackTime = now;
-        // Show toast via a simple DOM element
+        // Show toast via a simple DOM element (remove previous if still visible)
+        const existing = document.getElementById('exit-toast');
+        if (existing) existing.remove();
         const toast = document.createElement('div');
+        toast.id = 'exit-toast';
         toast.textContent = 'Press back again to exit';
         toast.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.85);color:#fff;padding:10px 20px;border-radius:24px;font-size:14px;z-index:9999;font-family:system-ui;pointer-events:none;';
         document.body.appendChild(toast);

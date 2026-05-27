@@ -100,11 +100,14 @@ export async function updateHighlightTitle(
   title: string
 ): Promise<{ success?: boolean; error?: string }> {
   const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
 
   const { error } = await supabase
     .from('story_highlights')
     .update({ title, updated_at: new Date().toISOString() })
     .eq('id', highlightId)
+    .eq('user_id', user.id)
 
   if (error) {
     return { error: 'Failed to update highlight' }
@@ -116,11 +119,14 @@ export async function updateHighlightTitle(
 // Delete a highlight
 export async function deleteHighlight(highlightId: string): Promise<{ success?: boolean; error?: string }> {
   const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
 
   const { error } = await supabase
     .from('story_highlights')
     .delete()
     .eq('id', highlightId)
+    .eq('user_id', user.id)
 
   if (error) {
     return { error: 'Failed to delete highlight' }

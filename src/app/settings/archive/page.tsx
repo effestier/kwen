@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { MainLayout } from '@/components/layout/main-layout'
-import { createClient } from '@/lib/supabase/client'
 import { ArchiveGrid } from '@/components/archive/archive-grid'
 import { PostsArchiveGrid } from '@/components/archive/posts-archive-grid'
 import type { ArchivedStory } from '@/services/archive'
@@ -19,7 +18,6 @@ export default function ArchivePage() {
   const [viewerStories, setViewerStories] = useState<ArchivedStory[] | null>(null)
   const [viewerIndex, setViewerIndex] = useState(0)
   const router = useRouter()
-  const supabase = createClient()
 
   return (
     <MainLayout showSidebar={false} showMobileNav={false}>

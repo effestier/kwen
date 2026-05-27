@@ -1067,7 +1067,7 @@ export default function MessagesPage() {
       setUploadProgress(-1);
     }
 
-    const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
     tid.add(tempId);
 
     const displayContent = newMessage.trim() || (media ? 'Photo' : '');
@@ -1168,7 +1168,7 @@ export default function MessagesPage() {
       duration,
     };
 
-    const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
     tid.add(tempId);
 
     const tempMessage: Message = {

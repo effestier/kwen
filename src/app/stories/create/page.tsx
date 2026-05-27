@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { createClient } from '@/lib/supabase/client';
+import { ConfirmationDialog } from '@/components/design-system/modal';
 import { MediaPicker } from '@/components/story/creator/media-picker';
 import { CanvasEditor } from '@/components/story/creator/canvas-editor';
 import type { Overlay, FilterSettings } from '@/components/story/creator/canvas-editor';
@@ -68,6 +69,7 @@ export default function CreateStoryPage() {
   // UI state
   const [activeTool, setActiveTool] = useState<'none' | 'text' | 'draw' | 'filters' | 'stickers' | 'music' | 'audience' | 'crop' | 'gif'>('none');
   const [isUploading, setIsUploading] = useState(false);
+  const [showDiscard, setShowDiscard] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [toast, setToast] = useState<{ message: string; countdown: number } | null>(null);
 
@@ -391,14 +393,17 @@ export default function CreateStoryPage() {
 
   const handleCancel = useCallback(() => {
     if (media) {
-      if (confirm('Discard this story?')) {
-        localStorage.removeItem('kw-story-draft');
-        router.push('/feed');
-      }
+      setShowDiscard(true);
     } else {
       router.push('/feed');
     }
   }, [media, router]);
+
+  const confirmDiscard = useCallback(() => {
+    localStorage.removeItem('kw-story-draft');
+    setShowDiscard(false);
+    router.push('/feed');
+  }, [router]);
 
   // ---- No media: show picker ----
 
@@ -553,6 +558,17 @@ export default function CreateStoryPage() {
           <span className="text-sm font-medium">{toast.message} ({toast.countdown}s)</span>
         </div>
       )}
+
+      <ConfirmationDialog
+        isOpen={showDiscard}
+        onClose={() => setShowDiscard(false)}
+        onConfirm={confirmDiscard}
+        title="Discard story?"
+        message="Your story will be lost if you leave."
+        confirmText="Discard"
+        cancelText="Keep editing"
+        variant="destructive"
+      />
     </>
   );
 }

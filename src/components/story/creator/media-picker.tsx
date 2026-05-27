@@ -319,9 +319,13 @@ export function MediaPicker({ onMediaSelected, onCancel }: MediaPickerProps) {
             {/* Gallery */}
             <button
               onClick={() => setMode('gallery')}
-              className="w-10 h-10 rounded-lg border-2 border-white/50 overflow-hidden"
+              className="w-10 h-10 rounded-lg border-2 border-white/50 overflow-hidden flex items-center justify-center bg-white/10"
             >
-              <div className="w-full h-full bg-white/20" />
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+                <circle cx="9" cy="9" r="2" />
+                <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+              </svg>
             </button>
 
             {/* Capture */}
@@ -338,8 +342,8 @@ export function MediaPicker({ onMediaSelected, onCancel }: MediaPickerProps) {
                 isRecording ? 'scale-110' : ''
               )}>
                 <div className={cn(
-                  'rounded-full transition-all',
-                  isRecording ? 'w-8 h-8 bg-red-500 rounded-lg' : 'w-16 h-16 bg-white'
+                  'rounded-full transition-all duration-300',
+                  isRecording ? 'w-8 h-8 bg-red-500' : 'w-16 h-16 bg-white'
                 )} />
               </div>
               {isRecording && (
@@ -395,28 +399,32 @@ export function MediaPicker({ onMediaSelected, onCancel }: MediaPickerProps) {
           <div className="flex-1 flex items-center justify-center p-8">
             <div
               onClick={() => fileInputRef.current?.click()}
-              className="w-full max-w-sm aspect-[9/16] rounded-2xl border-2 border-dashed border-white/30 flex flex-col items-center justify-center cursor-pointer hover:border-white/60 transition-colors"
+              className="w-full max-w-[260px] flex flex-col items-center cursor-pointer group"
             >
-              <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center mb-4">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                  <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242" />
-                  <path d="M12 12v9" /><path d="m16 16-4-4-4 4" />
+              <div className="w-20 h-20 rounded-2xl bg-white/10 backdrop-blur-sm flex items-center justify-center mb-5 group-active:scale-95 transition-transform">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+                  <circle cx="9" cy="9" r="2" />
+                  <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
                 </svg>
               </div>
-              <p className="text-white font-medium mb-1">Tap to select</p>
-              <p className="text-white/50 text-sm">Photo or video</p>
-              <p className="text-white/30 text-xs mt-2">or paste from clipboard</p>
+              <p className="text-white text-base font-semibold mb-1">Select from gallery</p>
+              <p className="text-white/40 text-sm">Photos & videos up to 15s</p>
+              <div className="mt-6 px-6 py-2.5 rounded-full bg-white text-black text-sm font-semibold active:scale-95 transition-transform">
+                Choose media
+              </div>
+              <p className="text-white/25 text-xs mt-4">or paste from clipboard</p>
             </div>
           </div>
 
           {/* Bottom controls */}
           <div className="p-6 flex items-center justify-between" style={{ paddingBottom: 'max(24px, env(safe-area-inset-bottom))' }}>
-            <button onClick={onCancel} className="text-white/60 text-sm">
+            <button onClick={onCancel} className="text-white/60 text-sm active:opacity-50">
               Cancel
             </button>
             <button
               onClick={() => setMode('camera')}
-              className="flex items-center gap-2 text-white text-sm"
+              className="flex items-center gap-2 text-white text-sm active:opacity-70"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />

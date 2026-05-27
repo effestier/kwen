@@ -529,14 +529,14 @@ export function PostDetailClient({ postId }: { postId: string }) {
                                 <span className="text-xs text-[var(--text-muted)]">{formatTimeAgo(reply.created_at)}</span>
                               </div>
                               <p className="text-sm text-[var(--text-secondary)] mt-0.5 whitespace-pre-wrap break-words">{reply.content}</p>
-                              <div className="flex items-center gap-3 mt-1">
-                                <button onClick={() => { hapticLight(); handleCommentLike(reply.id); }} className={cn('flex items-center gap-1 text-xs font-medium transition-all active:scale-90', reply.is_liked ? 'text-[var(--destructive)]' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]')}>
+                              <div className="flex items-center gap-4 mt-1.5">
+                                <button onClick={() => { hapticLight(); handleCommentLike(reply.id); }} className={cn('flex items-center gap-1.5 py-0.5 -ml-1.5 px-1.5 rounded-md text-xs font-medium transition-all active:scale-90', reply.is_liked ? 'text-[var(--destructive)]' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]')}>
                                   <svg width="12" height="12" viewBox="0 0 24 24" fill={reply.is_liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" /></svg>
                                   {(reply.like_count ?? 0) > 0 && <span>{reply.like_count}</span>}
                                 </button>
-                                <button onClick={() => handleReplyClick(reply)} className="text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors-fast">Reply</button>
+                                <button onClick={() => handleReplyClick(reply)} className="py-0.5 px-1 -ml-1 rounded-md text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors-fast active:scale-90">Reply</button>
                                 {reply.user_id === currentUser?.id && (
-                                  <button onClick={() => handleCommentDelete(reply.id)} className="text-xs font-medium text-[var(--text-muted)] hover:text-[var(--destructive)] transition-colors-fast">Delete</button>
+                                  <button onClick={() => handleCommentDelete(reply.id)} className="py-0.5 px-1 -ml-1 rounded-md text-xs font-medium text-[var(--text-muted)] hover:text-[var(--destructive)] transition-colors-fast active:scale-90">Delete</button>
                                 )}
                               </div>
                             </div>
@@ -549,16 +549,16 @@ export function PostDetailClient({ postId }: { postId: string }) {
               )}
             </div>
 
-            <div className="border-t border-[var(--border-subtle)] px-4 py-2">
+            <div className="border-t border-[var(--border-subtle)] px-4 py-2.5">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-5">
+                <div className="flex items-center gap-6">
                   {/* Like */}
                   <button
                     onClick={handleLike}
                     disabled={actionLoading}
                     aria-label={liked ? 'Unlike' : 'Like'}
                     className={cn(
-                      'flex items-center gap-1.5 transition-all active:scale-95',
+                      'flex items-center gap-1.5 py-1 -ml-1.5 px-1.5 rounded-lg transition-all active:scale-95',
                       liked ? 'text-[var(--destructive)]' : 'text-[var(--text-muted)] hover:text-[var(--destructive)]',
                       likeBounce && 'like-bounce'
                     )}
@@ -574,7 +574,7 @@ export function PostDetailClient({ postId }: { postId: string }) {
                   <button
                     onClick={() => inputRef.current?.focus()}
                     aria-label="Comment"
-                    className="flex items-center gap-1.5 text-[var(--text-muted)] hover:text-[var(--accent-primary)] transition-all active:scale-95"
+                    className="flex items-center gap-1.5 py-1 px-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--accent-primary)] transition-all active:scale-95"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
@@ -627,8 +627,8 @@ export function PostDetailClient({ postId }: { postId: string }) {
               </div>
             )}
 
-            <div className="border-t border-[var(--border-subtle)] p-3">
-              <div className="flex items-end gap-2">
+            <div className="border-t border-[var(--border-subtle)] px-4 py-3">
+              <div className="flex items-end gap-2.5">
                 {currentUser && (
                   <Avatar src={currentUser.avatar_url} name={currentUser.username} size="sm" />
                 )}
@@ -642,7 +642,7 @@ export function PostDetailClient({ postId }: { postId: string }) {
                     onKeyDown={handleCommentKeyDown}
                     placeholder={replyingTo ? `Reply to @${replyingTo.user.username}...` : 'Add a comment...'}
                     aria-label={replyingTo ? `Reply to @${replyingTo.user.username}` : 'Add a comment'}
-                    className="w-full min-h-[38px] max-h-24 px-3.5 py-2 rounded-full bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] resize-none focus:outline-none focus:border-[var(--border-strong)]"
+                    className="w-full min-h-[40px] max-h-24 px-4 py-2.5 rounded-full bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] resize-none focus:outline-none focus:border-[var(--border-strong)]"
                     rows={1}
                   />
                 </div>

@@ -214,17 +214,17 @@ export function ConfirmationDialog({
 }: ConfirmationDialogProps) {
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="sm" showCloseButton={false}>
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-5">
         <div>
           <h3 className="text-lg font-semibold text-[var(--text-primary)]">{title}</h3>
-          <p className="text-sm text-[var(--text-secondary)] mt-1">{message}</p>
+          <p className="text-sm text-[var(--text-secondary)] mt-1.5 leading-relaxed">{message}</p>
         </div>
 
         <div className="flex gap-3">
           <button
             onClick={onClose}
             disabled={isLoading}
-            className="flex-1 h-10 rounded-lg font-medium text-[var(--text-primary)] bg-[var(--bg-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors disabled:opacity-50"
+            className="flex-1 h-11 rounded-xl font-medium text-[var(--text-primary)] bg-[var(--bg-secondary)] hover:bg-[var(--bg-tertiary)] active:scale-[0.98] transition-all disabled:opacity-50"
           >
             {cancelText}
           </button>
@@ -232,7 +232,7 @@ export function ConfirmationDialog({
             onClick={onConfirm}
             disabled={isLoading}
             className={cn(
-              'flex-1 h-10 rounded-lg font-medium transition-colors disabled:opacity-50',
+              'flex-1 h-11 rounded-xl font-semibold active:scale-[0.98] transition-all disabled:opacity-50',
               variant === 'destructive'
                 ? 'bg-[var(--destructive)] text-white hover:bg-[var(--destructive-hover)]'
                 : 'bg-[var(--accent-primary)] text-[var(--text-inverse)] hover:bg-[var(--accent-hover)]'

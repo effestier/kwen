@@ -360,14 +360,14 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete, feedIndex, isInfinit
         )}
 
         {/* Actions — inline counts */}
-        <div className="flex items-center justify-between mt-1">
-          <div className="flex items-center gap-5">
+        <div className="flex items-center justify-between mt-1.5">
+          <div className="flex items-center gap-6">
             {/* Like */}
             <button
               onClick={handleLike}
               disabled={likeLoading}
               className={cn(
-                'flex items-center gap-1.5 -ml-1.5 transition-all duration-200 active:scale-95',
+                'flex items-center gap-1.5 -ml-1.5 px-1.5 py-1 rounded-lg transition-all duration-200 active:scale-95',
                 liked ? 'text-[var(--destructive)]' : 'text-[var(--text-muted)]',
                 likeLoading && 'opacity-50',
                 likeBounce && 'like-bounce'
@@ -386,7 +386,7 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete, feedIndex, isInfinit
             {!disableComments && (
               <button
                 onClick={() => setShowComments(true)}
-                className="flex items-center gap-1.5 text-[var(--text-muted)] transition-all duration-200 active:scale-95"
+                className="flex items-center gap-1.5 px-1.5 py-1 rounded-lg text-[var(--text-muted)] transition-all duration-200 active:scale-95"
                 aria-label="Comments"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -401,7 +401,7 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete, feedIndex, isInfinit
             {/* Share */}
             <button
               onClick={() => setShowShare(true)}
-              className="text-[var(--text-muted)] transition-all duration-200 active:scale-95"
+              className="px-1.5 py-1 rounded-lg text-[var(--text-muted)] transition-all duration-200 active:scale-95"
               aria-label="Share"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -415,7 +415,7 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete, feedIndex, isInfinit
             onClick={handleSave}
             disabled={saveLoading}
             className={cn(
-              '-mr-1.5 transition-all duration-200 active:scale-95',
+              'px-1.5 py-1 rounded-lg -mr-1.5 transition-all duration-200 active:scale-95',
               saved ? 'text-[var(--accent-primary)]' : 'text-[var(--text-muted)]',
               saveLoading && 'opacity-50',
               saveBounce && 'like-bounce'

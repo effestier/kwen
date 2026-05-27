@@ -50,11 +50,11 @@ function CommentItem({ comment, currentUserId, onReply, onDelete, onLike, isRepl
         <p className="text-sm text-[var(--text-secondary)] mt-0.5 whitespace-pre-wrap break-words">
           {comment.content}
         </p>
-        <div className="flex items-center gap-3 mt-1">
+        <div className="flex items-center gap-4 mt-1.5">
           <button
             onClick={() => onLike(comment.id)}
             className={cn(
-              'flex items-center gap-1 text-xs font-medium transition-all active:scale-90',
+              'flex items-center gap-1.5 py-0.5 -ml-1.5 px-1.5 rounded-md text-xs font-medium transition-all active:scale-90',
               comment.is_liked ? 'text-[var(--destructive)]' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
             )}
           >
@@ -66,7 +66,7 @@ function CommentItem({ comment, currentUserId, onReply, onDelete, onLike, isRepl
           {!isReply && (
             <button
               onClick={() => onReply(comment)}
-              className="text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors-fast"
+              className="py-0.5 px-1 -ml-1 rounded-md text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors-fast active:scale-90"
             >
               Reply
             </button>
@@ -74,7 +74,7 @@ function CommentItem({ comment, currentUserId, onReply, onDelete, onLike, isRepl
           {isOwn && (
             <button
               onClick={() => onDelete(comment.id)}
-              className="text-xs font-medium text-[var(--text-muted)] hover:text-[var(--destructive)] transition-colors-fast"
+              className="py-0.5 px-1 -ml-1 rounded-md text-xs font-medium text-[var(--text-muted)] hover:text-[var(--destructive)] transition-colors-fast active:scale-90"
             >
               Delete
             </button>
@@ -573,8 +573,8 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
         )}
 
         {/* Input — sticky at bottom */}
-        <div className="border-t border-[var(--border-subtle)] p-2.5 flex-shrink-0 bg-[var(--bg-primary)]" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0px)' }}>
-          <div className="flex items-end gap-2">
+        <div className="border-t border-[var(--border-subtle)] px-3 py-3 flex-shrink-0 bg-[var(--bg-primary)]" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
+          <div className="flex items-end gap-2.5">
             {currentUser && (
               <Avatar src={currentUser.avatar_url} name={currentUser.username} size="sm" className="flex-shrink-0 mb-0.5" />
             )}
@@ -588,12 +588,12 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
                 onKeyDown={handleKeyDown}
                 placeholder={replyingTo ? `Reply to @${replyingTo.user.username}...` : 'Add a comment...'}
                 aria-label={replyingTo ? `Reply to @${replyingTo.user.username}` : 'Add a comment'}
-                className="w-full min-h-[38px] max-h-24 px-3.5 py-2 rounded-full bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] resize-none focus:outline-none focus:border-[var(--border-strong)]"
+                className="w-full min-h-[40px] max-h-24 px-4 py-2.5 rounded-full bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] resize-none focus:outline-none focus:border-[var(--border-strong)]"
                 rows={1}
               />
             </div>
 
-            <div className="flex items-center gap-1 flex-shrink-0">
+            <div className="flex items-center gap-1.5 flex-shrink-0">
               <button
                 onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                 aria-label="Toggle emoji picker"

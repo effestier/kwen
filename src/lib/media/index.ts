@@ -11,6 +11,7 @@ export {
   validateVideo,
   getVideoDuration,
   formatVideoSize,
+  loadFFmpeg,
 } from './video-compress'
 export type { VideoCompressResult, VideoProgress } from './video-compress'
 

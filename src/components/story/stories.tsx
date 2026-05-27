@@ -189,20 +189,12 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
                 )}
               >
                 <div className="w-full h-full rounded-full p-0.5 bg-[var(--bg-primary)] overflow-hidden">
-                  {currentUser.avatar_url ? (
-                    <img
-                      src={currentUser.avatar_url}
-                      alt={currentUser.display_name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <Avatar
-                      src={null}
-                      name={currentUser.display_name}
-                      size="xl"
-                      className="w-full h-full"
-                    />
-                  )}
+                  <Avatar
+                    src={currentUser.avatar_url}
+                    name={currentUser.display_name}
+                    size="xl"
+                    className="w-full h-full"
+                  />
                 </div>
               </div>
               {/* Add icon — always visible so user can add more stories */}

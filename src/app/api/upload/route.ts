@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkRateLimit, UPLOAD_LIMIT } from '@/lib/rate-limit'
 
+export const maxDuration = 300 // 5 min for large video uploads
+
 // Note: In static export (APIK), native uploads directly to Supabase, bypassing this route
 
 interface UploadResult {
@@ -113,7 +115,7 @@ export async function POST(request: NextRequest) {
 
     // Rate limit: AFTER validation — only valid uploads consume quota
     // failOpen=true: don't block users on RPC errors (Supabase hiccups)
-    const limit = await checkRateLimit(`upload:${user.id}`, UPLOAD_LIMIT, false)
+    const limit = await checkRateLimit(`upload:${user.id}`, UPLOAD_LIMIT, true)
     if (!limit.allowed) {
       const retryAfterSec = Math.ceil((limit.retryAfterMs || 0) / 1000)
       return NextResponse.json(

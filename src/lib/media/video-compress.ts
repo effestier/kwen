@@ -31,12 +31,14 @@ const MAX_COMPRESSED_SIZE = 50 * 1024 * 1024 // 50MB target
 let ffmpegInstance: FFmpeg | null = null
 let ffmpegLoading = false
 
-async function loadFFmpeg(): Promise<FFmpeg> {
+export async function loadFFmpeg(): Promise<FFmpeg> {
   if (ffmpegInstance) return ffmpegInstance
   if (ffmpegLoading) {
-    // Wait for existing load
+    // Wait for existing load with timeout
+    const waitStart = Date.now()
     while (ffmpegLoading) {
-      await new Promise((r) => setTimeout(r, 100))
+      if (Date.now() - waitStart > 60000) throw new Error('FFmpeg load timeout')
+      await new Promise((r) => setTimeout(r, 200))
     }
     if (ffmpegInstance) return ffmpegInstance
   }
@@ -62,8 +64,9 @@ async function loadFFmpeg(): Promise<FFmpeg> {
 }
 
 export function validateVideo(file: File, context: 'reel' | 'chat' = 'reel'): string | null {
+  const baseType = file.type.split(';')[0].trim()
   const allowedTypes = ['video/mp4', 'video/webm', 'video/quicktime']
-  if (!allowedTypes.includes(file.type)) {
+  if (!allowedTypes.includes(baseType)) {
     return 'Invalid video format. Allowed: MP4, WebM, MOV'
   }
 

@@ -81,31 +81,41 @@ export async function uploadMedia(
       height = result.height
     }
   } else {
-    onProgress?.({ percent: 5, stage: 'compressing', message: 'Loading video encoder...' })
+    if (skipCompression) {
+      // Already composited/compressed — use as-is (e.g. story video after FFmpeg compositing)
+      compressedFile = file
+      try {
+        duration = await getVideoDuration(file)
+      } catch {
+        // Duration unavailable, not critical
+      }
+    } else {
+      onProgress?.({ percent: 5, stage: 'compressing', message: 'Loading video encoder...' })
 
-    const result = await compressVideo(file, (progress: VideoProgress) => {
-      const percent = Math.round(progress.percent * 0.7) // 0-70% for compression
-      onProgress?.({
-        percent,
-        stage: 'compressing',
-        message:
-          progress.stage === 'loading'
-            ? 'Loading video encoder...'
-            : progress.stage === 'compressing'
-            ? 'Compressing video...'
-            : 'Generating thumbnail...',
+      const result = await compressVideo(file, (progress: VideoProgress) => {
+        const percent = Math.round(progress.percent * 0.7) // 0-70% for compression
+        onProgress?.({
+          percent,
+          stage: 'compressing',
+          message:
+            progress.stage === 'loading'
+              ? 'Loading video encoder...'
+              : progress.stage === 'compressing'
+              ? 'Compressing video...'
+              : 'Generating thumbnail...',
+        })
+      }, context === 'story' ? 'reel' : 'chat')
+
+      compressedFile = new File([result.videoBlob], file.name.replace(/\.[^.]+$/, '.mp4'), {
+        type: 'video/mp4',
       })
-    }, context === 'story' ? 'reel' : 'chat')
-
-    compressedFile = new File([result.videoBlob], file.name.replace(/\.[^.]+$/, '.mp4'), {
-      type: 'video/mp4',
-    })
-    thumbnailFile = new File([result.thumbnailBlob], 'thumbnail.webp', {
-      type: 'image/webp',
-    })
-    width = result.width
-    height = result.height
-    duration = result.duration
+      thumbnailFile = new File([result.thumbnailBlob], 'thumbnail.webp', {
+        type: 'image/webp',
+      })
+      width = result.width
+      height = result.height
+      duration = result.duration
+    }
   }
 
   onProgress?.({ percent: 75, stage: 'uploading', message: 'Uploading...' })

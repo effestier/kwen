@@ -436,17 +436,9 @@ export async function compositeVideoStory(options: CompositeOptions): Promise<Fi
 
   onProgress?.(5)
 
-  // Load FFmpeg — create own instance since loadFFmpeg is private to video-compress.ts
-  const { FFmpeg } = await import('@ffmpeg/ffmpeg')
-  const { toBlobURL } = await import('@ffmpeg/util')
-
-  const ffmpeg = new FFmpeg()
-  const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd'
-
-  await ffmpeg.load({
-    coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-    wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-  })
+  // Reuse shared FFmpeg singleton (loads WASM once, caches for subsequent calls)
+  const { loadFFmpeg } = await import('./video-compress')
+  const ffmpeg = await loadFFmpeg()
   onProgress?.(15)
 
   // Write input video to MEMFS

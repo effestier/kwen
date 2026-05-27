@@ -16,7 +16,6 @@ export function MobileNav() {
   const pathname = usePathname();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [messageCount, setMessageCount] = useState(0);
-  const [notificationCount, setNotificationCount] = useState(0);
   const supabase = createClient();
   const userIdRef = useRef<string | null>(null);
 
@@ -64,22 +63,8 @@ export function MobileNav() {
       setMessageCount(total);
     }
 
-    async function loadNotificationCount() {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) return;
-
-      const { count } = await supabase
-        .from('notifications')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', authUser.id)
-        .eq('is_read', false);
-
-      setNotificationCount(count || 0);
-    }
-
     loadProfile();
     loadMessageCount();
-    loadNotificationCount();
 
     // Subscribe to new messages for realtime badge updates
     const channel = supabase
@@ -90,21 +75,9 @@ export function MobileNav() {
           loadMessageCount();
         }
       })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload) => {
-        if (payload.new && (payload.new as { user_id: string }).user_id === userIdRef.current) {
-          setNotificationCount(prev => prev + 1);
-        }
-      })
       .subscribe();
 
-    // Listen for notifications-read event
-    function handleNotificationsRead() {
-      setNotificationCount(0);
-    }
-    window.addEventListener('notifications-read', handleNotificationsRead);
-
     return () => {
-      window.removeEventListener('notifications-read', handleNotificationsRead);
       supabase.removeChannel(channel);
     };
   }, []);
@@ -150,20 +123,6 @@ export function MobileNav() {
             </span>
           )}
           <span className={`text-[10px] ${isActive('/messages') ? 'font-bold text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}>Messages</span>
-        </Link>
-
-        {/* Notifications */}
-        <Link href="/notifications" className="flex flex-col items-center justify-center gap-0.5 w-full h-full relative" aria-label="Notifications" aria-current={isActive('/notifications') ? 'page' : undefined}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={isActive('/notifications') ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={isActive('/notifications') ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}>
-            <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-            <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-          </svg>
-          {notificationCount > 0 && (
-            <span className="absolute top-1 right-1/2 translate-x-4 min-w-[16px] h-4 px-1 rounded-full bg-[var(--accent-red)] text-white text-[9px] font-bold flex items-center justify-center count-pulse">
-              {notificationCount > 99 ? '99+' : notificationCount}
-            </span>
-          )}
-          <span className={`text-[10px] ${isActive('/notifications') ? 'font-bold text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}>Alerts</span>
         </Link>
 
         {/* Videos */}

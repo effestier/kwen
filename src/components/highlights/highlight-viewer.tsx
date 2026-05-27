@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/design-system/skeleton'
@@ -34,7 +34,21 @@ export function HighlightViewer({
   const [progress, setProgress] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [imageError, setImageError] = useState(false)
+  const [isDesktop, setIsDesktop] = useState(false)
+  const [isMuted, setIsMuted] = useState(() => {
+    if (typeof window === 'undefined') return true
+    return localStorage.getItem('kw-story-muted') === 'true'
+  })
   const progressRef = useRef<number | null>(null)
+
+  // Desktop detection
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 768px)')
+    setIsDesktop(mq.matches)
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
 
   // Long press state
   const [isPaused, setIsPaused] = useState(false)
@@ -179,20 +193,40 @@ export function HighlightViewer({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black flex items-center justify-center"
+      className="fixed inset-0 z-50 bg-black/90 sm:bg-black/80 flex items-center justify-center"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
     >
-      {/* Close button */}
-      <button
-        onClick={onClose}
-        className="absolute top-4 right-4 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M18 6 6 18" /><path d="m6 6 12 12" />
-        </svg>
-      </button>
+      <div className="relative w-full h-full sm:max-w-[420px] sm:max-h-[750px] sm:rounded-2xl overflow-hidden bg-black">
+      {/* Top controls */}
+      <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+        {isVideo && (
+          <button
+            onClick={() => {
+              const next = !isMuted
+              setIsMuted(next)
+              localStorage.setItem('kw-story-muted', String(next))
+              if (videoRef.current) videoRef.current.muted = next
+            }}
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+          >
+            {isMuted ? (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><line x1="23" x2="17" y1="9" y2="15" /><line x1="17" x2="23" y1="9" y2="15" /></svg>
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><path d="M15.54 8.46a5 5 0 0 1 0 7.07" /><path d="M19.07 4.93a10 10 0 0 1 0 14.14" /></svg>
+            )}
+          </button>
+        )}
+        <button
+          onClick={onClose}
+          className="w-8 h-8 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+          </svg>
+        </button>
+      </div>
 
       {/* Progress bars */}
       <div className="absolute top-4 left-4 right-4 flex gap-1 z-10">
@@ -237,50 +271,56 @@ export function HighlightViewer({
         )}
       </div>
 
-      {/* Edit menu */}
+      {/* Edit menu — bottom sheet on mobile, dropdown on desktop */}
       {showEditMenu && (
-        <div className="absolute top-20 right-4 w-48 bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-xl z-20 overflow-hidden">
-          <button
-            onClick={() => {
-              setEditingTitle(true)
-              setShowEditMenu(false)
-            }}
-            className="w-full px-4 py-3 text-left text-white hover:bg-[var(--bg-tertiary)] flex items-center gap-3"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 20h9" />
-              <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
-            </svg>
-            Edit title
-          </button>
-          <button
-            onClick={() => {
-              setShowCoverPicker(true)
-              setShowEditMenu(false)
-            }}
-            className="w-full px-4 py-3 text-left text-white hover:bg-[var(--bg-tertiary)] flex items-center gap-3"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-              <circle cx="8.5" cy="8.5" r="1.5" />
-              <polyline points="21 15 16 10 5 21" />
-            </svg>
-            Choose cover
-          </button>
-          <button
-            onClick={() => {
-              setShowArchivePicker(true)
-              setShowEditMenu(false)
-            }}
-            className="w-full px-4 py-3 text-left text-white hover:bg-[var(--bg-tertiary)] flex items-center gap-3"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect width="20" height="5" x="2" y="3" rx="1" />
-              <path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8" />
-              <path d="M10 12h4" />
-            </svg>
-            Add from archive
-          </button>
+        <>
+          <div className="fixed inset-0 z-40 sm:absolute" onClick={() => setShowEditMenu(false)} />
+          <div className="fixed inset-x-0 bottom-0 z-50 sm:absolute sm:inset-auto sm:top-20 sm:right-4 sm:w-48">
+            <div className="bg-[var(--bg-secondary)] sm:border sm:border-[var(--border-subtle)] sm:rounded-xl rounded-t-2xl overflow-hidden animate-slideInUp sm:animate-none">
+              <div className="flex justify-center pt-2 pb-1 sm:hidden">
+                <div className="w-10 h-1 rounded-full bg-[var(--border-subtle)]" />
+              </div>
+              <button
+                onClick={() => {
+                  setEditingTitle(true)
+                  setShowEditMenu(false)
+                }}
+                className="w-full px-4 py-3.5 text-left text-white active:bg-[var(--bg-tertiary)] flex items-center gap-3"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 20h9" />
+                  <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                </svg>
+                Edit title
+              </button>
+              <button
+                onClick={() => {
+                  setShowCoverPicker(true)
+                  setShowEditMenu(false)
+                }}
+                className="w-full px-4 py-3.5 text-left text-white active:bg-[var(--bg-tertiary)] flex items-center gap-3"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <polyline points="21 15 16 10 5 21" />
+                </svg>
+                Choose cover
+              </button>
+              <button
+                onClick={() => {
+                  setShowArchivePicker(true)
+                  setShowEditMenu(false)
+                }}
+                className="w-full px-4 py-3.5 text-left text-white active:bg-[var(--bg-tertiary)] flex items-center gap-3"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect width="20" height="5" x="2" y="3" rx="1" />
+                  <path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8" />
+                  <path d="M10 12h4" />
+                </svg>
+                Add from archive
+              </button>
           <button
             onClick={async () => {
               if (!currentStory) return
@@ -298,9 +338,9 @@ export function HighlightViewer({
                 }
               }
             }}
-            className="w-full px-4 py-3 text-left text-[var(--destructive)] hover:bg-[var(--bg-tertiary)] flex items-center gap-3"
+            className="w-full px-4 py-3.5 text-left text-[var(--destructive)] active:bg-[var(--bg-tertiary)] flex items-center gap-3"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M3 6h18" />
               <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
               <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
@@ -313,7 +353,7 @@ export function HighlightViewer({
               setShowEditMenu(false)
               setShowDeleteConfirm(true)
             }}
-            className="w-full px-4 py-3 text-left text-[var(--destructive)] hover:bg-[var(--bg-tertiary)] flex items-center gap-3"
+            className="w-full px-4 py-3.5 text-left text-[var(--destructive)] active:bg-[var(--bg-tertiary)] flex items-center gap-3"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M3 6h18" />
@@ -322,7 +362,15 @@ export function HighlightViewer({
             </svg>
             Delete highlight
           </button>
-        </div>
+              <button
+                onClick={() => setShowEditMenu(false)}
+                className="w-full px-4 py-3.5 text-center text-white/60 text-sm border-t border-[var(--border-subtle)] sm:hidden"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       {/* Story content */}
@@ -378,7 +426,7 @@ export function HighlightViewer({
             src={currentStory.media_url}
             className="max-w-full max-h-full object-contain"
             autoPlay
-            muted
+            muted={isMuted}
             playsInline
             onLoadedData={() => {
               setIsLoading(false)
@@ -542,6 +590,7 @@ export function HighlightViewer({
           </div>
         </div>
       )}
+      </div>
     </div>
   )
 }

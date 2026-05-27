@@ -479,8 +479,9 @@ export default function CreatePage() {
 
         {/* Drafts modal */}
         {showDrafts && (
-          <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center">
-            <div className="w-full sm:max-w-md bg-[var(--bg-primary)] rounded-t-2xl sm:rounded-2xl max-h-[70vh] overflow-hidden">
+          <div className="fixed inset-0 z-50 bg-black/60 animate-fadeIn flex items-end sm:items-center justify-center">
+            <div className="w-full sm:max-w-md bg-[var(--bg-primary)] rounded-t-2xl sm:rounded-2xl max-h-[70vh] overflow-hidden animate-slideInUp sm:animate-scaleIn">
+              <div className="flex justify-center pt-2 pb-1 sm:hidden"><div className="w-10 h-1 rounded-full bg-[var(--border-subtle)]" /></div>
               <div className="flex items-center justify-between p-4 border-b border-[var(--border-subtle)]">
                 <h3 className="text-base font-semibold text-[var(--text-primary)]">Drafts</h3>
                 <button onClick={() => setShowDrafts(false)} className="text-[var(--text-muted)]">

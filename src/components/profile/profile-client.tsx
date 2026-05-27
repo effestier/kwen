@@ -501,7 +501,7 @@ export function ProfileClient({ username }: { username: string }) {
             <div className="mt-3 flex gap-2">
               {isOwnProfile ? (
                 <>
-                  <Link href="/settings" className="flex-1 text-center py-[7px] rounded-xl bg-[var(--bg-tertiary)] text-[13px] font-semibold text-[var(--text-primary)] active:opacity-70 transition-opacity">
+                  <Link href="/settings" className="flex-1 text-center py-2.5 rounded-xl bg-[var(--bg-tertiary)] text-[13px] font-semibold text-[var(--text-primary)] active:opacity-70 transition-opacity">
                     Edit profile
                   </Link>
                   <button
@@ -512,7 +512,7 @@ export function ProfileClient({ username }: { username: string }) {
                         navigator.clipboard.writeText(window.location.href);
                       }
                     }}
-                    className="flex-1 py-[7px] rounded-xl bg-[var(--bg-tertiary)] text-[13px] font-semibold text-[var(--text-primary)] active:opacity-70 transition-opacity"
+                    className="flex-1 py-2.5 rounded-xl bg-[var(--bg-tertiary)] text-[13px] font-semibold text-[var(--text-primary)] active:opacity-70 transition-opacity"
                   >
                     Share profile
                   </button>
@@ -522,7 +522,7 @@ export function ProfileClient({ username }: { username: string }) {
                   <button
                     onClick={handleFollow}
                     className={cn(
-                      'flex-1 py-[7px] rounded-xl text-[13px] font-semibold active:opacity-70 transition-opacity',
+                      'flex-1 py-2.5 rounded-xl text-[13px] font-semibold active:opacity-70 transition-opacity',
                       isFollowing
                         ? 'bg-[var(--bg-tertiary)] text-[var(--text-primary)]'
                         : 'bg-[var(--accent-primary)] text-[var(--text-inverse)]'
@@ -533,7 +533,7 @@ export function ProfileClient({ username }: { username: string }) {
                   <button
                     onClick={handleMessage}
                     disabled={messaging}
-                    className="flex-1 py-[7px] rounded-xl bg-[var(--bg-tertiary)] text-[13px] font-semibold text-[var(--text-primary)] active:opacity-70 transition-opacity disabled:opacity-40"
+                    className="flex-1 py-2.5 rounded-xl bg-[var(--bg-tertiary)] text-[13px] font-semibold text-[var(--text-primary)] active:opacity-70 transition-opacity disabled:opacity-40"
                   >
                     {messaging ? '...' : 'Message'}
                   </button>

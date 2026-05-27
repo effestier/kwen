@@ -103,8 +103,11 @@ export function ShareStoryModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-      <div className="bg-[var(--bg-secondary)] rounded-2xl w-full max-w-sm overflow-hidden">
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center">
+      <div className="bg-[var(--bg-secondary)] sm:rounded-2xl rounded-t-2xl w-full sm:max-w-sm overflow-hidden animate-slideInUp sm:animate-none pb-[env(safe-area-inset-bottom)]">
+        <div className="flex justify-center pt-2 pb-1 sm:hidden">
+          <div className="w-10 h-1 rounded-full bg-[var(--border-subtle)]" />
+        </div>
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-[var(--border-subtle)]">
           <h3 className="font-semibold text-white">Share Story</h3>

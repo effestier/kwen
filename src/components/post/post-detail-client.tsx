@@ -522,51 +522,63 @@ export function PostDetailClient({ postId }: { postId: string }) {
             </div>
 
             <div className="border-t border-[var(--border-subtle)] px-4 py-2">
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={handleLike}
-                  disabled={actionLoading}
-                  aria-label={liked ? 'Unlike' : 'Like'}
-                  className={cn(
-                    'p-2 rounded-full transition-all active:scale-90',
-                    liked ? 'text-[var(--destructive)]' : 'text-[var(--text-muted)] hover:text-[var(--destructive)]'
-                  )}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
-                  </svg>
-                </button>
-                <button
-                  onClick={() => inputRef.current?.focus()}
-                  aria-label="Comment"
-                  className="p-2 rounded-full text-[var(--text-muted)] hover:text-[var(--accent-primary)] transition-all active:scale-90"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                  </svg>
-                </button>
-                <button
-                  onClick={() => {
-                    const url = `${window.location.origin}/post/${post.id}`;
-                    if (navigator.share) {
-                      navigator.share({ title: `Post by ${post.user?.displayName || 'user'}`, url });
-                    } else {
-                      navigator.clipboard.writeText(url);
-                    }
-                  }}
-                  aria-label="Share"
-                  className="p-2 rounded-full text-[var(--text-muted)] hover:text-[var(--success)] transition-all active:scale-90"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" /><polyline points="16 6 12 2 8 6" /><line x1="12" x2="12" y1="2" y2="15" />
-                  </svg>
-                </button>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-5">
+                  {/* Like */}
+                  <button
+                    onClick={handleLike}
+                    disabled={actionLoading}
+                    aria-label={liked ? 'Unlike' : 'Like'}
+                    className={cn(
+                      'flex items-center gap-1.5 transition-all active:scale-95',
+                      liked ? 'text-[var(--destructive)]' : 'text-[var(--text-muted)] hover:text-[var(--destructive)]'
+                    )}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+                    </svg>
+                    {likeCount > 0 && (
+                      <span className="text-sm font-medium tabular-nums">{formatNumber(likeCount)}</span>
+                    )}
+                  </button>
+                  {/* Comment */}
+                  <button
+                    onClick={() => inputRef.current?.focus()}
+                    aria-label="Comment"
+                    className="flex items-center gap-1.5 text-[var(--text-muted)] hover:text-[var(--accent-primary)] transition-all active:scale-95"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                    </svg>
+                    {commentCount > 0 && (
+                      <span className="text-sm font-medium tabular-nums">{formatNumber(commentCount)}</span>
+                    )}
+                  </button>
+                  {/* Share */}
+                  <button
+                    onClick={() => {
+                      const url = `${window.location.origin}/post/${post.id}`;
+                      if (navigator.share) {
+                        navigator.share({ title: `Post by ${post.user?.displayName || 'user'}`, url });
+                      } else {
+                        navigator.clipboard.writeText(url);
+                      }
+                    }}
+                    aria-label="Share"
+                    className="text-[var(--text-muted)] hover:text-[var(--success)] transition-all active:scale-95"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" /><polyline points="16 6 12 2 8 6" /><line x1="12" x2="12" y1="2" y2="15" />
+                    </svg>
+                  </button>
+                </div>
+                {/* Save */}
                 <button
                   onClick={handleSave}
                   disabled={actionLoading}
                   aria-label={saved ? 'Unsave' : 'Save'}
                   className={cn(
-                    'p-2 rounded-full ml-auto transition-all active:scale-90',
+                    'transition-all active:scale-95',
                     saved ? 'text-[var(--accent-primary)]' : 'text-[var(--text-muted)] hover:text-[var(--accent-primary)]'
                   )}
                 >
@@ -574,10 +586,6 @@ export function PostDetailClient({ postId }: { postId: string }) {
                     <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
                   </svg>
                 </button>
-              </div>
-              <div className="flex items-center gap-3 mt-1 text-xs text-[var(--text-muted)]">
-                <span className="font-semibold text-[var(--text-secondary)]">{formatNumber(likeCount)} likes</span>
-                <span className="font-semibold text-[var(--text-secondary)]">{formatNumber(commentCount)} comments</span>
               </div>
             </div>
 

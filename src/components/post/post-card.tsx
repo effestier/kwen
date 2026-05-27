@@ -360,14 +360,15 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete, feedIndex, isInfinit
           </div>
         )}
 
-        {/* Actions */}
+        {/* Actions — inline counts */}
         <div className="flex items-center justify-between mt-1">
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-5">
+            {/* Like */}
             <button
               onClick={handleLike}
               disabled={likeLoading}
               className={cn(
-                'p-1.5 -ml-1.5 rounded-full transition-all duration-200 active:scale-90',
+                'flex items-center gap-1.5 -ml-1.5 transition-all duration-200 active:scale-95',
                 liked ? 'text-[var(--destructive)]' : 'text-[var(--text-muted)]',
                 likeLoading && 'opacity-50',
                 likeBounce && 'like-bounce'
@@ -377,23 +378,31 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete, feedIndex, isInfinit
               <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
               </svg>
+              {likeCount > 0 && !hideLikes && (
+                <span className="text-[13px] font-medium tabular-nums">{formatNumber(likeCount)}</span>
+              )}
             </button>
 
+            {/* Comment */}
             {!disableComments && (
               <button
                 onClick={() => setShowComments(true)}
-                className="p-1.5 rounded-full text-[var(--text-muted)] transition-all duration-200 active:scale-90"
+                className="flex items-center gap-1.5 text-[var(--text-muted)] transition-all duration-200 active:scale-95"
                 aria-label="Comments"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                 </svg>
+                {commentCount > 0 && (
+                  <span className="text-[13px] font-medium tabular-nums">{formatNumber(commentCount)}</span>
+                )}
               </button>
             )}
 
+            {/* Share */}
             <button
               onClick={() => setShowShare(true)}
-              className="p-1.5 rounded-full text-[var(--text-muted)] transition-all duration-200 active:scale-90"
+              className="text-[var(--text-muted)] transition-all duration-200 active:scale-95"
               aria-label="Share"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -402,11 +411,12 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete, feedIndex, isInfinit
             </button>
           </div>
 
+          {/* Save */}
           <button
             onClick={handleSave}
             disabled={saveLoading}
             className={cn(
-              'p-1.5 -mr-1.5 rounded-full transition-all duration-200 active:scale-90',
+              '-mr-1.5 transition-all duration-200 active:scale-95',
               saved ? 'text-[var(--accent-primary)]' : 'text-[var(--text-muted)]',
               saveLoading && 'opacity-50',
               saveBounce && 'like-bounce'
@@ -417,24 +427,6 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete, feedIndex, isInfinit
               <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
             </svg>
           </button>
-        </div>
-
-        {/* Engagement Stats */}
-        <div className="flex items-center gap-2 mt-1.5 text-xs text-[var(--text-muted)]">
-          {!hideLikes && (
-            <span className="font-medium cursor-default flex items-center gap-1">
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" /></svg>
-              {formatNumber(likeCount)}
-            </span>
-          )}
-          {!disableComments && (
-            <button onClick={() => setShowComments(true)} className="font-medium hover:underline">
-              {formatNumber(commentCount)} comments
-            </button>
-          )}
-          {post.shares > 0 && (
-            <span className="cursor-default font-medium">{formatNumber(post.shares)} shares</span>
-          )}
         </div>
       </article>
 

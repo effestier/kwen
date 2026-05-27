@@ -54,9 +54,13 @@ interface PostCardProps {
   };
   isOwnPost?: boolean;
   onDelete?: (postId: string) => void;
+  /** Feed index for stagger animation (0-based). Omit for no entrance animation. */
+  feedIndex?: number;
+  /** Set to true for posts loaded via infinite scroll (uses faster animation). */
+  isInfiniteScroll?: boolean;
 }
 
-const PostCardInner = ({ post, isOwnPost = false, onDelete }: PostCardProps) => {
+const PostCardInner = ({ post, isOwnPost = false, onDelete, feedIndex, isInfiniteScroll }: PostCardProps) => {
   const [liked, setLiked] = useState(post.isLiked);
   const [likeCount, setLikeCount] = useState(post.likes);
   const [saved, setSaved] = useState(post.isSaved);
@@ -79,6 +83,9 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete }: PostCardProps) => 
   // H7: Caption expand/collapse state
   const [captionExpanded, setCaptionExpanded] = useState(false);
   const captionNeedsTruncation = post.content && post.content.length > 300;
+  // Polish: like/save bounce animation
+  const [likeBounce, setLikeBounce] = useState(false);
+  const [saveBounce, setSaveBounce] = useState(false);
 
   useEffect(() => { setLiked(post.isLiked); }, [post.isLiked]);
   useEffect(() => { setLikeCount(post.likes); }, [post.likes]);
@@ -89,6 +96,9 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete }: PostCardProps) => 
     if (likeLoading) return;
     setLikeLoading(true);
     if (!liked) hapticLight();
+    // Polish: trigger like bounce
+    setLikeBounce(true);
+    setTimeout(() => setLikeBounce(false), 400);
     const prevLiked = liked;
     const prevCount = likeCount;
     setLiked(!liked);
@@ -113,6 +123,9 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete }: PostCardProps) => 
   const handleSave = useCallback(async () => {
     if (saveLoading) return;
     setSaveLoading(true);
+    // Polish: trigger save bounce
+    setSaveBounce(true);
+    setTimeout(() => setSaveBounce(false), 400);
     const prevSaved = saved;
     setSaved(!saved);
     try {
@@ -174,9 +187,14 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete }: PostCardProps) => 
 
   if (deleted && !showUndoToast) return null;
 
+  // Polish: entrance animation class
+  const entranceClass = feedIndex !== undefined
+    ? (isInfiniteScroll ? 'post-enter-infinite' : `post-enter post-enter-delay-${Math.min(feedIndex, 5)}`)
+    : '';
+
   return (
     <>
-      <article className="post-card border-b border-[var(--border-subtle)] py-3">
+      <article className={`post-card border-b border-[var(--border-subtle)] py-3 ${entranceClass}`}>
         {/* Header */}
         <div className="flex items-center gap-2.5 mb-2">
           <Link href={`/profile/${post.user.username}`} className="flex-shrink-0">
@@ -214,7 +232,7 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete }: PostCardProps) => 
             {showMoreMenu && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowMoreMenu(false)} />
-                <div className="absolute right-0 top-full mt-1 w-56 bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-xl shadow-lg z-50 overflow-hidden">
+                <div className="absolute right-0 top-full mt-1 w-56 bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-xl shadow-lg z-50 overflow-hidden menu-enter">
                   {isOwnPost ? (
                     <>
                       {/* Edit */}
@@ -351,7 +369,8 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete }: PostCardProps) => 
               className={cn(
                 'p-1.5 -ml-1.5 rounded-full transition-all duration-200 active:scale-90',
                 liked ? 'text-[var(--destructive)]' : 'text-[var(--text-muted)]',
-                likeLoading && 'opacity-50'
+                likeLoading && 'opacity-50',
+                likeBounce && 'like-bounce'
               )}
               aria-label={liked ? 'Unlike' : 'Like'}
             >
@@ -389,7 +408,8 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete }: PostCardProps) => 
             className={cn(
               'p-1.5 -mr-1.5 rounded-full transition-all duration-200 active:scale-90',
               saved ? 'text-[var(--accent-primary)]' : 'text-[var(--text-muted)]',
-              saveLoading && 'opacity-50'
+              saveLoading && 'opacity-50',
+              saveBounce && 'like-bounce'
             )}
             aria-label={saved ? 'Unsave' : 'Save'}
           >

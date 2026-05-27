@@ -24,12 +24,14 @@ const MAX_HEIGHT_PX = 600;
 
 function AdaptiveImage({ src, onClick }: { src: string; onClick?: () => void }) {
   const [ratio, setRatio] = useState<number | null>(null);
+  const [loaded, setLoaded] = useState(false);
 
   const handleLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
     const img = e.currentTarget;
     if (img.naturalWidth && img.naturalHeight) {
       setRatio(img.naturalWidth / img.naturalHeight);
     }
+    setLoaded(true);
   }, []);
 
   // Before we know the ratio, show a placeholder
@@ -40,7 +42,7 @@ function AdaptiveImage({ src, onClick }: { src: string; onClick?: () => void }) 
         <img
           src={src}
           alt=""
-          className="w-full h-full object-cover"
+          className={`w-full h-full object-cover img-fade ${loaded ? 'loaded' : ''}`}
           loading="lazy"
           decoding="async"
           draggable={false}
@@ -59,7 +61,7 @@ function AdaptiveImage({ src, onClick }: { src: string; onClick?: () => void }) 
         <img
           src={src}
           alt=""
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover img-fade loaded"
           loading="lazy"
           decoding="async"
           draggable={false}
@@ -70,14 +72,13 @@ function AdaptiveImage({ src, onClick }: { src: string; onClick?: () => void }) 
   }
 
   // Square, landscape, or mild portrait → show at natural ratio, just cap height
-  // We use aspect-ratio from the image's natural dimensions
   return (
     <div className="w-full relative" style={{ maxHeight: MAX_HEIGHT_PX }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={src}
         alt=""
-        className="w-full block"
+        className="w-full block img-fade loaded"
         style={{ maxHeight: MAX_HEIGHT_PX, objectFit: 'contain' }}
         loading="lazy"
         decoding="async"

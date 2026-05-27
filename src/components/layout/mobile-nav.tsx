@@ -120,7 +120,7 @@ export function MobileNav() {
 
   return (
     <nav aria-label="Mobile navigation" className="lg:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-[var(--border-subtle)] bg-[var(--bg-primary)]/95 backdrop-blur-xl pb-[env(safe-area-inset-bottom)]">
-      <div className="flex items-center justify-around h-[52px]">
+      <div className="flex items-center justify-around h-[52px] [&>a]:active:scale-90 [&>a]:transition-transform [&>a]:duration-150">
         {/* Home */}
         <Link href="/feed" className="flex flex-col items-center justify-center gap-0.5 w-full h-full" aria-label="Home" aria-current={isActive('/feed') ? 'page' : undefined}>
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={isActive('/feed') ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={isActive('/feed') ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}>
@@ -145,7 +145,7 @@ export function MobileNav() {
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
           </svg>
           {messageCount > 0 && (
-            <span className="absolute top-1 right-1/2 translate-x-4 min-w-[16px] h-4 px-1 rounded-full bg-[var(--accent-red)] text-white text-[9px] font-bold flex items-center justify-center">
+            <span className="absolute top-1 right-1/2 translate-x-4 min-w-[16px] h-4 px-1 rounded-full bg-[var(--accent-red)] text-white text-[9px] font-bold flex items-center justify-center count-pulse">
               {messageCount > 99 ? '99+' : messageCount}
             </span>
           )}
@@ -159,7 +159,7 @@ export function MobileNav() {
             <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
           </svg>
           {notificationCount > 0 && (
-            <span className="absolute top-1 right-1/2 translate-x-4 min-w-[16px] h-4 px-1 rounded-full bg-[var(--accent-red)] text-white text-[9px] font-bold flex items-center justify-center">
+            <span className="absolute top-1 right-1/2 translate-x-4 min-w-[16px] h-4 px-1 rounded-full bg-[var(--accent-red)] text-white text-[9px] font-bold flex items-center justify-center count-pulse">
               {notificationCount > 99 ? '99+' : notificationCount}
             </span>
           )}

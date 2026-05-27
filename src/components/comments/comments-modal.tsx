@@ -508,7 +508,7 @@ export function CommentsModal({ postId, isOpen, onClose }: CommentsModalProps) {
                   )}
 
                   {expandedThreads.has(comment.id) && repliesMap.has(comment.id) && (
-                    <div className="mt-2 space-y-3">
+                    <div className="mt-2 space-y-3 thread-expand">
                       {repliesMap.get(comment.id)!.map((reply) => (
                         <CommentItem
                           key={reply.id}

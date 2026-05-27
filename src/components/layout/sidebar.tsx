@@ -247,12 +247,12 @@ export function Sidebar() {
                 <span className={cn(isActive ? 'text-[var(--accent-primary)]' : 'text-[var(--text-secondary)]')}>{item.label}</span>
               </div>
               {item.href === '/notifications' && notificationCount > 0 && (
-                <span className="px-2 py-0.5 text-xs font-medium bg-[var(--accent-red)] text-white rounded-full">
+                <span className="px-2 py-0.5 text-xs font-medium bg-[var(--accent-red)] text-white rounded-full count-pulse">
                   {notificationCount > 99 ? '99+' : notificationCount}
                 </span>
               )}
               {item.href === '/messages' && messageCount > 0 && (
-                <span className="px-2 py-0.5 text-xs font-medium bg-[var(--accent-red)] text-white rounded-full">
+                <span className="px-2 py-0.5 text-xs font-medium bg-[var(--accent-red)] text-white rounded-full count-pulse">
                   {messageCount > 99 ? '99+' : messageCount}
                 </span>
               )}
@@ -351,7 +351,7 @@ export function Sidebar() {
           </button>
 
           {accountMenuOpen && (
-            <div role="menu" className="absolute bottom-full left-3 right-3 mb-1 py-1.5 bg-[var(--bg-elevated)] rounded-xl border border-[var(--border-subtle)] shadow-lg z-50">
+            <div role="menu" className="absolute bottom-full left-3 right-3 mb-1 py-1.5 bg-[var(--bg-elevated)] rounded-xl border border-[var(--border-subtle)] shadow-lg z-50 menu-enter-left">
               <Link
                 href={`/profile/${user.username}`}
                 role="menuitem"

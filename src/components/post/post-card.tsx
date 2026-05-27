@@ -193,15 +193,15 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete, feedIndex, isInfinit
 
   return (
     <>
-      <article className={`post-card border-b border-[var(--border-subtle)] py-3 ${entranceClass}`}>
+      <article className={`post-card border-b border-[var(--border-subtle)] px-4 py-3.5 ${entranceClass}`}>
         {/* Header */}
-        <div className="flex items-center gap-2.5 mb-2">
+        <div className="flex items-center gap-3 mb-3">
           <Link href={`/profile/${post.user.username}`} className="flex-shrink-0">
             <Avatar src={post.user.avatar} name={post.user.displayName} size="sm" />
           </Link>
 
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               <Link href={`/profile/${post.user.username}`} className="font-semibold text-sm text-[var(--text-primary)] hover:underline truncate">
                 {post.user.displayName}
               </Link>
@@ -327,7 +327,7 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete, feedIndex, isInfinit
 
         {/* Content — H7: Truncate long captions with expand/collapse */}
         {post.content && (
-          <div className="mb-2">
+          <div className="mb-2.5">
             <p className={cn(
               'text-[15px] leading-relaxed text-[var(--text-secondary)] whitespace-pre-line',
               !captionExpanded && captionNeedsTruncation && 'line-clamp-3'
@@ -350,7 +350,7 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete, feedIndex, isInfinit
 
         {/* Media */}
         {mediaItems.length > 0 && (
-          <div className="mb-2 rounded-xl overflow-hidden bg-[var(--bg-tertiary)] relative">
+          <div className="mb-2.5 rounded-xl overflow-hidden bg-[var(--bg-tertiary)] relative">
             <MediaCarousel
               media={mediaItems}
               onDoubleTap={handleMediaDoubleTap}

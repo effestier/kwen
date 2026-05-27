@@ -1247,12 +1247,15 @@ export default function MessagesPage() {
     const date = new Date(dateStr);
     const now = new Date();
     const diff = now.getTime() - date.getTime();
-    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor(diff / (1000 * 60));
+    const hours = Math.floor(minutes / 60);
     const days = Math.floor(hours / 24);
-    if (hours < 1) return 'now';
+    if (minutes < 1) return 'now';
+    if (minutes < 60) return `${minutes}m`;
     if (hours < 24) return `${hours}h`;
+    if (days === 1) return 'Yesterday';
     if (days < 7) return `${days}d`;
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined });
   };
 
   const selectedConversation = conversations.find(c => c.id === selectedId);

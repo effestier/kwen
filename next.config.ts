@@ -48,7 +48,7 @@ const securityHeaders = [
       "img-src 'self' blob: data: https://*.supabase.co https://*.supabase.in",
       "media-src 'self' blob: https://*.supabase.co https://*.supabase.in",
       "font-src 'self' data:",
-      "connect-src 'self' https://*.supabase.co https://*.supabase.in wss://*.supabase.co wss://*.supabase.in",
+      "connect-src 'self' https://unpkg.com https://*.supabase.co https://*.supabase.in wss://*.supabase.co wss://*.supabase.in",
       "worker-src 'self' blob:",
       "frame-src 'none'",
       "frame-ancestors 'none'",

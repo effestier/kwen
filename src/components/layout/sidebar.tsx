@@ -197,10 +197,7 @@ export function Sidebar() {
     <aside className="hidden lg:flex flex-col w-64 h-screen fixed top-0 left-0 border-r border-[var(--border-subtle)] bg-[var(--bg-primary)] z-40">
       {/* Logo */}
       <div className="p-5">
-        <Link href="/feed" className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[var(--gradient-start)] to-[var(--gradient-end)] flex items-center justify-center shadow-lg">
-            <span className="text-base font-bold text-[var(--text-primary)]">{BRAND.logo.symbol}</span>
-          </div>
+        <Link href="/feed" className="flex items-center">
           <span className="text-lg font-semibold text-[var(--text-primary)] tracking-tight">{BRAND.name}</span>
         </Link>
       </div>

@@ -25,6 +25,8 @@ export interface BrandConfig {
   };
 }
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://kwen.in';
+
 export const BRAND: BrandConfig = {
   name: 'KWEN',
   shortName: 'KWEN',
@@ -40,12 +42,12 @@ export const BRAND: BrandConfig = {
     accent: '#FFFFFF',
   },
   social: {
-    website: 'https://kwen.in',
+    website: siteUrl,
     supportEmail: 'support@kwen.in',
   },
   auth: {
-    siteUrl: 'https://kwen.in',
-    redirectUrl: 'https://kwen.in/auth/callback',
+    siteUrl,
+    redirectUrl: `${siteUrl}/auth/callback`,
   },
 };
 

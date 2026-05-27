@@ -46,7 +46,7 @@ const contentMap: Record<string, string> = {
 
 function getNotificationLink(notif: Notification): string {
   if ((notif.type === 'like' || notif.type === 'comment' || notif.type === 'mention') && notif.post_id) {
-    return `/profile/${notif.actor_username}#post-${notif.post_id}`;
+    return `/post/${notif.post_id}`;
   }
   return `/profile/${notif.actor_username}`;
 }
@@ -238,8 +238,14 @@ export default function NotificationsPage() {
             )}
           </div>
         ) : (
-          <div className="text-center py-12">
-            <p className="text-[var(--text-muted)]">No notifications yet</p>
+          <div className="text-center py-16">
+            <div className="w-16 h-16 rounded-full bg-[var(--bg-tertiary)] flex items-center justify-center mx-auto mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--text-muted)]">
+                <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+              </svg>
+            </div>
+            <p className="text-[var(--text-primary)] font-medium mb-1">No notifications yet</p>
+            <p className="text-sm text-[var(--text-muted)]">When someone interacts with your posts, you'll see it here.</p>
           </div>
         )}
       </div>

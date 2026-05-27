@@ -367,8 +367,6 @@ export function ProfileClient({ username }: { username: string }) {
 
     if (result.conversationId) {
       router.push('/messages');
-    } else {
-      alert('Failed to start conversation: ' + (result.error || 'Unknown error'));
     }
     setMessaging(false);
   };

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -18,6 +18,7 @@ export function MobileNav() {
   const [messageCount, setMessageCount] = useState(0);
   const [notificationCount, setNotificationCount] = useState(0);
   const supabase = createClient();
+  const userIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     async function loadProfile() {
@@ -44,7 +45,10 @@ export function MobileNav() {
         data = newProfile;
       }
 
-      if (data) setProfile(data);
+      if (data) {
+        userIdRef.current = data.id;
+        setProfile(data);
+      }
     }
 
     async function loadMessageCount() {
@@ -82,12 +86,12 @@ export function MobileNav() {
       .channel('mobile-messages-badge')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversation_participants' }, (payload) => {
         const updated = payload.new as { user_id: string; unread_count: number };
-        if (updated.user_id === profile?.id) {
+        if (updated.user_id === userIdRef.current) {
           loadMessageCount();
         }
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload) => {
-        if (payload.new && (payload.new as any).user_id === profile?.id) {
+        if (payload.new && (payload.new as { user_id: string }).user_id === userIdRef.current) {
           setNotificationCount(prev => prev + 1);
         }
       })
@@ -103,7 +107,7 @@ export function MobileNav() {
       window.removeEventListener('notifications-read', handleNotificationsRead);
       supabase.removeChannel(channel);
     };
-  }, [profile?.id]);
+  }, []);
 
   const isActive = (href: string) => {
     if (href === '/feed') return pathname === '/feed';
@@ -148,6 +152,20 @@ export function MobileNav() {
           <span className={`text-[10px] ${isActive('/messages') ? 'font-bold text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}>Messages</span>
         </Link>
 
+        {/* Notifications */}
+        <Link href="/notifications" className="flex flex-col items-center justify-center gap-0.5 w-full h-full relative" aria-label="Notifications" aria-current={isActive('/notifications') ? 'page' : undefined}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={isActive('/notifications') ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={isActive('/notifications') ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}>
+            <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+            <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+          </svg>
+          {notificationCount > 0 && (
+            <span className="absolute top-1 right-1/2 translate-x-4 min-w-[16px] h-4 px-1 rounded-full bg-[var(--accent-red)] text-white text-[9px] font-bold flex items-center justify-center">
+              {notificationCount > 99 ? '99+' : notificationCount}
+            </span>
+          )}
+          <span className={`text-[10px] ${isActive('/notifications') ? 'font-bold text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}>Alerts</span>
+        </Link>
+
         {/* Videos */}
         <Link href="/reels" className="flex flex-col items-center justify-center gap-0.5 w-full h-full" aria-label="Videos" aria-current={isActive('/reels') ? 'page' : undefined}>
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={isActive('/reels') ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}>
@@ -164,10 +182,10 @@ export function MobileNav() {
               <img
                 src={profile.avatar_url}
                 alt={profile.display_name}
-                className={`w-7 h-7 rounded-full object-cover ${isActive('/profile') ? 'ring-2 ring-white' : ''}`}
+                className={`w-7 h-7 rounded-full object-cover ${isActive('/profile') ? 'ring-2 ring-[var(--text-primary)]' : ''}`}
               />
             ) : (
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold ${isActive('/profile') ? 'bg-white text-black' : 'bg-[var(--bg-tertiary)] text-[var(--text-muted)]'}`}>
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold ${isActive('/profile') ? 'bg-[var(--text-primary)] text-[var(--text-inverse)]' : 'bg-[var(--bg-tertiary)] text-[var(--text-muted)]'}`}>
                 {profile?.display_name?.charAt(0).toUpperCase() || 'U'}
               </div>
             )}

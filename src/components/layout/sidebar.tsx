@@ -64,13 +64,11 @@ export function Sidebar() {
   const router = useRouter();
   const [user, setUser] = useState<Profile | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
   const [messageCount, setMessageCount] = useState(0);
   const searchRef = useRef<HTMLDivElement>(null);
-  const moreMenuRef = useRef<HTMLDivElement>(null);
   const accountMenuRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
 
@@ -178,9 +176,6 @@ export function Sidebar() {
     function handleClickOutside(event: MouseEvent) {
       if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
         setSearchOpen(false);
-      }
-      if (moreMenuRef.current && !moreMenuRef.current.contains(event.target as Node)) {
-        setMoreMenuOpen(false);
       }
       if (accountMenuRef.current && !accountMenuRef.current.contains(event.target as Node)) {
         setAccountMenuOpen(false);
@@ -319,33 +314,6 @@ export function Sidebar() {
           })}
         </div>
 
-        {/* More Menu */}
-        <div className="mt-2 relative" ref={moreMenuRef}>
-          <button
-            onClick={() => setMoreMenuOpen(!moreMenuOpen)}
-            aria-expanded={moreMenuOpen}
-            aria-haspopup="true"
-            aria-label="More options"
-            className="flex items-center gap-3 px-4 py-3 rounded-xl text-[15px] font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)] transition-colors-fast w-full"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" /></svg>
-            <span>More</span>
-          </button>
-
-          {moreMenuOpen && (
-            <div role="menu" className="absolute left-2 right-2 mt-1 py-2 bg-[var(--bg-elevated)] rounded-xl border border-[var(--border-subtle)] shadow-lg z-50">
-              {['Lists', 'Bookmarks', 'Spaces', 'Fundraisers'].map((item) => (
-                <button
-                  key={item}
-                  role="menuitem"
-                  className="flex items-center gap-3 px-4 py-2.5 w-full text-[15px] text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] transition-colors-fast"
-                >
-                  {item}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
       </nav>
 
       {/* Create Button */}

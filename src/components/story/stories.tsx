@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { Avatar } from '@/components/ui/avatar';
-import { uploadStory } from '@/services/media';
+import { uploadStory } from '@/app/actions/media';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import { uploadMedia } from '@/lib/media';
@@ -149,13 +149,13 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
       const storyResult = await uploadStory(result.url, mediaType);
 
       if (storyResult.error) {
-        alert(`Failed to create story: ${storyResult.error}`);
+        console.error('Failed to create story:', storyResult.error);
       } else {
         // Trigger parent refresh - this will update stories prop
         onUploadSuccess?.();
       }
-    } catch (err: any) {
-      alert(`Error: ${err?.message || err}`);
+    } catch (err: unknown) {
+      console.error('Story upload error:', err);
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) {

@@ -338,8 +338,14 @@ export default function FeedPage() {
               {loadingMore && <PaginationLoader />}
             </div>
           ) : (
-            <div className="py-10 text-center text-[var(--text-muted)]">
-              <p>No posts yet. Follow some users or create your first post!</p>
+            <div className="py-16 text-center">
+              <div className="w-16 h-16 rounded-full bg-[var(--bg-tertiary)] flex items-center justify-center mx-auto mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--text-muted)]">
+                  <path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8" /><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                </svg>
+              </div>
+              <p className="text-[var(--text-primary)] font-medium mb-1">No posts yet</p>
+              <p className="text-sm text-[var(--text-muted)]">Follow some users or create your first post!</p>
             </div>
           )}
         </div>

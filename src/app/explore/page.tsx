@@ -519,8 +519,14 @@ export default function ExplorePage() {
               })}
             </div>
           ) : (
-            <div className="py-10 text-center text-[var(--text-muted)]">
-              <p>No posts found</p>
+            <div className="py-16 text-center">
+              <div className="w-16 h-16 rounded-full bg-[var(--bg-tertiary)] flex items-center justify-center mx-auto mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--text-muted)]">
+                  <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+                </svg>
+              </div>
+              <p className="text-[var(--text-primary)] font-medium mb-1">No posts found</p>
+              <p className="text-sm text-[var(--text-muted)]">Try a different search term.</p>
             </div>
           )}
 

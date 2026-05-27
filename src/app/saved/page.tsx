@@ -7,10 +7,31 @@ import { createClient } from '@/lib/supabase/client';
 import { Skeleton } from '@/components/design-system/skeleton';
 import { PageLoader } from '@/components/ui/loader';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
-import { Post } from '@/types';
+
+interface SavedPost {
+  id: string;
+  user: {
+    id: string;
+    username: string;
+    displayName: string;
+    avatar: string;
+    isVerified?: boolean;
+  };
+  content: string;
+  images?: string[];
+  mediaTypes?: string[];
+  likes: number;
+  comments: number;
+  shares: number;
+  saves?: number;
+  isLiked: boolean;
+  isSaved: boolean;
+  createdAt: string;
+  location?: string;
+}
 
 export default function SavedPage() {
-  const [posts, setPosts] = useState<Post[]>([]);
+  const [posts, setPosts] = useState<SavedPost[]>([]);
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
 

@@ -10,11 +10,6 @@ interface VoiceRecorderProps {
 }
 
 export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
-  if (typeof window !== 'undefined') {
-    // eslint-disable-next-line no-console
-    console.trace('[VOICE][MOUNT] VoiceRecorder rendered');
-  }
-
   // Lifecycle states
   const [phase, setPhase] = useState<'initializing' | 'recording'>('initializing');
   const [isPaused, setIsPaused] = useState(false);
@@ -41,8 +36,6 @@ export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
   onSendRef.current = onSend;
 
   const cleanup = useCallback(() => {
-    // eslint-disable-next-line no-console
-    console.log('[VOICE] cleanup()');
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop());
       streamRef.current = null;
@@ -86,8 +79,6 @@ export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
 
   // Single authoritative cancel
   const doCancel = useCallback(() => {
-    // eslint-disable-next-line no-console
-    console.log('[VOICE] doCancel()', { sentRef: sentRef.current });
     if (sentRef.current) return;
     cancelledRef.current = true;
 
@@ -105,29 +96,19 @@ export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
 
   // Start recording — the ONLY async operation
   const startRecording = useCallback(async () => {
-    // eslint-disable-next-line no-console
-    console.log('[VOICE] startRecording() entry', { mediaRecorderDefined: typeof MediaRecorder !== 'undefined', hasGetUserMedia: !!navigator.mediaDevices?.getUserMedia });
     try {
       if (typeof MediaRecorder === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
-        // eslint-disable-next-line no-console
-        console.warn('[VOICE] unsupported -> setIsUnsupported(true)');
         setIsUnsupported(true);
         return;
       }
 
       // Request microphone permission (handles native + web)
-      // eslint-disable-next-line no-console
-      console.log('[VOICE] requesting microphone permission...');
       const hasPermission = await requestMicrophonePermission();
       if (!hasPermission) {
-        // eslint-disable-next-line no-console
-        console.warn('[VOICE] permission denied');
         setPermissionDenied(true);
         return;
       }
 
-      // eslint-disable-next-line no-console
-      console.log('[VOICE] requesting getUserMedia...');
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
       // M42: If cancel fired while getUserMedia was pending, stop the stream immediately
@@ -136,8 +117,6 @@ export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
         return;
       }
 
-      // eslint-disable-next-line no-console
-      console.log('[VOICE] getUserMedia success', { tracks: stream.getTracks().length });
       streamRef.current = stream;
 
       const audioCtx = new AudioContext();
@@ -182,15 +161,11 @@ export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
       };
 
       mediaRecorderRef.current = recorder;
-      // eslint-disable-next-line no-console
-      console.log('[VOICE] MediaRecorder.start()');
       recorder.start(100);
       totalPausedMsRef.current = 0;
       pausedAtRef.current = 0;
 
       // ONLY NOW is the recorder ready — transition from initializing to recording
-      // eslint-disable-next-line no-console
-      console.log('[VOICE] phase -> recording');
       setPhase('recording');
 
       // Duration timer — M8: Auto-stop at 60 seconds (Instagram limit)
@@ -216,8 +191,6 @@ export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
       };
       animFrameRef.current = requestAnimationFrame(updateWaveform);
     } catch (e) {
-      // eslint-disable-next-line no-console
-      console.error('[VOICE] startRecording() failure', e);
       // If permission denied (NotAllowedError), show actionable UI instead of silently closing
       if (e instanceof DOMException && (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError')) {
         setPermissionDenied(true);
@@ -229,8 +202,6 @@ export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
 
   // Auto-start on mount
   useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.log('[VOICE] useEffect mount -> startRecording()');
     startRecording();
     return () => {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
@@ -356,8 +327,7 @@ export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
         onClick={(e) => { e.stopPropagation(); stopAndSend(); }}
         onTouchEnd={(e) => { e.stopPropagation(); e.preventDefault(); stopAndSend(); }}
         aria-label="Send voice message"
-        disabled={phase === 'initializing'}
-        className="w-9 h-9 rounded-full bg-[var(--accent-primary)] flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform disabled:opacity-40"
+        className="w-9 h-9 rounded-full bg-[var(--accent-primary)] flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform"
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-inverse)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" />

@@ -497,7 +497,7 @@ export function PostDetailClient({ postId }: { postId: string }) {
                         <div className="flex items-center gap-3 mt-1">
                           <button onClick={() => { hapticLight(); handleCommentLike(comment.id); }} className={cn('flex items-center gap-1 text-xs font-medium transition-all active:scale-90', comment.is_liked ? 'text-[var(--destructive)]' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]')}>
                             <svg width="12" height="12" viewBox="0 0 24 24" fill={comment.is_liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" /></svg>
-                            {(comment.like_count ?? 0) > 0 && <span>{comment.like_count}</span>}
+                            {(comment.like_count ?? 0) > 0 && <span>{formatNumber(comment.like_count!)}</span>}
                           </button>
                           <button onClick={() => handleReplyClick(comment)} className="text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors-fast">Reply</button>
                           {comment.user_id === currentUser?.id && (
@@ -532,7 +532,7 @@ export function PostDetailClient({ postId }: { postId: string }) {
                               <div className="flex items-center gap-4 mt-1.5">
                                 <button onClick={() => { hapticLight(); handleCommentLike(reply.id); }} className={cn('flex items-center gap-1.5 py-0.5 -ml-1.5 px-1.5 rounded-md text-xs font-medium transition-all active:scale-90', reply.is_liked ? 'text-[var(--destructive)]' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]')}>
                                   <svg width="12" height="12" viewBox="0 0 24 24" fill={reply.is_liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" /></svg>
-                                  {(reply.like_count ?? 0) > 0 && <span>{reply.like_count}</span>}
+                                  {(reply.like_count ?? 0) > 0 && <span>{formatNumber(reply.like_count!)}</span>}
                                 </button>
                                 <button onClick={() => handleReplyClick(reply)} className="py-0.5 px-1 -ml-1 rounded-md text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors-fast active:scale-90">Reply</button>
                                 {reply.user_id === currentUser?.id && (

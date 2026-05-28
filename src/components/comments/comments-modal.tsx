@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Avatar } from '@/components/ui/avatar';
-import { formatTimeAgo } from '@/lib/utils';
+import { formatTimeAgo, formatNumber } from '@/lib/utils';
 import { getComments, getReplies, addComment, toggleCommentLike, deleteComment, type Comment } from '@/services/comments';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -61,7 +61,7 @@ function CommentItem({ comment, currentUserId, onReply, onDelete, onLike, isRepl
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill={comment.is_liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
             </svg>
-            {(comment.like_count ?? 0) > 0 && <span>{comment.like_count}</span>}
+            {(comment.like_count ?? 0) > 0 && <span>{formatNumber(comment.like_count!)}</span>}
           </button>
           {!isReply && (
             <button

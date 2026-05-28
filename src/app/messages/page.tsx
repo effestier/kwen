@@ -242,7 +242,7 @@ export default function MessagesPage() {
 
       const convs = convsRes.data;
 
-      setConversations(convs?.map(c => {
+      const convList = convs?.map(c => {
         const other = otherMap.get(c.id);
         const participant = participantMap.get(c.id);
         const lastMsg = lastMessageMap.get(c.id);
@@ -255,7 +255,12 @@ export default function MessagesPage() {
           unread_count: participant?.unread_count || 0,
           updated_at: lastMsg?.created_at || c.updated_at,
         };
-      }) || []);
+      }) || [];
+
+      // Sort by actual last message time — newest first
+      convList.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+
+      setConversations(convList);
 
       setLoading(false);
     }

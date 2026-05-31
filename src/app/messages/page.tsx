@@ -530,10 +530,9 @@ export default function MessagesPage() {
       await markConversationAsRead(selectedId as string);
       // Mark all unseen/undelivered messages from others as delivered + seen
       await markMessagesAsDelivered(selectedId as string);
-      const seenIds = await markMessagesAsSeen(selectedId as string);
-      if (seenIds.length > 0) {
-        setMessages(prev => prev.map(m => seenIds.includes(m.id) ? { ...m, seen_at: new Date().toISOString() } : m));
-      }
+      await markMessagesAsSeen(selectedId as string);
+      // Optimistically mark all incoming messages as seen in local state
+      setMessages(prev => prev.map(m => !m.isMine && !m.seen_at ? { ...m, seen_at: new Date().toISOString() } : m));
       setConversations(prev => prev.map(c => c.id === selectedId ? { ...c, unread_count: 0 } : c));
 
       const messageChannel = supabase
@@ -611,10 +610,8 @@ export default function MessagesPage() {
             // Mark this message as delivered immediately
             await markMessagesAsDelivered(selectedIdRef.current!);
             // Mark as seen since conversation is open
-            const seenIds = await markMessagesAsSeen(selectedIdRef.current!);
-            if (seenIds.length > 0) {
-              setMessages(prev => prev.map(m => seenIds.includes(m.id) ? { ...m, seen_at: new Date().toISOString() } : m));
-            }
+            await markMessagesAsSeen(selectedIdRef.current!);
+            setMessages(prev => prev.map(m => !m.isMine && !m.seen_at ? { ...m, seen_at: new Date().toISOString() } : m));
             setConversations(prev => prev.map(c => c.id === selectedIdRef.current ? { ...c, unread_count: 0 } : c));
           }
         })

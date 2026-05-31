@@ -211,14 +211,21 @@ export async function getOrCreateConversation(otherUserId: string) {
 
     if (convError || !conversation) return { error: 'Failed to create conversation' };
 
+    // Insert own participant row (RLS allows auth.uid() = user_id)
     const { error: partError } = await supabase
       .from('conversation_participants')
-      .insert([
-        { conversation_id: conversation.id, user_id: user.id, unread_count: 0 },
-        { conversation_id: conversation.id, user_id: otherUserId, unread_count: 0 },
-      ]);
+      .insert({ conversation_id: conversation.id, user_id: user.id, unread_count: 0 });
 
     if (partError) return { error: 'Failed to create conversation' };
+
+    // Insert other user's participant row — use RPC to bypass RLS
+    // If RPC not available, the other user will be added when they first open the conversation
+    await supabase.rpc('add_conversation_participant', {
+      p_conversation_id: conversation.id,
+      p_user_id: otherUserId,
+    }).then(() => {}, () => {
+      // RPC doesn't exist — other user will self-add on first message
+    });
 
     return { success: true, conversationId: conversation.id };
   } catch {
@@ -555,24 +562,22 @@ export async function markMessagesAsDelivered(conversationId: string) {
   }
 }
 
-export async function markMessagesAsSeen(conversationId: string) {
+export async function markMessagesAsSeen(conversationId: string): Promise<string[]> {
   try {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user || !conversationId) return [];
 
-    // seen_at column may not exist if migration 041/045 wasn't applied
-    // Gracefully no-op on 400
-    const { data: updated, error } = await supabase
-      .from('messages')
-      .update({ seen_at: new Date().toISOString() })
-      .eq('conversation_id', conversationId)
-      .neq('sender_id', user.id)
-      .is('seen_at', null)
-      .select('id');
+    // Use SECURITY DEFINER RPC — direct UPDATE blocked by sender-only RLS policy
+    const { error } = await supabase.rpc('mark_messages_seen', {
+      p_conversation_id: conversationId,
+    });
 
-    if (error) return []; // Column doesn't exist — no-op
-    return updated?.map(m => m.id) || [];
+    if (error) {
+      console.warn('[MESSAGES] markMessagesAsSeen RPC failed:', error.message);
+      return [];
+    }
+    return [];
   } catch {
     return [];
   }
@@ -736,33 +741,15 @@ export async function deleteMessage(messageId: string, deleteForEveryone: boolea
       if (error) return { error: 'Failed to delete message' };
       return { success: true, action: 'deleted_for_everyone' };
     } else {
-      // Use RPC to atomically append to array (avoids race condition)
-      const { error } = await supabase.rpc('add_to_deleted_for', {
+      // Use SECURITY DEFINER RPC — direct UPDATE blocked by sender-only RLS policy
+      const { error } = await supabase.rpc('delete_message_for_me', {
         p_message_id: messageId,
-        p_user_id: user.id,
-      }).single()
+      });
 
-      // Fallback: if RPC doesn't exist, use read-then-write
       if (error) {
-        const { data: current } = await supabase
-          .from('messages')
-          .select('deleted_for')
-          .eq('id', messageId)
-          .single();
-
-        const deletedFor = current?.deleted_for || [];
-        if (!deletedFor.includes(user.id)) {
-          deletedFor.push(user.id);
-        }
-
-        const { error: updateError } = await supabase
-          .from('messages')
-          .update({ deleted_for: deletedFor })
-          .eq('id', messageId);
-        if (updateError) return { error: 'Failed to delete message' };
+        console.warn('[MESSAGES] deleteMessage for_me RPC failed:', error.message);
+        return { error: 'Failed to delete message' };
       }
-
-      if (error) return { error: 'Failed to delete message' };
       return { success: true, action: 'deleted_for_me' };
     }
   } catch {

@@ -196,30 +196,29 @@ export default function MessagesPage() {
       if (!participants || participants.length === 0) { setLoading(false); return; }
 
       // Sort by conversation updated_at client-side to avoid foreign-table order issues
-      participants.sort((a: any, b: any) => {
-        const aTime = a.conversations?.updated_at || '';
-        const bTime = b.conversations?.updated_at || '';
-        return bTime.localeCompare(aTime);
+      participants.sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
+        const aTime = (a.conversations as Record<string, unknown>)?.updated_at || '';
+        const bTime = (b.conversations as Record<string, unknown>)?.updated_at || '';
+        return (bTime as string).localeCompare(aTime as string);
       });
 
       // H15: Track whether more conversations exist
       setHasMoreConversations(participants.length > 20);
       const pagedParticipants = participants.slice(0, 20);
 
-
       const conversationIds = pagedParticipants.map(p => p.conversation_id);
       const participantMap = new Map(pagedParticipants.map(p => [p.conversation_id, p]));
 
-      // Parallel: others + last messages + conversations
+      // Parallel: others with profiles (join) + last messages + conversations
       const [othersRes, lastMessagesRes, convsRes] = await Promise.all([
         supabase
           .from('conversation_participants')
-          .select('conversation_id, user_id')
+          .select('conversation_id, user_id, profiles:user_id(id, username, display_name, avatar_url, is_online, last_seen_at)')
           .in('conversation_id', conversationIds)
           .neq('user_id', user.id),
         supabase
           .from('messages')
-          .select('conversation_id, content, created_at, message_type, deleted_at')
+          .select('conversation_id, content, created_at, message_type, deleted_at, sender_id')
           .in('conversation_id', conversationIds)
           .is('deleted_at', null)
           .order('created_at', { ascending: false })
@@ -230,25 +229,28 @@ export default function MessagesPage() {
           .in('id', conversationIds),
       ]);
 
-      const others = othersRes.data;
-      const otherUserIds = [...new Set(others?.map(o => o.user_id) || [])];
+      const others = othersRes.data as Array<{ conversation_id: string; user_id: string; profiles: Record<string, unknown> | null }> | null;
+
+      // Fallback: if join returned null profiles, fetch them separately
+      const missingProfileIds = others?.filter(o => !o.profiles).map(o => o.user_id) || [];
+      let fallbackProfileMap = new Map<string, Record<string, unknown>>();
+      if (missingProfileIds.length > 0) {
+        const { data: fallbackProfiles } = await supabase
+          .from('profiles')
+          .select('id, username, display_name, avatar_url, is_online, last_seen_at')
+          .in('id', [...new Set(missingProfileIds)]);
+        fallbackProfileMap = new Map(fallbackProfiles?.map(p => [p.id, p]) || []);
+      }
+
       const otherMap = new Map(others?.map(o => [o.conversation_id, o]) || []);
-
-      // Fetch profiles for other users (including presence fields)
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, username, display_name, avatar_url, is_online, last_seen_at')
-        .in('id', otherUserIds);
-
-      const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
 
       // M3: Limit to reasonable count instead of fetching ALL messages
       const lastMessages = lastMessagesRes.data;
 
-      const lastMessageMap = new Map<string, { content: string; created_at: string; message_type?: string }>();
+      const lastMessageMap = new Map<string, { content: string; created_at: string; message_type?: string; sender_id?: string }>();
       lastMessages?.forEach(m => {
         if (!lastMessageMap.has(m.conversation_id) && !m.deleted_at) {
-          lastMessageMap.set(m.conversation_id, { content: m.content, created_at: m.created_at, message_type: m.message_type });
+          lastMessageMap.set(m.conversation_id, { content: m.content, created_at: m.created_at, message_type: m.message_type, sender_id: m.sender_id });
         }
       });
 
@@ -258,14 +260,25 @@ export default function MessagesPage() {
         const other = otherMap.get(c.id);
         const participant = participantMap.get(c.id);
         const lastMsg = lastMessageMap.get(c.id);
-        const profile = other ? profileMap.get(other.user_id) : null;
-        const isLastMine = lastMsg && (lastMsg as Record<string, unknown>).sender_id === user.id;
+
+        // Resolve profile from join or fallback
+        const joinedProfile = other?.profiles as Record<string, unknown> | null | undefined;
+        const profile = joinedProfile || (other ? fallbackProfileMap.get(other.user_id) : null);
+
+        const isLastMine = lastMsg?.sender_id === user.id;
 
         const preview = lastMsg?.message_type === 'image' ? '📷 Photo' : lastMsg?.message_type === 'voice' ? '🎤 Voice message' : lastMsg?.message_type === 'mixed' ? `📷 Photo · ${lastMsg.content}` : (lastMsg?.content || 'Start a conversation');
 
         return {
           id: c.id,
-          other_user: profile ? { id: profile.id, username: profile.username, display_name: profile.display_name, avatar_url: profile.avatar_url, is_online: profile.is_online, last_seen_at: profile.last_seen_at } : null,
+          other_user: profile ? {
+            id: profile.id as string,
+            username: profile.username as string,
+            display_name: profile.display_name as string,
+            avatar_url: profile.avatar_url as string | null,
+            is_online: profile.is_online as boolean,
+            last_seen_at: profile.last_seen_at as string | null,
+          } : null,
           last_message: isLastMine ? `You: ${preview}` : preview,
           unread_count: participant?.unread_count || 0,
           updated_at: lastMsg?.created_at || c.updated_at,

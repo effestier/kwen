@@ -1402,7 +1402,7 @@ export default function MessagesPage() {
               </div>
 
               {/* Messages */}
-              <div role="log" aria-label="Messages" aria-live="polite" ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto px-4 py-2"
+              <div role="log" aria-label="Messages" aria-live="polite" ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto px-2 md:px-3 py-2"
                 onScroll={(e) => {
                   // H16: Trigger load-older when scrolled near top
                   const el = e.currentTarget;
@@ -1416,7 +1416,7 @@ export default function MessagesPage() {
                     <div className="blur-[2px] opacity-60">
                       {[40, 60, 50, 55, 35, 50].map((w, i) => (
                         <div key={i} className={`flex ${i % 2 === 0 ? 'justify-start' : 'justify-end'}`}>
-                          <div className="flex items-end gap-2" style={{ maxWidth: '65%' }}>
+                          <div className="flex items-end gap-2 max-w-[78%] md:max-w-[min(65%,520px)]">
                             {i % 2 === 0 && <Skeleton variant="circular" width={32} height={32} className="flex-shrink-0" />}
                             <Skeleton className="rounded-2xl" width={`${w}%`} height={36} />
                           </div>
@@ -1450,7 +1450,7 @@ export default function MessagesPage() {
                       if (msg.status === 'failed' || msg.status === 'sending') {
                         return (
                           <div key={msg.id} className={cn('flex w-full mt-2', msg.isMine ? 'justify-end' : 'justify-start')}>
-                            <div className={cn('max-w-[75%]')}>
+                            <div className={cn('max-w-[78%] md:max-w-[min(65%,520px)]')}>
                               <div className={cn('text-sm rounded-2xl px-3.5 py-2', msg.isMine ? 'bg-[var(--accent-primary)] text-[var(--text-inverse)] rounded-br-md' : 'bg-[var(--bg-secondary)] text-[var(--text-primary)] rounded-bl-md', msg.status === 'failed' && 'opacity-70')}>
                                 {msg.content && msg.content !== 'Photo' && <p className="whitespace-pre-wrap text-sm">{msg.content}</p>}
                               </div>
@@ -1481,7 +1481,7 @@ export default function MessagesPage() {
                               </span>
                             </div>
                           )}
-                          <div className={cn('px-2', isConsecutive && !showDateSeparator ? 'mt-[2px]' : 'mt-3')}>
+                          <div className={cn('px-0', isConsecutive && !showDateSeparator ? 'mt-[2px]' : 'mt-3')}>
                             <MessageBubble
                               message={msg as MessageBubbleData}
                               showAvatar={!isConsecutive && !msg.isMine}

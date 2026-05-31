@@ -176,7 +176,7 @@ export function MessageBubble({ message, showAvatar, onReact, onReply, onDelete,
 
       {/* Row: actions + bubble + meta */}
       <div className={cn(
-        'flex items-end gap-1.5 max-w-[75%]',
+        'flex items-end gap-1.5 max-w-[78%] md:max-w-[min(65%,520px)]',
         message.isMine ? 'flex-row-reverse' : 'flex-row'
       )}>
         {/* Quick actions — outside bubble */}

@@ -342,6 +342,11 @@ input, textarea, select, [contenteditable="true"] {
   to { opacity: 1; transform: translateX(0); }
 }
 
+@keyframes slideInFromBottom {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
@@ -362,6 +367,11 @@ input, textarea, select, [contenteditable="true"] {
   50% { transform: translateY(-4px); }
 }
 
+@keyframes typingBounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+
 .animate-fadeIn { animation: fadeIn 200ms ease; }
 .animate-fadeInUp { animation: fadeInUp 300ms ease; }
 .animate-fadeInDown { animation: fadeInDown 300ms ease; }
@@ -370,6 +380,40 @@ input, textarea, select, [contenteditable="true"] {
 .animate-pulse { animation: pulse 2s infinite; }
 .animate-spin { animation: spin 1s linear infinite; }
 .animate-bounce { animation: bounce 1s infinite; }
+.animate-slide-in-from-bottom { animation: slideInFromBottom 300ms ease; }
+
+/* Typing indicator dots */
+.typing-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  animation: typingBounce 1.4s infinite;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+/* Message bubble tails */
+.bubble-tail-outgoing::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  right: -6px;
+  width: 12px;
+  height: 12px;
+  background: var(--accent-primary);
+  clip-path: polygon(0 0, 0 100%, 100% 100%);
+}
+.bubble-tail-incoming::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: -6px;
+  width: 12px;
+  height: 12px;
+  background: var(--bg-secondary);
+  clip-path: polygon(100% 0, 0 100%, 100% 100%);
+}
 
 /* Skeleton loading */
 .skeleton {

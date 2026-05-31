@@ -1278,8 +1278,8 @@ export default function MessagesPage() {
           "w-full md:w-80 border-r border-[var(--border-subtle)] flex flex-col bg-[var(--bg-primary)]",
           showMobileChat && 'hidden md:flex'
         )}>
-          <div className="p-3 pt-[max(1rem,env(safe-area-inset-top))] border-b border-[var(--border-subtle)]">
-            <h1 className="text-xl font-bold text-[var(--text-primary)]">Messages</h1>
+          <div className="px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] border-b border-[var(--border-subtle)]">
+            <h1 className="text-lg font-bold text-[var(--text-primary)]">Messages</h1>
           </div>
           <div role="list" aria-label="Conversations" className="flex-1 min-h-0 overflow-y-auto">
             {loading ? (
@@ -1302,7 +1302,7 @@ export default function MessagesPage() {
                     aria-current={isSelected ? 'true' : undefined}
                     onClick={() => handleSelectConversation(conv)}
                     className={cn(
-                      'w-full flex items-center gap-3 px-3 py-1.5 transition-colors-fast text-left',
+                      'w-full flex items-center gap-3 px-4 py-2.5 transition-colors-fast text-left',
                       isSelected ? 'bg-[var(--bg-tertiary)]' : 'hover:bg-[var(--bg-secondary)]'
                     )}
                   >
@@ -1349,9 +1349,15 @@ export default function MessagesPage() {
                 );
               })
             ) : (
-              <div className="p-3 text-center text-[var(--text-muted)]">
-                <p className="mb-3">No conversations yet</p>
-                <Link href="/explore" className="text-[var(--accent-primary)] text-sm hover:underline">Find people to message</Link>
+              <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+                <div className="w-14 h-14 rounded-full bg-[var(--bg-tertiary)] mb-3 flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                  </svg>
+                </div>
+                <p className="font-semibold text-[var(--text-primary)] text-[15px]">No conversations yet</p>
+                <p className="text-sm text-[var(--text-muted)] mt-0.5 mb-3">Start a conversation with someone</p>
+                <Link href="/explore" className="text-sm font-semibold text-[var(--accent-primary)] hover:underline">Find people</Link>
               </div>
             )}
             {/* H15: Load more conversations */}
@@ -1375,11 +1381,11 @@ export default function MessagesPage() {
           {selectedConversation ? (
             <>
               {/* Chat Header */}
-              <div className="px-4 py-3 border-b border-[var(--border-subtle)] flex items-center gap-3">
+              <div className="px-3 py-2.5 border-b border-[var(--border-subtle)] flex items-center gap-3 bg-[var(--bg-primary)]">
                 <button
                   onClick={() => setShowMobileChat(false)}
                   aria-label="Back to conversations"
-                  className="md:hidden p-2 -ml-2 hover:bg-[var(--bg-secondary)] rounded-full transition-colors-fast"
+                  className="md:hidden p-1.5 -ml-1 hover:bg-[var(--bg-secondary)] rounded-full transition-colors-fast"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="m15 18-6-6 6-6" />
@@ -1391,17 +1397,23 @@ export default function MessagesPage() {
                   size="md"
                 />
                 <div className="flex-1 min-w-0">
-                  <Link href={`/profile/${selectedConversation.other_user?.username}`} className="font-semibold text-[var(--text-primary)] hover:underline text-sm">
+                  <Link href={`/profile/${selectedConversation.other_user?.username}`} className="font-semibold text-[var(--text-primary)] hover:underline text-[15px] leading-tight block truncate">
                     {selectedConversation.other_user?.display_name || 'User'}
                   </Link>
-                  {typingUsers.size > 0 && (
-                    <p className="text-xs text-[var(--accent-primary)] animate-pulse">typing...</p>
+                  {typingUsers.size > 0 ? (
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <div className="typing-dot" />
+                      <div className="typing-dot" />
+                      <div className="typing-dot" />
+                    </div>
+                  ) : (
+                    <p className="text-xs text-[var(--text-muted)] mt-0.5">Active now</p>
                   )}
                 </div>
               </div>
 
               {/* Messages */}
-              <div role="log" aria-label="Messages" aria-live="polite" ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto px-2 md:px-3 py-2"
+              <div role="log" aria-label="Messages" aria-live="polite" ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto px-3 md:px-4 py-3"
                 onScroll={(e) => {
                   // H16: Trigger load-older when scrolled near top
                   const el = e.currentTarget;
@@ -1486,10 +1498,14 @@ export default function MessagesPage() {
                               </span>
                             </div>
                           )}
-                          <div className={cn('px-0', isConsecutive && !showDateSeparator ? 'mt-[2px]' : 'mt-3')}>
+                          <div className={cn('px-0', isConsecutive && !showDateSeparator ? 'mt-[3px]' : 'mt-3')}>
                             <MessageBubble
                               message={msg as MessageBubbleData}
                               showAvatar={!isConsecutive && !msg.isMine}
+                              showTail={(() => {
+                                const nextMsg = i < messages.length - 1 ? messages[i + 1] : null;
+                                return !nextMsg || nextMsg.senderId !== msg.senderId;
+                              })()}
                               isLatestSeen={latestSeenId === msg.id}
                               isNewestOutgoing={newestOutgoingId === msg.id}
                               onReact={handleReact}
@@ -1512,9 +1528,14 @@ export default function MessagesPage() {
                   </div>
                 ) : (
                   <div className="flex items-center justify-center h-full">
-                    <div className="text-center text-[var(--text-muted)]">
-                      <p className="font-medium">No messages yet</p>
-                      <p className="text-sm mt-1">Send a message to start the conversation</p>
+                    <div className="text-center">
+                      <div className="w-16 h-16 rounded-full bg-[var(--bg-tertiary)] mx-auto mb-3 flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                        </svg>
+                      </div>
+                      <p className="font-semibold text-[var(--text-primary)] text-[15px]">No messages yet</p>
+                      <p className="text-sm text-[var(--text-muted)] mt-0.5">Send a message to start the conversation</p>
                     </div>
                   </div>
                 )}
@@ -1522,10 +1543,10 @@ export default function MessagesPage() {
               </div>
 
               {/* Message Input */}
-              <form onSubmit={handleSend} className="border-t border-[var(--border-subtle)] shrink-0">
+              <form onSubmit={handleSend} className="border-t border-[var(--border-subtle)] shrink-0 bg-[var(--bg-primary)]">
                 {/* Reply preview */}
                 {replyTo && (
-                  <div className="px-3 pt-3 pb-0">
+                  <div className="px-3 pt-2">
                     <ReplyPreview
                       senderName={replyTo.sender?.display_name || 'Unknown'}
                       content={replyTo.content}
@@ -1571,7 +1592,7 @@ export default function MessagesPage() {
                     onCancel={() => setIsRecordingVoice(false)}
                   />
                 ) : (
-                  <div className="p-3 flex items-center gap-2">
+                  <div className="px-3 py-2 flex items-center gap-1.5">
                     <input
                       ref={fileInputRef}
                       type="file"
@@ -1585,9 +1606,9 @@ export default function MessagesPage() {
                       onClick={() => fileInputRef.current?.click()}
                       disabled={sending || uploadProgress >= 0 || !currentUserProfile}
                       aria-label="Attach image"
-                      className="p-2.5 rounded-full text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] transition-colors-fast disabled:opacity-30"
+                      className="p-2 rounded-full text-[var(--text-muted)] active:text-[var(--text-primary)] active:bg-[var(--bg-secondary)] transition-colors-fast disabled:opacity-30"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                         <rect width="18" height="18" x="3" y="3" rx="2" ry="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
                       </svg>
                     </button>
@@ -1600,14 +1621,14 @@ export default function MessagesPage() {
                       placeholder="Message..."
                       aria-label="Type a message"
                       disabled={!currentUserProfile}
-                      className="flex-1 px-4 py-2.5 rounded-full bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-strong)] disabled:opacity-50 text-sm"
+                      className="flex-1 px-4 py-2 rounded-full bg-[var(--bg-tertiary)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none disabled:opacity-50 text-[15px]"
                     />
                     {newMessage.trim() || imageFile ? (
                       <button
                         type="submit"
                         disabled={sending || !currentUserProfile}
                         aria-label="Send message"
-                        className="p-2.5 rounded-full bg-[var(--accent-primary)] text-[var(--text-inverse)] disabled:opacity-30 hover:opacity-90 transition-all active:scale-95"
+                        className="p-2 rounded-full bg-[var(--accent-primary)] text-[var(--text-inverse)] disabled:opacity-30 active:scale-90 transition-all"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                           <path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" />

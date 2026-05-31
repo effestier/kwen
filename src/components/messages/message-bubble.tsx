@@ -38,6 +38,7 @@ export interface MessageBubbleData {
 interface MessageBubbleProps {
   message: MessageBubbleData;
   showAvatar: boolean;
+  showTail: boolean;
   isLatestSeen: boolean;
   isNewestOutgoing: boolean;
   onReact: (messageId: string, emoji: string) => void;
@@ -48,8 +49,6 @@ interface MessageBubbleProps {
   onSaveMedia?: (mediaUrl: string, messageType: string, mediaPath?: string) => void;
   onImageClick?: (url: string) => void;
   onRefreshUrl?: (mediaPath: string) => Promise<string | null>;
-  selectedMessageId?: string | null;
-  onSelectMessage?: (messageId: string | null) => void;
 }
 
 function formatTime(dateStr: string): string {
@@ -69,7 +68,7 @@ function formatSeenTime(dateStr: string): string {
   return `Seen ${d.toLocaleDateString([], { month: 'short', day: 'numeric' })}`;
 }
 
-export function MessageBubble({ message, showAvatar, isLatestSeen, isNewestOutgoing, onReact, onReply, onDelete, onCopy, onReport, onSaveMedia, onImageClick, onRefreshUrl, selectedMessageId, onSelectMessage }: MessageBubbleProps) {
+export function MessageBubble({ message, showAvatar, showTail, isLatestSeen, isNewestOutgoing, onReact, onReply, onDelete, onCopy, onReport, onSaveMedia, onImageClick, onRefreshUrl }: MessageBubbleProps) {
   const [showReactionPicker, setShowReactionPicker] = useState(false);
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [showDesktopMenu, setShowDesktopMenu] = useState(false);
@@ -82,11 +81,8 @@ export function MessageBubble({ message, showAvatar, isLatestSeen, isNewestOutgo
   const hasMedia = !isText;
   const reactions = message.reactions ?? {};
   const hasReactions = Object.keys(reactions).length > 0;
-
-  // Actions visible on desktop hover OR when desktop menu is open
   const showMeta = isHovered || showDesktopMenu;
 
-  // Read receipt
   const showReadReceipt = message.isMine && (
     (isLatestSeen && message.seen_at) ||
     (isNewestOutgoing && !message.seen_at && message.delivered_at) ||
@@ -96,7 +92,6 @@ export function MessageBubble({ message, showAvatar, isLatestSeen, isNewestOutgo
     ? formatSeenTime(message.seen_at)
     : message.delivered_at ? 'Delivered' : 'Sent';
 
-  // Dismiss on click outside
   useEffect(() => {
     if (!showDesktopMenu && !showActionSheet) return;
     const handleOutsideClick = (e: Event) => {
@@ -110,7 +105,6 @@ export function MessageBubble({ message, showAvatar, isLatestSeen, isNewestOutgo
     return () => document.removeEventListener('pointerdown', handleOutsideClick);
   }, [showDesktopMenu, showActionSheet]);
 
-  // Long press -> Instagram-style action sheet (mobile only)
   const handleTouchStart = useCallback(() => {
     longPressTriggered.current = false;
     longPressTimer.current = setTimeout(() => {
@@ -126,20 +120,13 @@ export function MessageBubble({ message, showAvatar, isLatestSeen, isNewestOutgo
     }
   }, []);
 
-  // Tap on bubble — close any open pickers, no select behavior
   const handleClick = useCallback(() => {
     if (longPressTriggered.current) {
       longPressTriggered.current = false;
       return;
     }
-    if (showReactionPicker) {
-      setShowReactionPicker(false);
-      return;
-    }
-    if (showDesktopMenu) {
-      setShowDesktopMenu(false);
-      return;
-    }
+    if (showReactionPicker) { setShowReactionPicker(false); return; }
+    if (showDesktopMenu) { setShowDesktopMenu(false); return; }
   }, [showReactionPicker, showDesktopMenu]);
 
   const handleAction = useCallback((action: ActionKind) => {
@@ -161,9 +148,9 @@ export function MessageBubble({ message, showAvatar, isLatestSeen, isNewestOutgo
     setShowReactionPicker(false);
   }, [message.id, onReact]);
 
-  // Action sheet items (Instagram-style)
+  const QUICK_REACTIONS = ['❤️', '👍', '😂', '😮', '😢', '🔥'];
+
   const actionSheetItems = [
-    { kind: 'react' as ActionKind, label: 'React', icon: '😊', show: true },
     { kind: 'reply' as ActionKind, label: 'Reply', icon: '↩️', show: true },
     { kind: 'copy' as ActionKind, label: 'Copy', icon: '📋', show: isText },
     { kind: 'save' as ActionKind, label: 'Save', icon: '💾', show: hasMedia },
@@ -179,7 +166,6 @@ export function MessageBubble({ message, showAvatar, isLatestSeen, isNewestOutgo
         className={cn(
           'group relative',
           message.isMine ? 'flex flex-row-reverse' : 'flex flex-row',
-          // Bottom margin for reaction pills so they don't overlap next message
           hasReactions && 'mb-6'
         )}
         onMouseEnter={() => setIsHovered(true)}
@@ -203,10 +189,10 @@ export function MessageBubble({ message, showAvatar, isLatestSeen, isNewestOutgo
           {/* Reply-to preview */}
           {message.reply_to && (
             <div className={cn(
-              'mb-1 px-3 py-1.5 rounded-lg text-xs border-l-2 max-w-full',
-              message.isMine ? 'bg-black/10 border-black/20' : 'bg-[var(--bg-tertiary)] border-[var(--text-muted)]/50'
+              'mb-1 px-3 py-1.5 rounded-xl text-xs border-l-2 max-w-full',
+              message.isMine ? 'bg-black/10 border-black/20' : 'bg-[var(--bg-tertiary)] border-[var(--text-muted)]/30'
             )}>
-              <p className={`font-semibold ${message.isMine ? 'text-black/60' : 'text-[var(--text-primary)]'}`}>
+              <p className={`font-semibold text-[11px] ${message.isMine ? 'text-black/60' : 'text-[var(--accent-primary)]'}`}>
                 {message.reply_to.senderName}
               </p>
               <p className={`truncate ${message.isMine ? 'text-black/40' : 'text-[var(--text-muted)]'}`}>
@@ -218,10 +204,14 @@ export function MessageBubble({ message, showAvatar, isLatestSeen, isNewestOutgo
           {/* Bubble */}
           <div
             className={cn(
-              'rounded-2xl px-3 py-2',
+              'relative rounded-2xl px-3 py-[7px]',
+              showTail && message.isMine && 'bubble-tail-outgoing rounded-br-sm',
+              showTail && !message.isMine && 'bubble-tail-incoming rounded-bl-sm',
+              !showTail && message.isMine && 'rounded-br-md',
+              !showTail && !message.isMine && 'rounded-bl-md',
               message.isMine
-                ? 'bg-[var(--accent-primary)] text-[var(--text-inverse)] rounded-br-md'
-                : 'bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-[var(--text-primary)] rounded-bl-md'
+                ? 'bg-[var(--accent-primary)] text-[var(--text-inverse)]'
+                : 'bg-[var(--bg-secondary)] text-[var(--text-primary)]'
             )}
             onClick={handleClick}
             onTouchStart={handleTouchStart}
@@ -258,7 +248,7 @@ export function MessageBubble({ message, showAvatar, isLatestSeen, isNewestOutgo
 
             {/* Forwarded label */}
             {message.forwarded_from && (
-              <p className={`text-[10px] italic mb-1 ${message.isMine ? 'text-white/50' : 'text-[var(--text-muted)]'}`}>
+              <p className={`text-[10px] italic mb-0.5 ${message.isMine ? 'text-white/50' : 'text-[var(--text-muted)]'}`}>
                 ↪ Forwarded
               </p>
             )}
@@ -277,19 +267,18 @@ export function MessageBubble({ message, showAvatar, isLatestSeen, isNewestOutgo
             {message.content && message.content !== 'Photo' && message.message_type !== 'voice' && (
               <p className={cn(
                 'whitespace-pre-wrap break-words',
-                /^[\p{Emoji_Presentation}\p{Emoji}\u200d\ufe0f]{1,12}$/u.test(message.content) ? 'text-4xl' : 'text-sm'
+                /^[\p{Emoji_Presentation}\p{Emoji}\u200d\ufe0f]{1,12}$/u.test(message.content) ? 'text-[2.5rem] leading-tight' : 'text-[15px] leading-[1.35]'
               )}>
                 {message.content}
               </p>
             )}
           </div>
 
-          {/* Metadata row — timestamp + desktop actions in same layer */}
+          {/* Metadata row */}
           <div className={cn(
-            'relative flex items-center h-5',
+            'relative flex items-center h-5 mt-0.5',
             message.isMine ? 'justify-start' : 'justify-end'
           )}>
-            {/* Timestamp — pinned to outer edge */}
             <span className={cn(
               'text-[11px] text-[var(--text-muted)] transition-opacity duration-150',
               message.isMine ? 'order-1' : 'order-2',
@@ -298,7 +287,7 @@ export function MessageBubble({ message, showAvatar, isLatestSeen, isNewestOutgo
               {formatTime(message.createdAt)}
             </span>
 
-            {/* Desktop inline actions — absolutely positioned */}
+            {/* Desktop inline actions */}
             <div className={cn(
               'absolute top-1/2 -translate-y-1/2 flex items-center gap-0.5 transition-opacity duration-150 z-10 hidden md:flex',
               message.isMine ? 'right-0' : 'left-0',
@@ -307,28 +296,28 @@ export function MessageBubble({ message, showAvatar, isLatestSeen, isNewestOutgo
               <button
                 onClick={(e) => { e.stopPropagation(); setShowReactionPicker(prev => !prev); }}
                 aria-label="React"
-                className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-[var(--bg-secondary)] active:bg-[var(--bg-secondary)] text-[var(--text-muted)] transition-colors text-xs"
+                className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-[var(--bg-tertiary)] text-[var(--text-muted)] transition-colors text-xs"
               >
                 😊
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); onReply(message); }}
                 aria-label="Reply"
-                className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-[var(--bg-secondary)] active:bg-[var(--bg-secondary)] text-[var(--text-muted)] transition-colors"
+                className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-[var(--bg-tertiary)] text-[var(--text-muted)] transition-colors"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); setShowDesktopMenu(prev => !prev); }}
                 aria-label="More actions"
-                className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-[var(--bg-secondary)] active:bg-[var(--bg-secondary)] text-[var(--text-muted)] transition-colors"
+                className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-[var(--bg-tertiary)] text-[var(--text-muted)] transition-colors"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
               </button>
             </div>
           </div>
 
-          {/* Seen indicator — latest outgoing only */}
+          {/* Seen indicator */}
           {showReadReceipt && (
             <span className={cn(
               'text-[11px] text-[var(--text-muted)] transition-opacity duration-150',
@@ -339,7 +328,7 @@ export function MessageBubble({ message, showAvatar, isLatestSeen, isNewestOutgo
           )}
         </div>
 
-        {/* Reactions pill — below everything */}
+        {/* Reactions pill */}
         {hasReactions && (
           <div className={cn(
             'absolute -bottom-5 flex flex-wrap gap-1',
@@ -382,7 +371,7 @@ export function MessageBubble({ message, showAvatar, isLatestSeen, isNewestOutgo
               role="menu"
               aria-label="Message actions"
               className={cn(
-                'absolute z-50 top-full mt-1 bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-xl shadow-xl py-1 min-w-[160px] animate-in fade-in zoom-in-95 duration-150',
+                'absolute z-50 top-full mt-1 bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-xl shadow-xl py-1 min-w-[160px] animate-scaleIn',
                 message.isMine ? 'left-0' : 'right-0'
               )}
             >
@@ -407,73 +396,90 @@ export function MessageBubble({ message, showAvatar, isLatestSeen, isNewestOutgo
         )}
       </div>
 
-      {/* Mobile action sheet — Instagram-style, rendered outside container */}
+      {/* Mobile action sheet */}
       {showActionSheet && (
         <>
-          {/* Backdrop */}
           <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9998] animate-in fade-in duration-200"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9998] animate-fadeIn"
             onClick={() => setShowActionSheet(false)}
             aria-hidden="true"
           />
-          {/* Sheet */}
           <div
             role="dialog"
             aria-label="Message actions"
-            className="fixed bottom-0 left-0 right-0 z-[9999] bg-[var(--bg-secondary)] border-t border-[var(--border-subtle)] rounded-t-2xl pb-[max(1rem,env(safe-area-inset-bottom))] animate-in slide-in-from-bottom duration-300"
+            className="fixed bottom-0 left-0 right-0 z-[9999] bg-[var(--bg-secondary)] rounded-t-2xl pb-[max(0.75rem,env(safe-area-inset-bottom))] animate-slide-in-from-bottom"
           >
             {/* Drag handle */}
-            <div className="flex justify-center pt-3 pb-2">
-              <div className="w-10 h-1 bg-[var(--text-muted)]/30 rounded-full" />
+            <div className="flex justify-center pt-2 pb-1">
+              <div className="w-9 h-1 bg-[var(--text-muted)]/20 rounded-full" />
             </div>
 
-            {/* Message preview card */}
+            {/* Message preview */}
             <div className={cn(
-              'mx-3 mb-3 p-3 rounded-xl border',
-              message.isMine
-                ? 'bg-[var(--accent-primary)]/10 border-[var(--accent-primary)]/20'
-                : 'bg-[var(--bg-tertiary)] border-[var(--border-subtle)]'
+              'mx-3 mb-2.5 p-2.5 rounded-xl',
+              message.isMine ? 'bg-[var(--accent-primary)]/8' : 'bg-[var(--bg-tertiary)]'
             )}>
-              <p className="text-xs font-medium text-[var(--text-muted)] mb-1">
+              <p className="text-[11px] font-medium text-[var(--text-muted)] mb-0.5">
                 {message.isMine ? 'You' : (message.sender?.display_name || 'User')}
               </p>
               {message.media_url && (message.message_type === 'image' || message.message_type === 'mixed') && (
                 /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={message.media_url} alt="" className="w-16 h-16 rounded-lg object-cover mb-1.5" />
+                <img src={message.media_url} alt="" className="w-14 h-14 rounded-lg object-cover mb-1" />
               )}
               {message.content && message.message_type !== 'voice' && (
-                <p className="text-sm text-[var(--text-primary)] line-clamp-3">{message.content}</p>
+                <p className="text-sm text-[var(--text-primary)] line-clamp-2 leading-snug">{message.content}</p>
               )}
               {message.message_type === 'voice' && (
                 <p className="text-sm text-[var(--text-muted)] italic">Voice message</p>
               )}
             </div>
 
+            {/* Quick reactions row */}
+            <div className="flex items-center justify-center gap-1 px-3 mb-2">
+              {QUICK_REACTIONS.map((emoji) => (
+                <button
+                  key={emoji}
+                  onClick={(e) => { e.stopPropagation(); handleAction('react'); onReact(message.id, emoji); setShowActionSheet(false); }}
+                  className={cn(
+                    'w-11 h-11 flex items-center justify-center rounded-full text-xl transition-all active:scale-90',
+                    message.my_reaction === emoji
+                      ? 'bg-[var(--accent-primary)]/15 scale-110'
+                      : 'hover:bg-[var(--bg-tertiary)] active:bg-[var(--bg-tertiary)]'
+                  )}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+
+            {/* Divider */}
+            <div className="h-px bg-[var(--border-subtle)] mx-3 mb-1" />
+
             {/* Actions */}
-            <div className="px-2">
+            <div className="px-1.5">
               {actionSheetItems.map((action) => (
                 <button
                   key={action.kind}
                   role="menuitem"
                   onClick={(e) => { e.stopPropagation(); handleAction(action.kind); }}
                   className={cn(
-                    'w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-left transition-colors',
+                    'w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-left transition-colors',
                     action.destructive
-                      ? 'hover:bg-[var(--destructive)]/10 active:bg-[var(--destructive)]/15 text-[var(--destructive)]'
-                      : 'hover:bg-[var(--bg-tertiary)] active:bg-[var(--bg-tertiary)] text-[var(--text-primary)]'
+                      ? 'active:bg-[var(--destructive)]/10 text-[var(--destructive)]'
+                      : 'active:bg-[var(--bg-tertiary)] text-[var(--text-primary)]'
                   )}
                 >
-                  <span className="text-lg w-6 text-center">{action.icon}</span>
-                  <span className="text-sm font-medium">{action.label}</span>
+                  <span className="text-base w-5 text-center">{action.icon}</span>
+                  <span className="text-[15px]">{action.label}</span>
                 </button>
               ))}
             </div>
 
             {/* Cancel */}
-            <div className="px-2 mt-1 border-t border-[var(--border-subtle)] pt-1">
+            <div className="px-1.5 mt-0.5">
               <button
                 onClick={() => setShowActionSheet(false)}
-                className="w-full py-3 rounded-xl text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] active:bg-[var(--bg-tertiary)] transition-colors"
+                className="w-full py-2.5 rounded-xl text-[15px] font-semibold text-[var(--accent-primary)] active:bg-[var(--bg-tertiary)] transition-colors"
               >
                 Cancel
               </button>

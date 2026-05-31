@@ -37,9 +37,7 @@ export interface MessageBubbleData {
 interface MessageBubbleProps {
   message: MessageBubbleData;
   showAvatar: boolean;
-  /** Only the latest outgoing message that was seen gets the "Seen" receipt */
   isLatestSeen: boolean;
-  /** True if this is the newest outgoing message in the conversation */
   isNewestOutgoing: boolean;
   onReact: (messageId: string, emoji: string) => void;
   onReply: (message: MessageBubbleData) => void;
@@ -82,6 +80,17 @@ export function MessageBubble({ message, showAvatar, isLatestSeen, isNewestOutgo
   const reactions = message.reactions ?? {};
   const hasReactions = Object.keys(reactions).length > 0;
   const isSelected = selectedMessageId === message.id;
+  const showMeta = isHovered || isSelected || showActions;
+
+  // Read receipt
+  const showReadReceipt = message.isMine && (
+    (isLatestSeen && message.seen_at) ||
+    (isNewestOutgoing && !message.seen_at && message.delivered_at) ||
+    (isNewestOutgoing && !message.seen_at && !message.delivered_at)
+  );
+  const readReceiptText = message.seen_at
+    ? formatSeenTime(message.seen_at)
+    : message.delivered_at ? 'Delivered' : 'Sent';
 
   // Dismiss on click outside
   useEffect(() => {
@@ -97,7 +106,6 @@ export function MessageBubble({ message, showAvatar, isLatestSeen, isNewestOutgo
     return () => document.removeEventListener('pointerdown', handleOutsideClick);
   }, [isSelected, showActions, onSelectMessage]);
 
-  // Long press -> actions menu (mobile)
   const handleTouchStart = useCallback(() => {
     longPressTriggered.current = false;
     longPressTimer.current = setTimeout(() => {
@@ -113,20 +121,13 @@ export function MessageBubble({ message, showAvatar, isLatestSeen, isNewestOutgo
     }
   }, []);
 
-  // Tap -> select/deselect (mobile). Long press won't also trigger a tap.
   const handleClick = useCallback(() => {
     if (longPressTriggered.current) {
       longPressTriggered.current = false;
       return;
     }
-    if (showActions) {
-      setShowActions(false);
-      return;
-    }
-    if (showReactionPicker) {
-      setShowReactionPicker(false);
-      return;
-    }
+    if (showActions) { setShowActions(false); return; }
+    if (showReactionPicker) { setShowReactionPicker(false); return; }
     onSelectMessage?.(isSelected ? null : message.id);
   }, [isSelected, showActions, showReactionPicker, message.id, onSelectMessage]);
 
@@ -134,27 +135,13 @@ export function MessageBubble({ message, showAvatar, isLatestSeen, isNewestOutgo
     setShowActions(false);
     onSelectMessage?.(null);
     switch (action) {
-      case 'react':
-        setShowReactionPicker(true);
-        break;
-      case 'reply':
-        onReply(message);
-        break;
-      case 'copy':
-        if (message.content) onCopy(message.content);
-        break;
-      case 'delete-me':
-        onDelete(message.id, false);
-        break;
-      case 'delete-everyone':
-        onDelete(message.id, true);
-        break;
-      case 'report':
-        onReport(message.id);
-        break;
-      case 'save':
-        if (message.media_url) onSaveMedia?.(message.media_url, message.message_type, message.media_path || undefined);
-        break;
+      case 'react': setShowReactionPicker(true); break;
+      case 'reply': onReply(message); break;
+      case 'copy': if (message.content) onCopy(message.content); break;
+      case 'delete-me': onDelete(message.id, false); break;
+      case 'delete-everyone': onDelete(message.id, true); break;
+      case 'report': onReport(message.id); break;
+      case 'save': if (message.media_url) onSaveMedia?.(message.media_url, message.message_type, message.media_path || undefined); break;
     }
   }, [message, onReply, onCopy, onDelete, onReport, onSaveMedia, onSelectMessage]);
 
@@ -162,22 +149,6 @@ export function MessageBubble({ message, showAvatar, isLatestSeen, isNewestOutgo
     onReact(message.id, emoji);
     setShowReactionPicker(false);
   }, [message.id, onReact]);
-
-  // Actions + time visibility
-  const showMeta = isHovered || isSelected || showActions;
-
-  // Read receipt logic — only show on latest seen or newest outgoing
-  const showReadReceipt = message.isMine && (
-    (isLatestSeen && message.seen_at) ||
-    (isNewestOutgoing && !message.seen_at && message.delivered_at) ||
-    (isNewestOutgoing && !message.seen_at && !message.delivered_at)
-  );
-
-  const readReceiptText = message.seen_at
-    ? formatSeenTime(message.seen_at)
-    : message.delivered_at
-      ? 'Delivered'
-      : 'Sent';
 
   return (
     <div
@@ -194,27 +165,21 @@ export function MessageBubble({ message, showAvatar, isLatestSeen, isNewestOutgo
         <div className="w-8 flex-shrink-0 self-end">
           {showAvatar && message.sender?.avatar_url && (
             /* eslint-disable-next-line @next/next/no-img-element */
-            <img
-              src={message.sender.avatar_url}
-              alt=""
-              className="w-8 h-8 rounded-full object-cover"
-            />
+            <img src={message.sender.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" />
           )}
         </div>
       )}
 
-      {/* Bubble + metadata column */}
+      {/* Bubble column */}
       <div className={cn(
         'flex flex-col max-w-[78%] md:max-w-[min(65%,520px)]',
         message.isMine ? 'items-end' : 'items-start'
       )}>
-        {/* Reply-to preview (above bubble) */}
+        {/* Reply-to preview */}
         {message.reply_to && (
           <div className={cn(
             'mb-1 px-3 py-1.5 rounded-lg text-xs border-l-2 max-w-full',
-            message.isMine
-              ? 'bg-black/10 border-black/20'
-              : 'bg-[var(--bg-tertiary)] border-[var(--text-muted)]/50'
+            message.isMine ? 'bg-black/10 border-black/20' : 'bg-[var(--bg-tertiary)] border-[var(--text-muted)]/50'
           )}>
             <p className={`font-semibold ${message.isMine ? 'text-black/60' : 'text-[var(--text-primary)]'}`}>
               {message.reply_to.senderName}
@@ -225,10 +190,10 @@ export function MessageBubble({ message, showAvatar, isLatestSeen, isNewestOutgo
           </div>
         )}
 
-        {/* Message bubble — relative anchor for absolute actions */}
+        {/* Bubble */}
         <div
           className={cn(
-            'relative rounded-2xl px-3 py-2',
+            'rounded-2xl px-3 py-2',
             message.isMine
               ? 'bg-[var(--accent-primary)] text-[var(--text-inverse)] rounded-br-md'
               : 'bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-[var(--text-primary)] rounded-bl-md'
@@ -238,10 +203,80 @@ export function MessageBubble({ message, showAvatar, isLatestSeen, isNewestOutgo
           onTouchEnd={handleTouchEnd}
           onTouchCancel={handleTouchEnd}
         >
-          {/* Quick actions — absolutely positioned, vertically centered on bubble */}
+          {/* Story reply preview */}
+          {message.message_type === 'story_reply' && message.media_url && (
+            <div className="rounded-lg overflow-hidden mb-1.5 relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={message.media_url} alt="Story" className="w-full h-28 object-cover" loading="lazy" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+              <div className="absolute bottom-1.5 left-2 flex items-center gap-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+                  <circle cx="9" cy="9" r="2" />
+                  <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+                </svg>
+                <span className="text-white text-xs font-medium">Story</span>
+              </div>
+            </div>
+          )}
+
+          {/* Image */}
+          {(message.message_type === 'image' || message.message_type === 'mixed') && message.media_url && (
+            <div
+              className="rounded-lg overflow-hidden mb-1 max-w-[280px] cursor-pointer"
+              onClick={(e) => { e.stopPropagation(); onImageClick?.(message.media_url!); }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={message.media_url} alt="Shared photo" className="w-full h-auto object-cover" loading="lazy" />
+            </div>
+          )}
+
+          {/* Forwarded label */}
+          {message.forwarded_from && (
+            <p className={`text-[10px] italic mb-1 ${message.isMine ? 'text-white/50' : 'text-[var(--text-muted)]'}`}>
+              ↪ Forwarded
+            </p>
+          )}
+
+          {/* Voice message */}
+          {message.message_type === 'voice' && message.media_url && message.media_path && (
+            <VoiceMessage
+              mediaUrl={message.media_url}
+              duration={message.duration || 0}
+              isMine={message.isMine}
+              onRefreshUrl={onRefreshUrl ? () => onRefreshUrl(message.media_path!) : undefined}
+            />
+          )}
+
+          {/* Text */}
+          {message.content && message.content !== 'Photo' && message.message_type !== 'voice' && (
+            <p className={cn(
+              'whitespace-pre-wrap break-words',
+              /^[\p{Emoji_Presentation}\p{Emoji}\u200d\ufe0f]{1,12}$/u.test(message.content) ? 'text-4xl' : 'text-sm'
+            )}>
+              {message.content}
+            </p>
+          )}
+        </div>
+
+        {/* Metadata row — timestamp + actions in same layer */}
+        <div className={cn(
+          'relative flex items-center h-5',
+          message.isMine ? 'justify-start' : 'justify-end'
+        )}>
+          {/* Timestamp — pinned to outer edge */}
+          <span className={cn(
+            'text-[11px] text-[var(--text-muted)] transition-opacity duration-150',
+            message.isMine ? 'order-1' : 'order-2',
+            showMeta ? 'opacity-100' : 'opacity-0'
+          )}>
+            {formatTime(message.createdAt)}
+          </span>
+
+          {/* Actions — absolutely positioned, centered in metadata row */}
           <div className={cn(
             'absolute top-1/2 -translate-y-1/2 flex items-center gap-0.5 transition-opacity duration-150 z-10',
-            message.isMine ? '-left-10' : '-right-10',
+            message.isMine ? 'right-0' : 'left-0',
             showMeta ? 'opacity-100' : 'opacity-0 pointer-events-none'
           )}>
             <button
@@ -266,99 +301,20 @@ export function MessageBubble({ message, showAvatar, isLatestSeen, isNewestOutgo
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
             </button>
           </div>
-
-          {/* Story reply preview */}
-          {message.message_type === 'story_reply' && message.media_url && (
-            <div className="rounded-lg overflow-hidden mb-1.5 relative">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={message.media_url}
-                alt="Story"
-                className="w-full h-28 object-cover"
-                loading="lazy"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-              <div className="absolute bottom-1.5 left-2 flex items-center gap-1.5">
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
-                  <circle cx="9" cy="9" r="2" />
-                  <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
-                </svg>
-                <span className="text-white text-xs font-medium">Story</span>
-              </div>
-            </div>
-          )}
-
-          {/* Image */}
-          {(message.message_type === 'image' || message.message_type === 'mixed') && message.media_url && (
-            <div
-              className="rounded-lg overflow-hidden mb-1 max-w-[280px] cursor-pointer"
-              onClick={(e) => { e.stopPropagation(); onImageClick?.(message.media_url!); }}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={message.media_url}
-                alt="Shared photo"
-                className="w-full h-auto object-cover"
-                loading="lazy"
-              />
-            </div>
-          )}
-
-          {/* Forwarded label */}
-          {message.forwarded_from && (
-            <p className={`text-[10px] italic mb-1 ${message.isMine ? 'text-white/50' : 'text-[var(--text-muted)]'}`}>
-              ↪ Forwarded
-            </p>
-          )}
-
-          {/* Voice message */}
-          {message.message_type === 'voice' && message.media_url && message.media_path && (
-            <VoiceMessage
-              mediaUrl={message.media_url}
-              duration={message.duration || 0}
-              isMine={message.isMine}
-              onRefreshUrl={onRefreshUrl ? () => onRefreshUrl(message.media_path!) : undefined}
-            />
-          )}
-
-          {/* Text content */}
-          {message.content && message.content !== 'Photo' && message.message_type !== 'voice' && (
-            <p className={cn(
-              'whitespace-pre-wrap break-words',
-              /^[\p{Emoji_Presentation}\p{Emoji}\u200d\ufe0f]{1,12}$/u.test(message.content)
-                ? 'text-4xl'
-                : 'text-sm'
-            )}>
-              {message.content}
-            </p>
-          )}
         </div>
 
-        {/* Timestamp + read receipt — OUTSIDE bubble */}
-        <div className={cn(
-          'flex items-center gap-1 mt-0.5',
-          message.isMine ? 'justify-end' : 'justify-start'
-        )}>
+        {/* Seen indicator — latest outgoing only */}
+        {showReadReceipt && (
           <span className={cn(
             'text-[11px] text-[var(--text-muted)] transition-opacity duration-150',
             showMeta ? 'opacity-100' : 'opacity-0'
           )}>
-            {formatTime(message.createdAt)}
+            {readReceiptText}
           </span>
-          {showReadReceipt && (
-            <span className={cn(
-              'text-[11px] transition-opacity duration-150',
-              message.seen_at ? 'text-blue-400' : 'text-[var(--text-muted)]',
-              showMeta ? 'opacity-100' : 'opacity-0'
-            )}>
-              {readReceiptText}
-            </span>
-          )}
-        </div>
+        )}
       </div>
 
-      {/* Reactions pill — below everything */}
+      {/* Reactions pill */}
       {hasReactions && (
         <div className={cn(
           'absolute -bottom-5 flex flex-wrap gap-1',
@@ -383,16 +339,13 @@ export function MessageBubble({ message, showAvatar, isLatestSeen, isNewestOutgo
         </div>
       )}
 
-      {/* Reaction picker popup */}
+      {/* Reaction picker */}
       {showReactionPicker && (
         <div className={cn(
           'absolute z-30 -top-12',
           message.isMine ? 'right-12' : 'left-12'
         )}>
-          <ReactionPicker
-            onSelect={handleReactionSelect}
-            currentReaction={message.my_reaction}
-          />
+          <ReactionPicker onSelect={handleReactionSelect} currentReaction={message.my_reaction} />
         </div>
       )}
 

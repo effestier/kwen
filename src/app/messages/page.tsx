@@ -1321,7 +1321,7 @@ export default function MessagesPage() {
                       <div className="flex items-center justify-between gap-2">
                         <p className={cn(
                           'text-sm truncate',
-                          isUnread ? 'font-semibold text-[var(--text-primary)]' : 'font-medium text-[var(--text-primary)]'
+                          isUnread ? 'font-semibold text-[var(--text-primary)]' : 'font-normal text-[var(--text-primary)]'
                         )}>
                           {conv.other_user?.display_name || 'User'}
                         </p>

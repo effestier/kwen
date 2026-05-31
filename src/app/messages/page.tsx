@@ -1321,26 +1321,26 @@ export default function MessagesPage() {
                       <div className="flex items-center justify-between gap-2">
                         <p className={cn(
                           'text-sm truncate',
-                          isUnread ? 'font-bold text-[var(--text-primary)]' : 'font-medium text-[var(--text-secondary)]'
+                          isUnread ? 'font-semibold text-[var(--text-primary)]' : 'font-medium text-[var(--text-primary)]'
                         )}>
                           {conv.other_user?.display_name || 'User'}
                         </p>
                         <span className={cn(
-                          'text-xs flex-shrink-0',
-                          isUnread ? 'text-[var(--accent-primary)] font-medium' : 'text-[var(--text-muted)]'
+                          'text-[11px] flex-shrink-0',
+                          isUnread ? 'text-[var(--text-primary)] font-semibold' : 'text-[var(--text-muted)]'
                         )}>
                           {formatTime(conv.updated_at)}
                         </span>
                       </div>
                       <div className="flex items-center justify-between gap-2 mt-0.5">
                         <p className={cn(
-                          'text-sm truncate',
-                          isUnread ? 'text-[var(--text-secondary)] font-medium' : 'text-[var(--text-muted)]'
+                          'text-[13px] truncate',
+                          isUnread ? 'text-[var(--text-primary)] font-semibold' : 'text-[var(--text-muted)]'
                         )}>
                           {conv.last_message}
                         </p>
                         {isUnread && (
-                          <span className="flex-shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-[var(--accent-red)] text-white text-xs font-bold flex items-center justify-center">
+                          <span className="flex-shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-[var(--accent-red)] text-white text-[11px] font-bold flex items-center justify-center">
                             {conv.unread_count > 99 ? '99+' : conv.unread_count}
                           </span>
                         )}
@@ -1438,7 +1438,13 @@ export default function MessagesPage() {
                     {!hasMoreMessages && !loadingOlderMessages && messages.length >= 200 && (
                       <div className="text-center text-[11px] text-[var(--text-muted)] py-2">Start of conversation</div>
                     )}
-                    {messages.map((msg, i) => {
+                    {(() => {
+                      // Compute read receipt targets once
+                      const myMsgs = messages.filter(m => m.isMine && m.status !== 'failed' && m.status !== 'sending');
+                      const newestOutgoingId = myMsgs.length > 0 ? myMsgs[myMsgs.length - 1].id : null;
+                      const latestSeenId = [...myMsgs].reverse().find(m => m.seen_at)?.id || null;
+
+                      return messages.map((msg, i) => {
                       const prevMsg = i > 0 ? messages[i - 1] : null;
                       const isConsecutive = prevMsg && prevMsg.senderId === msg.senderId;
 
@@ -1485,6 +1491,8 @@ export default function MessagesPage() {
                             <MessageBubble
                               message={msg as MessageBubbleData}
                               showAvatar={!isConsecutive && !msg.isMine}
+                              isLatestSeen={latestSeenId === msg.id}
+                              isNewestOutgoing={newestOutgoingId === msg.id}
                               onReact={handleReact}
                               onReply={handleReply}
                               onDelete={handleDelete}
@@ -1502,7 +1510,8 @@ export default function MessagesPage() {
                           </div>
                         </div>
                       );
-                    })}
+                    });
+                    })()}
                   </div>
                 ) : (
                   <div className="flex items-center justify-center h-full">

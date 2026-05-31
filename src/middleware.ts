@@ -30,6 +30,8 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Skip static assets and API routes
+  // NOTE: API routes handle their own auth via supabase.auth.getUser()
+  // This is intentional — middleware only guards page routes
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api') ||

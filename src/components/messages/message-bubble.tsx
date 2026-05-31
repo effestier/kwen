@@ -37,6 +37,10 @@ export interface MessageBubbleData {
 interface MessageBubbleProps {
   message: MessageBubbleData;
   showAvatar: boolean;
+  /** Only the latest outgoing message that was seen gets the "Seen" receipt */
+  isLatestSeen: boolean;
+  /** True if this is the newest outgoing message in the conversation */
+  isNewestOutgoing: boolean;
   onReact: (messageId: string, emoji: string) => void;
   onReply: (message: MessageBubbleData) => void;
   onDelete: (messageId: string, deleteForEveryone: boolean) => void;
@@ -54,7 +58,19 @@ function formatTime(dateStr: string): string {
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-export function MessageBubble({ message, showAvatar, onReact, onReply, onDelete, onCopy, onReport, onSaveMedia, onImageClick, onRefreshUrl, selectedMessageId, onSelectMessage }: MessageBubbleProps) {
+function formatSeenTime(dateStr: string): string {
+  const d = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  if (diffMins < 1) return 'Seen';
+  if (diffMins < 60) return `Seen ${diffMins}m ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `Seen ${diffHours}h ago`;
+  return `Seen ${d.toLocaleDateString([], { month: 'short', day: 'numeric' })}`;
+}
+
+export function MessageBubble({ message, showAvatar, isLatestSeen, isNewestOutgoing, onReact, onReply, onDelete, onCopy, onReport, onSaveMedia, onImageClick, onRefreshUrl, selectedMessageId, onSelectMessage }: MessageBubbleProps) {
   const [showReactionPicker, setShowReactionPicker] = useState(false);
   const [showActions, setShowActions] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -150,12 +166,25 @@ export function MessageBubble({ message, showAvatar, onReact, onReply, onDelete,
   // Actions + time visibility
   const showMeta = isHovered || isSelected || showActions;
 
+  // Read receipt logic — only show on latest seen or newest outgoing
+  const showReadReceipt = message.isMine && (
+    (isLatestSeen && message.seen_at) ||
+    (isNewestOutgoing && !message.seen_at && message.delivered_at) ||
+    (isNewestOutgoing && !message.seen_at && !message.delivered_at)
+  );
+
+  const readReceiptText = message.seen_at
+    ? formatSeenTime(message.seen_at)
+    : message.delivered_at
+      ? 'Delivered'
+      : 'Sent';
+
   return (
     <div
       ref={containerRef}
       className={cn(
-        'group relative flex gap-2',
-        message.isMine ? 'flex-row-reverse' : 'flex-row'
+        'group relative',
+        message.isMine ? 'flex flex-row-reverse' : 'flex flex-row'
       )}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => { setIsHovered(false); setShowReactionPicker(false); }}
@@ -174,42 +203,42 @@ export function MessageBubble({ message, showAvatar, onReact, onReply, onDelete,
         </div>
       )}
 
-      {/* Row: actions + bubble + meta */}
+      {/* Actions + bubble row */}
       <div className={cn(
-        'flex items-end gap-1.5 max-w-[78%] md:max-w-[min(65%,520px)]',
+        'flex items-end gap-1',
         message.isMine ? 'flex-row-reverse' : 'flex-row'
       )}>
-        {/* Quick actions — outside bubble */}
+        {/* Quick actions — beside bubble */}
         <div className={cn(
-          'flex flex-col items-center gap-0.5 transition-opacity duration-150 self-end mb-1',
+          'flex items-center gap-0.5 transition-opacity duration-150 self-end mb-1',
           showMeta ? 'opacity-100' : 'opacity-0 pointer-events-none'
         )}>
           <button
             onClick={() => { setShowReactionPicker(prev => !prev); }}
             aria-label="React"
-            className="w-8 h-8 flex items-center justify-center rounded-full active:bg-[var(--bg-secondary)] text-[var(--text-muted)] transition-colors text-xs"
+            className="w-7 h-7 flex items-center justify-center rounded-full active:bg-[var(--bg-secondary)] text-[var(--text-muted)] transition-colors text-xs"
           >
             😊
           </button>
           <button
             onClick={() => onReply(message)}
             aria-label="Reply"
-            className="w-8 h-8 flex items-center justify-center rounded-full active:bg-[var(--bg-secondary)] text-[var(--text-muted)] transition-colors"
+            className="w-7 h-7 flex items-center justify-center rounded-full active:bg-[var(--bg-secondary)] text-[var(--text-muted)] transition-colors"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
           </button>
           <button
             onClick={() => setShowActions(prev => !prev)}
             aria-label="More actions"
-            className="w-8 h-8 flex items-center justify-center rounded-full active:bg-[var(--bg-secondary)] text-[var(--text-muted)] transition-colors"
+            className="w-7 h-7 flex items-center justify-center rounded-full active:bg-[var(--bg-secondary)] text-[var(--text-muted)] transition-colors"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
           </button>
         </div>
 
-        {/* Bubble + timestamp column */}
+        {/* Bubble + metadata column */}
         <div className={cn(
-          'flex flex-col',
+          'flex flex-col max-w-[78%] md:max-w-[min(65%,520px)]',
           message.isMine ? 'items-end' : 'items-start'
         )}>
           {/* Reply-to preview (above bubble) */}
@@ -310,24 +339,24 @@ export function MessageBubble({ message, showAvatar, onReact, onReply, onDelete,
             )}
           </div>
 
-          {/* Timestamp + read receipt — OUTSIDE bubble, always takes space */}
+          {/* Timestamp + read receipt — OUTSIDE bubble */}
           <div className={cn(
-            'flex items-center gap-1 mt-0.5 h-4 transition-opacity duration-150',
-            message.isMine ? 'justify-end' : 'justify-start',
-            showMeta ? 'opacity-100' : 'opacity-0'
+            'flex items-center gap-1 mt-0.5',
+            message.isMine ? 'justify-end' : 'justify-start'
           )}>
-            <p className="text-[10px] text-[var(--text-muted)]">
+            <span className={cn(
+              'text-[11px] text-[var(--text-muted)] transition-opacity duration-150',
+              showMeta ? 'opacity-100' : 'opacity-0'
+            )}>
               {formatTime(message.createdAt)}
-            </p>
-            {message.isMine && (
-              <span className="text-[10px]" title={message.seen_at ? `Seen at ${new Date(message.seen_at).toLocaleTimeString()}` : message.delivered_at ? 'Delivered' : 'Sent'}>
-                {message.seen_at ? (
-                  <span className="text-blue-500">✓✓</span>
-                ) : message.delivered_at ? (
-                  <span className="text-[var(--text-muted)]">✓✓</span>
-                ) : (
-                  <span className="text-[var(--text-muted)]/60">✓</span>
-                )}
+            </span>
+            {showReadReceipt && (
+              <span className={cn(
+                'text-[11px] transition-opacity duration-150',
+                message.seen_at ? 'text-blue-400' : 'text-[var(--text-muted)]',
+                showMeta ? 'opacity-100' : 'opacity-0'
+              )}>
+                {readReceiptText}
               </span>
             )}
           </div>

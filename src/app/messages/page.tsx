@@ -1400,14 +1400,12 @@ export default function MessagesPage() {
                   <Link href={`/profile/${selectedConversation.other_user?.username}`} className="font-semibold text-[var(--text-primary)] hover:underline text-[15px] leading-tight block truncate">
                     {selectedConversation.other_user?.display_name || 'User'}
                   </Link>
-                  {typingUsers.size > 0 ? (
+                  {typingUsers.size > 0 && (
                     <div className="flex items-center gap-1 mt-0.5">
                       <div className="typing-dot" />
                       <div className="typing-dot" />
                       <div className="typing-dot" />
                     </div>
-                  ) : (
-                    <p className="text-xs text-[var(--text-muted)] mt-0.5">Active now</p>
                   )}
                 </div>
               </div>

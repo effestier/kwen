@@ -68,10 +68,12 @@ function formatSeenTime(dateStr: string): string {
   return `Seen ${d.toLocaleDateString([], { month: 'short', day: 'numeric' })}`;
 }
 
+const QUICK_REACTIONS = ['❤️', '👍', '😂', '😮', '😢', '🔥'];
+
 export function MessageBubble({ message, showAvatar, showTail, isLatestSeen, isNewestOutgoing, onReact, onReply, onDelete, onCopy, onReport, onSaveMedia, onImageClick, onRefreshUrl }: MessageBubbleProps) {
-  const [showReactionPicker, setShowReactionPicker] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
   const [showActionSheet, setShowActionSheet] = useState(false);
-  const [showDesktopMenu, setShowDesktopMenu] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -81,7 +83,6 @@ export function MessageBubble({ message, showAvatar, showTail, isLatestSeen, isN
   const hasMedia = !isText;
   const reactions = message.reactions ?? {};
   const hasReactions = Object.keys(reactions).length > 0;
-  const showMeta = isHovered || showDesktopMenu;
 
   const showReadReceipt = message.isMine && (
     (isLatestSeen && message.seen_at) ||
@@ -92,19 +93,21 @@ export function MessageBubble({ message, showAvatar, showTail, isLatestSeen, isN
     ? formatSeenTime(message.seen_at)
     : message.delivered_at ? 'Delivered' : 'Sent';
 
+  // Dismiss on click outside
   useEffect(() => {
-    if (!showDesktopMenu && !showActionSheet) return;
-    const handleOutsideClick = (e: Event) => {
+    if (!showMenu && !showActionSheet) return;
+    const handle = (e: Event) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setShowDesktopMenu(false);
+        setShowMenu(false);
         setShowActionSheet(false);
-        setShowReactionPicker(false);
+        setShowPicker(false);
       }
     };
-    document.addEventListener('pointerdown', handleOutsideClick);
-    return () => document.removeEventListener('pointerdown', handleOutsideClick);
-  }, [showDesktopMenu, showActionSheet]);
+    document.addEventListener('pointerdown', handle);
+    return () => document.removeEventListener('pointerdown', handle);
+  }, [showMenu, showActionSheet]);
 
+  // Long press -> action sheet (mobile)
   const handleTouchStart = useCallback(() => {
     longPressTriggered.current = false;
     longPressTimer.current = setTimeout(() => {
@@ -121,19 +124,16 @@ export function MessageBubble({ message, showAvatar, showTail, isLatestSeen, isN
   }, []);
 
   const handleClick = useCallback(() => {
-    if (longPressTriggered.current) {
-      longPressTriggered.current = false;
-      return;
-    }
-    if (showReactionPicker) { setShowReactionPicker(false); return; }
-    if (showDesktopMenu) { setShowDesktopMenu(false); return; }
-  }, [showReactionPicker, showDesktopMenu]);
+    if (longPressTriggered.current) { longPressTriggered.current = false; return; }
+    if (showPicker) { setShowPicker(false); return; }
+    if (showMenu) { setShowMenu(false); return; }
+  }, [showPicker, showMenu]);
 
   const handleAction = useCallback((action: ActionKind) => {
     setShowActionSheet(false);
-    setShowDesktopMenu(false);
+    setShowMenu(false);
     switch (action) {
-      case 'react': setShowReactionPicker(true); break;
+      case 'react': setShowPicker(true); break;
       case 'reply': onReply(message); break;
       case 'copy': if (message.content) onCopy(message.content); break;
       case 'delete-me': onDelete(message.id, false); break;
@@ -145,12 +145,10 @@ export function MessageBubble({ message, showAvatar, showTail, isLatestSeen, isN
 
   const handleReactionSelect = useCallback((emoji: string) => {
     onReact(message.id, emoji);
-    setShowReactionPicker(false);
+    setShowPicker(false);
   }, [message.id, onReact]);
 
-  const QUICK_REACTIONS = ['❤️', '👍', '😂', '😮', '😢', '🔥'];
-
-  const actionSheetItems = [
+  const menuItems = [
     { kind: 'reply' as ActionKind, label: 'Reply', icon: '↩️', show: true },
     { kind: 'copy' as ActionKind, label: 'Copy', icon: '📋', show: isText },
     { kind: 'save' as ActionKind, label: 'Save', icon: '💾', show: hasMedia },
@@ -164,12 +162,12 @@ export function MessageBubble({ message, showAvatar, showTail, isLatestSeen, isN
       <div
         ref={containerRef}
         className={cn(
-          'group relative',
+          'group/msg relative',
           message.isMine ? 'flex flex-row-reverse' : 'flex flex-row',
           hasReactions && 'mb-6'
         )}
         onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => { setIsHovered(false); setShowReactionPicker(false); }}
+        onMouseLeave={() => { setIsHovered(false); setShowPicker(false); }}
       >
         {/* Avatar */}
         {!message.isMine && (
@@ -181,7 +179,7 @@ export function MessageBubble({ message, showAvatar, showTail, isLatestSeen, isN
           </div>
         )}
 
-        {/* Bubble column */}
+        {/* Bubble + metadata column */}
         <div className={cn(
           'flex flex-col max-w-[78%] md:max-w-[min(65%,520px)]',
           message.isMine ? 'items-end' : 'items-start'
@@ -274,58 +272,40 @@ export function MessageBubble({ message, showAvatar, showTail, isLatestSeen, isN
             )}
           </div>
 
-          {/* Metadata row */}
+          {/* Metadata row — timestamp + seen */}
           <div className={cn(
-            'relative flex items-center h-5 mt-0.5',
+            'flex items-center gap-1 mt-0.5',
             message.isMine ? 'justify-start' : 'justify-end'
           )}>
-            <span className={cn(
-              'text-[11px] text-[var(--text-muted)] transition-opacity duration-150',
-              message.isMine ? 'order-1' : 'order-2',
-              showMeta ? 'opacity-100' : 'opacity-0'
-            )}>
+            <span className="text-[11px] text-[var(--text-muted)] opacity-0 group-hover/msg:opacity-100 transition-opacity duration-150">
               {formatTime(message.createdAt)}
             </span>
-
-            {/* Desktop inline actions */}
-            <div className={cn(
-              'absolute top-1/2 -translate-y-1/2 flex items-center gap-0.5 transition-opacity duration-150 z-10 hidden md:flex',
-              message.isMine ? 'right-0' : 'left-0',
-              showMeta ? 'opacity-100' : 'opacity-0 pointer-events-none'
-            )}>
-              <button
-                onClick={(e) => { e.stopPropagation(); setShowReactionPicker(prev => !prev); }}
-                aria-label="React"
-                className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-[var(--bg-tertiary)] text-[var(--text-muted)] transition-colors text-xs"
-              >
-                😊
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); onReply(message); }}
-                aria-label="Reply"
-                className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-[var(--bg-tertiary)] text-[var(--text-muted)] transition-colors"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); setShowDesktopMenu(prev => !prev); }}
-                aria-label="More actions"
-                className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-[var(--bg-tertiary)] text-[var(--text-muted)] transition-colors"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
-              </button>
-            </div>
+            {showReadReceipt && (
+              <span className={cn(
+                'text-[11px] opacity-0 group-hover/msg:opacity-100 transition-opacity duration-150',
+                message.seen_at ? 'text-blue-400' : 'text-[var(--text-muted)]'
+              )}>
+                {readReceiptText}
+              </span>
+            )}
           </div>
+        </div>
 
-          {/* Seen indicator */}
-          {showReadReceipt && (
-            <span className={cn(
-              'text-[11px] text-[var(--text-muted)] transition-opacity duration-150',
-              showMeta ? 'opacity-100' : 'opacity-0'
-            )}>
-              {readReceiptText}
-            </span>
-          )}
+        {/* Desktop "..." button — sits beside bubble, visible on hover */}
+        <div className={cn(
+          'hidden md:flex items-center self-center flex-shrink-0 transition-opacity duration-150',
+          message.isMine ? 'mr-1' : 'ml-1',
+          isHovered ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        )}>
+          <button
+            onClick={(e) => { e.stopPropagation(); setShowMenu(prev => !prev); }}
+            aria-label="Message actions"
+            className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-[var(--bg-tertiary)] text-[var(--text-muted)] transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="1" /><circle cx="12" cy="5" r="1" /><circle cx="12" cy="19" r="1" />
+            </svg>
+          </button>
         </div>
 
         {/* Reactions pill */}
@@ -354,7 +334,7 @@ export function MessageBubble({ message, showAvatar, showTail, isLatestSeen, isN
         )}
 
         {/* Reaction picker popup */}
-        {showReactionPicker && (
+        {showPicker && (
           <div className={cn(
             'absolute z-30 -top-12',
             message.isMine ? 'right-12' : 'left-12'
@@ -364,9 +344,9 @@ export function MessageBubble({ message, showAvatar, showTail, isLatestSeen, isN
         )}
 
         {/* Desktop dropdown menu */}
-        {showDesktopMenu && (
+        {showMenu && (
           <>
-            <div className="fixed inset-0 z-40" onClick={() => setShowDesktopMenu(false)} aria-hidden="true" />
+            <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} aria-hidden="true" />
             <div
               role="menu"
               aria-label="Message actions"
@@ -375,7 +355,22 @@ export function MessageBubble({ message, showAvatar, showTail, isLatestSeen, isN
                 message.isMine ? 'left-0' : 'right-0'
               )}
             >
-              {actionSheetItems.map((action) => (
+              {/* Quick reactions */}
+              <div className="flex items-center justify-center gap-0.5 px-2 py-1.5 border-b border-[var(--border-subtle)]">
+                {QUICK_REACTIONS.map((emoji) => (
+                  <button
+                    key={emoji}
+                    onClick={(e) => { e.stopPropagation(); onReact(message.id, emoji); setShowMenu(false); }}
+                    className={cn(
+                      'w-8 h-8 flex items-center justify-center rounded-full text-lg transition-all hover:scale-125 active:scale-95',
+                      message.my_reaction === emoji ? 'bg-[var(--accent-primary)]/15 scale-110' : 'hover:bg-[var(--bg-tertiary)]'
+                    )}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+              {menuItems.map((action) => (
                 <button
                   key={action.kind}
                   role="menuitem"
@@ -409,7 +404,6 @@ export function MessageBubble({ message, showAvatar, showTail, isLatestSeen, isN
             aria-label="Message actions"
             className="fixed bottom-0 left-0 right-0 z-[9999] bg-[var(--bg-secondary)] rounded-t-2xl pb-[max(0.75rem,env(safe-area-inset-bottom))] animate-slide-in-from-bottom"
           >
-            {/* Drag handle */}
             <div className="flex justify-center pt-2 pb-1">
               <div className="w-9 h-1 bg-[var(--text-muted)]/20 rounded-full" />
             </div>
@@ -439,12 +433,12 @@ export function MessageBubble({ message, showAvatar, showTail, isLatestSeen, isN
               {QUICK_REACTIONS.map((emoji) => (
                 <button
                   key={emoji}
-                  onClick={(e) => { e.stopPropagation(); handleAction('react'); onReact(message.id, emoji); setShowActionSheet(false); }}
+                  onClick={() => { onReact(message.id, emoji); setShowActionSheet(false); }}
                   className={cn(
                     'w-11 h-11 flex items-center justify-center rounded-full text-xl transition-all active:scale-90',
                     message.my_reaction === emoji
                       ? 'bg-[var(--accent-primary)]/15 scale-110'
-                      : 'hover:bg-[var(--bg-tertiary)] active:bg-[var(--bg-tertiary)]'
+                      : 'active:bg-[var(--bg-tertiary)]'
                   )}
                 >
                   {emoji}
@@ -452,16 +446,15 @@ export function MessageBubble({ message, showAvatar, showTail, isLatestSeen, isN
               ))}
             </div>
 
-            {/* Divider */}
             <div className="h-px bg-[var(--border-subtle)] mx-3 mb-1" />
 
             {/* Actions */}
             <div className="px-1.5">
-              {actionSheetItems.map((action) => (
+              {menuItems.map((action) => (
                 <button
                   key={action.kind}
                   role="menuitem"
-                  onClick={(e) => { e.stopPropagation(); handleAction(action.kind); }}
+                  onClick={() => handleAction(action.kind)}
                   className={cn(
                     'w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-left transition-colors',
                     action.destructive
@@ -475,7 +468,6 @@ export function MessageBubble({ message, showAvatar, showTail, isLatestSeen, isN
               ))}
             </div>
 
-            {/* Cancel */}
             <div className="px-1.5 mt-0.5">
               <button
                 onClick={() => setShowActionSheet(false)}

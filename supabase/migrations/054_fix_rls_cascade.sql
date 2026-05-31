@@ -43,6 +43,7 @@ CREATE POLICY "conversation_participants_insert" ON public.conversation_particip
 
 -- 2. story_views: Allow reading your OWN view records
 DROP POLICY IF EXISTS "story_views_select_owner" ON public.story_views;
+DROP POLICY IF EXISTS "story_views_select_viewer" ON public.story_views;
 
 CREATE POLICY "story_views_select_viewer" ON public.story_views
   FOR SELECT USING (
@@ -52,6 +53,7 @@ CREATE POLICY "story_views_select_viewer" ON public.story_views
 
 -- 3. close_friends: Allow checking if you're on someone's list
 DROP POLICY IF EXISTS "close_friends_select_own" ON public.close_friends;
+DROP POLICY IF EXISTS "close_friends_select" ON public.close_friends;
 
 CREATE POLICY "close_friends_select" ON public.close_friends
   FOR SELECT USING (
@@ -63,6 +65,7 @@ CREATE POLICY "close_friends_select" ON public.close_friends
 DROP POLICY IF EXISTS "stories_select" ON public.stories;
 DROP POLICY IF EXISTS "stories_public_read" ON public.stories;
 DROP POLICY IF EXISTS "stories_select_visibility" ON public.stories;
+DROP POLICY IF EXISTS "stories_select_final" ON public.stories;
 
 CREATE POLICY "stories_select_final" ON public.stories
   FOR SELECT USING (
@@ -85,6 +88,8 @@ CREATE POLICY "stories_select_final" ON public.stories
 ALTER FUNCTION public.get_following_feed(uuid, int, uuid[]) SET search_path = public;
 
 -- 6. notifications INSERT: Fix NEW.post_id syntax (invalid in RLS)
+-- Only check base types (like, comment, follow, mention) since story_id
+-- column and story types may not exist on all environments.
 DROP POLICY IF EXISTS "notifications_insert" ON public.notifications;
 
 CREATE POLICY "notifications_insert" ON public.notifications
@@ -101,13 +106,7 @@ CREATE POLICY "notifications_insert" ON public.notifications
         SELECT 1 FROM comments WHERE user_id = actor_id AND id = notifications.comment_id
       ))
       OR (type = 'mention' AND post_id IS NOT NULL AND EXISTS (
-        SELECT 1 FROM post_mentions WHERE mentioned_user_id = user_id AND post_id = notifications.post_id
-      ))
-      OR (type = 'story_reply' AND story_id IS NOT NULL AND EXISTS (
-        SELECT 1 FROM stories WHERE id = notifications.story_id AND user_id = notifications.user_id
-      ))
-      OR (type = 'story_reaction' AND story_id IS NOT NULL AND EXISTS (
-        SELECT 1 FROM stories WHERE id = notifications.story_id AND user_id = notifications.user_id
+        SELECT 1 FROM post_mentions WHERE user_id = notifications.user_id AND post_id = notifications.post_id
       ))
     )
   );
@@ -135,6 +134,9 @@ END;
 $$;
 
 -- 8. messages RPCs
+DROP FUNCTION IF EXISTS public.mark_messages_seen(uuid);
+DROP FUNCTION IF EXISTS public.add_to_deleted_for(uuid, uuid);
+
 CREATE OR REPLACE FUNCTION public.mark_messages_seen(p_conversation_id uuid)
 RETURNS void AS $$
 BEGIN

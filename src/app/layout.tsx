@@ -146,9 +146,10 @@ export default function RootLayout({
       </head>
       <body className="antialiased">
         <noscript>
-          <div style={{ padding: '2rem', textAlign: 'center', fontFamily: 'system-ui' }}>
-            <h1>JavaScript Required</h1>
-            <p>KWEN requires JavaScript to run. Please enable JavaScript in your browser settings.</p>
+          <div style={{ padding: '2rem', textAlign: 'center', fontFamily: 'system-ui', maxWidth: '600px', margin: '0 auto' }}>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '1rem' }}>KWEN — Connect. Share. Discover.</h1>
+            <p style={{ color: '#666', marginBottom: '1.5rem' }}>Connect. Share. Discover. KWEN brings stories, messaging, posts, reels, and communities together in a fast, modern social experience.</p>
+            <p style={{ fontSize: '0.875rem', color: '#999' }}>Please enable JavaScript to use KWEN.</p>
           </div>
         </noscript>
         <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:rounded-lg focus:bg-white focus:text-black focus:text-sm focus:font-semibold">

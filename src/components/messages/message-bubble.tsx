@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import { ReactionPicker } from './reaction-picker';
 import { VoiceMessage } from './voice-message';
 
-export type ActionKind = 'react' | 'reply' | 'copy' | 'delete-me' | 'delete-everyone' | 'report' | 'save';
+export type ActionKind = 'react' | 'reply' | 'copy' | 'delete-me' | 'delete-everyone' | 'report' | 'save' | 'forward';
 
 export interface MessageBubbleData {
   id: string;
@@ -47,6 +47,7 @@ interface MessageBubbleProps {
   onSaveMedia?: (mediaUrl: string, messageType: string, mediaPath?: string) => void;
   onImageClick?: (url: string) => void;
   onRefreshUrl?: (mediaPath: string) => Promise<string | null>;
+  onForward?: (message: MessageBubbleData) => void;
 }
 
 function formatTime(dateStr: string): string {
@@ -56,7 +57,20 @@ function formatTime(dateStr: string): string {
 
 const QUICK_REACTIONS = ['❤️', '👍', '😂', '😮', '😢', '🔥'];
 
-export function MessageBubble({ message, showAvatar, showTail, onReact, onReply, onDelete, onCopy, onReport, onSaveMedia, onImageClick, onRefreshUrl }: MessageBubbleProps) {
+function extractUrls(text: string): string[] {
+  const urlRegex = /https?:\/\/[^\s<>"{}|\\^`\[\]]+/g;
+  return [...new Set(text.match(urlRegex) || [])];
+}
+
+function getDomain(url: string): string {
+  try { return new URL(url).hostname.replace('www.', ''); } catch { return ''; }
+}
+
+function isImageUrl(url: string): boolean {
+  return /\.(jpg|jpeg|png|gif|webp|avif)(\?|$)/i.test(url);
+}
+
+export function MessageBubble({ message, showAvatar, showTail, onReact, onReply, onDelete, onCopy, onReport, onSaveMedia, onImageClick, onRefreshUrl, onForward }: MessageBubbleProps) {
   const [showPicker, setShowPicker] = useState(false);
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
@@ -66,6 +80,13 @@ export function MessageBubble({ message, showAvatar, showTail, onReact, onReply,
   const longPressTriggered = useRef(false);
   const lastTapRef = useRef<number>(0);
   const [showHeart, setShowHeart] = useState(false);
+
+  // Swipe-to-reply gesture
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
+  const swipeActiveRef = useRef(false);
+  const SWIPE_THRESHOLD = 60;
+  const SWIPE_MAX = 100;
 
   const isText = message.message_type === 'text' || message.message_type === 'mixed' || message.message_type === 'story_reply';
   const hasMedia = !isText;
@@ -86,21 +107,52 @@ export function MessageBubble({ message, showAvatar, showTail, onReact, onReply,
     return () => document.removeEventListener('pointerdown', handle);
   }, [showMenu, showActionSheet]);
 
-  // Long press -> action sheet (mobile)
-  const handleTouchStart = useCallback(() => {
+  // Long press -> action sheet (mobile) + swipe-to-reply
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
     longPressTriggered.current = false;
+    const touch = e.touches[0];
+    swipeStartRef.current = { x: touch.clientX, y: touch.clientY };
+    swipeActiveRef.current = false;
+
     longPressTimer.current = setTimeout(() => {
       longPressTriggered.current = true;
       setShowActionSheet(true);
     }, 500);
   }, []);
 
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!swipeStartRef.current || longPressTriggered.current) return;
+    const touch = e.touches[0];
+    const dx = touch.clientX - swipeStartRef.current.x;
+    const dy = touch.clientY - swipeStartRef.current.y;
+
+    if (!swipeActiveRef.current && Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      swipeActiveRef.current = true;
+      if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+    }
+
+    if (swipeActiveRef.current) {
+      const direction = message.isMine ? -1 : 1;
+      const offset = Math.max(0, Math.min(SWIPE_MAX, dx * direction));
+      setSwipeOffset(offset);
+    }
+  }, [message.isMine]);
+
   const handleTouchEnd = useCallback(() => {
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
     }
-  }, []);
+
+    if (swipeActiveRef.current) {
+      if (swipeOffset >= SWIPE_THRESHOLD) {
+        onReply(message);
+      }
+      setSwipeOffset(0);
+      swipeActiveRef.current = false;
+    }
+    swipeStartRef.current = null;
+  }, [swipeOffset, message, onReply]);
 
   const handleClick = useCallback(() => {
     if (longPressTriggered.current) { longPressTriggered.current = false; return; }
@@ -125,13 +177,14 @@ export function MessageBubble({ message, showAvatar, showTail, onReact, onReply,
     switch (action) {
       case 'react': setShowPicker(true); break;
       case 'reply': onReply(message); break;
+      case 'forward': onForward?.(message); break;
       case 'copy': if (message.content) onCopy(message.content); break;
       case 'delete-me': onDelete(message.id, false); break;
       case 'delete-everyone': onDelete(message.id, true); break;
       case 'report': onReport(message.id); break;
       case 'save': if (message.media_url) onSaveMedia?.(message.media_url, message.message_type, message.media_path || undefined); break;
     }
-  }, [message, onReply, onCopy, onDelete, onReport, onSaveMedia]);
+  }, [message, onReply, onCopy, onDelete, onReport, onSaveMedia, onForward]);
 
   const handleReactionSelect = useCallback((emoji: string) => {
     onReact(message.id, emoji);
@@ -140,6 +193,7 @@ export function MessageBubble({ message, showAvatar, showTail, onReact, onReply,
 
   const menuItems = [
     { kind: 'reply' as ActionKind, label: 'Reply', icon: '↩️', show: true },
+    { kind: 'forward' as ActionKind, label: 'Forward', icon: '↪️', show: true },
     { kind: 'copy' as ActionKind, label: 'Copy', icon: '📋', show: isText },
     { kind: 'save' as ActionKind, label: 'Save', icon: '💾', show: hasMedia },
     { kind: 'delete-me' as ActionKind, label: 'Delete for me', icon: '🗑️', show: true, destructive: true },
@@ -159,6 +213,19 @@ export function MessageBubble({ message, showAvatar, showTail, onReact, onReply,
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => { setIsHovered(false); setShowPicker(false); }}
       >
+        {/* Swipe reply icon — appears behind bubble */}
+        {swipeOffset > 0 && (
+          <div className={cn(
+            'absolute top-1/2 -translate-y-1/2 z-0 flex items-center justify-center transition-opacity',
+            message.isMine ? 'right-0' : 'left-0',
+            swipeOffset >= SWIPE_THRESHOLD ? 'opacity-100' : 'opacity-50'
+          )} style={{ width: 32, height: 32 }}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={swipeOffset >= SWIPE_THRESHOLD ? 'var(--accent-primary)' : 'var(--text-muted)'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /><path d="m10 8-3 3 3 3" /><path d="M13 11H7" />
+            </svg>
+          </div>
+        )}
+
         {/* Avatar */}
         {!message.isMine && (
           <div className="w-8 flex-shrink-0 self-end">
@@ -171,9 +238,9 @@ export function MessageBubble({ message, showAvatar, showTail, onReact, onReply,
 
         {/* Bubble + metadata column */}
         <div className={cn(
-          'flex flex-col max-w-[78%] md:max-w-[min(65%,520px)]',
+          'flex flex-col max-w-[78%] md:max-w-[min(65%,520px)] relative z-10',
           message.isMine ? 'items-end' : 'items-start'
-        )}>
+        )} style={{ transform: swipeOffset > 0 ? `translateX(${(message.isMine ? -1 : 1) * swipeOffset}px)` : undefined, transition: swipeActiveRef.current ? 'none' : 'transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}>
           {/* Reply-to preview */}
           {message.reply_to && (
             <div className={cn(
@@ -203,6 +270,7 @@ export function MessageBubble({ message, showAvatar, showTail, onReact, onReply,
             )}
             onClick={handleClick}
             onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
             onTouchCancel={handleTouchEnd}
           >
@@ -257,9 +325,65 @@ export function MessageBubble({ message, showAvatar, showTail, onReact, onReply,
                 'whitespace-pre-wrap break-words',
                 /^[\p{Emoji_Presentation}\p{Emoji}\u200d\ufe0f]{1,12}$/u.test(message.content) ? 'text-[2.5rem] leading-tight' : 'text-[15px] leading-[1.35]'
               )}>
-                {message.content}
+                {message.content.split(/(https?:\/\/[^\s<>"{}|\\^`\[\]]+)/g).map((part, i) => {
+                  if (/^https?:\/\//.test(part)) {
+                    return (
+                      <a
+                        key={i}
+                        href={part}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className={cn(
+                          'underline underline-offset-2 decoration-1',
+                          message.isMine ? 'text-white/90 hover:text-white' : 'text-[var(--accent-primary)] hover:opacity-80'
+                        )}
+                      >
+                        {part}
+                      </a>
+                    );
+                  }
+                  return part;
+                })}
               </p>
             )}
+
+            {/* Link preview */}
+            {(() => {
+              if (!message.content || message.message_type === 'voice') return null;
+              const urls = extractUrls(message.content);
+              if (urls.length === 0) return null;
+              const url = urls[0];
+              if (isImageUrl(url)) return null;
+              const domain = getDomain(url);
+              if (!domain) return null;
+              return (
+                <a
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className={cn(
+                    'block mt-1.5 rounded-lg overflow-hidden border transition-colors',
+                    message.isMine
+                      ? 'bg-white/10 border-white/20 hover:bg-white/15'
+                      : 'bg-[var(--bg-tertiary)] border-[var(--border-subtle)] hover:border-[var(--text-muted)]/30'
+                  )}
+                >
+                  <div className="px-2.5 py-1.5 flex items-center gap-1.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={message.isMine ? 'rgba(255,255,255,0.5)' : 'var(--text-muted)'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                    </svg>
+                    <span className={cn(
+                      'text-xs font-medium truncate',
+                      message.isMine ? 'text-white/70' : 'text-[var(--text-muted)]'
+                    )}>
+                      {domain}
+                    </span>
+                  </div>
+                </a>
+              );
+            })()}
 
             {/* Double-tap heart animation */}
             {showHeart && (
@@ -274,23 +398,20 @@ export function MessageBubble({ message, showAvatar, showTail, onReact, onReply,
             'flex items-center gap-1 mt-0.5',
             message.isMine ? 'justify-start' : 'justify-end'
           )}>
-            <span className="text-[11px] text-[var(--text-muted)] opacity-0 group-hover/msg:opacity-100 transition-opacity duration-150">
+            <span className="text-[11px] text-[var(--text-muted)] opacity-0 group-hover/msg:opacity-100 transition-opacity duration-150 select-none">
               {formatTime(message.createdAt)}
             </span>
             {message.isMine && (
-              <span className="opacity-0 group-hover/msg:opacity-100 transition-opacity duration-150">
+              <span className="opacity-0 group-hover/msg:opacity-100 transition-opacity duration-150 select-none">
                 {message.seen_at ? (
-                  // Double check — seen (blue)
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M18 6 7 17l-5-5" /><path d="m22 10-9.5 9.5L10 17" />
                   </svg>
                 ) : message.delivered_at ? (
-                  // Double check — delivered (gray)
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M18 6 7 17l-5-5" /><path d="m22 10-9.5 9.5L10 17" />
                   </svg>
                 ) : (
-                  // Single check — sent
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M18 6 7 17l-5-5" />
                   </svg>
@@ -300,7 +421,7 @@ export function MessageBubble({ message, showAvatar, showTail, onReact, onReply,
           </div>
         </div>
 
-        {/* Desktop "..." button — sits beside bubble, visible on hover */}
+        {/* Desktop "..." button */}
         <div className={cn(
           'hidden md:flex items-center self-center flex-shrink-0 transition-opacity duration-150',
           message.isMine ? 'mr-1' : 'ml-1',

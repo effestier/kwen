@@ -42,18 +42,6 @@ export async function sendOTP(email: string): Promise<AuthResult> {
 
     const supabase = createClient();
 
-    // Server-side rate limiting via Supabase RPC (3 per 5 min per email)
-    const { data: rateLimitResult } = await supabase.rpc('check_rate_limit', {
-      p_key: `otp-send:${cleanEmail}`,
-      p_max_attempts: 3,
-      p_window_ms: 5 * 60 * 1000,
-    });
-
-    if (rateLimitResult && !rateLimitResult.allowed) {
-      const minutes = Math.ceil((rateLimitResult.retry_after_ms || 0) / 60000);
-      return { error: `Too many requests. Try again in ${minutes} minute(s).` };
-    }
-
     const { error } = await supabase.auth.signInWithOtp({
       email: cleanEmail,
       options: {
@@ -90,16 +78,6 @@ export async function verifyOTP(email: string, token: string): Promise<AuthResul
 
     const supabase = createClient();
 
-    // Rate limit: 10 verification attempts per 15 minutes per email
-    const { data: rateLimitResult } = await supabase.rpc('check_rate_limit', {
-      p_key: `otp-verify:${cleanEmail}`,
-      p_max_attempts: 10,
-      p_window_ms: 15 * 60 * 1000,
-    });
-
-    if (rateLimitResult && !(rateLimitResult as { allowed: boolean }).allowed) {
-      return { error: 'Too many verification attempts. Please wait and try again.' };
-    }
     const { data, error } = await supabase.auth.verifyOtp({
       email: cleanEmail,
       token: cleanToken,
@@ -164,18 +142,6 @@ export async function signInWithPassword(email: string, password: string): Promi
     }
 
     const supabase = createClient();
-
-    // Server-side rate limiting via Supabase RPC (5 attempts per 15 min per email)
-    const { data: rateLimitResult } = await supabase.rpc('check_rate_limit', {
-      p_key: `password-login:${cleanEmail}`,
-      p_max_attempts: 5,
-      p_window_ms: 15 * 60 * 1000,
-    });
-
-    if (rateLimitResult && !rateLimitResult.allowed) {
-      const minutes = Math.ceil((rateLimitResult.retry_after_ms || 0) / 60000);
-      return { error: `Too many login attempts. Try again in ${minutes} minute(s).` };
-    }
 
     const { error } = await supabase.auth.signInWithPassword({
       email: cleanEmail,

@@ -109,6 +109,11 @@ export default function MessagesPage() {
   const [isRecordingVoice, setIsRecordingVoice] = useState(false);
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Map<string, string>>(new Map()); // conversationId -> matched message snippet
+  const [searchingMessages, setSearchingMessages] = useState(false);
+  const [forwardMessage, setForwardMessage] = useState<MessageBubbleData | null>(null);
+  const [forwardSearch, setForwardSearch] = useState('');
+  const [deleteConvId, setDeleteConvId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
 
@@ -254,11 +259,14 @@ export default function MessagesPage() {
         const participant = participantMap.get(c.id);
         const lastMsg = lastMessageMap.get(c.id);
         const profile = other ? profileMap.get(other.user_id) : null;
+        const isLastMine = lastMsg && (lastMsg as Record<string, unknown>).sender_id === user.id;
+
+        const preview = lastMsg?.message_type === 'image' ? '📷 Photo' : lastMsg?.message_type === 'voice' ? '🎤 Voice message' : lastMsg?.message_type === 'mixed' ? `📷 Photo · ${lastMsg.content}` : (lastMsg?.content || 'Start a conversation');
 
         return {
           id: c.id,
           other_user: profile ? { id: profile.id, username: profile.username, display_name: profile.display_name, avatar_url: profile.avatar_url, is_online: profile.is_online, last_seen_at: profile.last_seen_at } : null,
-          last_message: lastMsg?.message_type === 'image' ? 'Photo' : lastMsg?.message_type === 'voice' ? '🎤 Voice message' : lastMsg?.message_type === 'mixed' ? `Photo · ${lastMsg.content}` : (lastMsg?.content || 'Start a conversation'),
+          last_message: isLastMine ? `You: ${preview}` : preview,
           unread_count: participant?.unread_count || 0,
           updated_at: lastMsg?.created_at || c.updated_at,
         };
@@ -278,7 +286,9 @@ export default function MessagesPage() {
       .channel('conversations-updates')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, async (payload) => {
         const msg = payload.new as { id: string; conversation_id: string; content: string; sender_id: string; created_at: string; message_type?: string };
-        const preview = msg.message_type === 'image' ? 'Photo' : msg.message_type === 'voice' ? '🎤 Voice message' : msg.message_type === 'mixed' ? `Photo · ${msg.content}` : msg.content;
+        const rawPreview = msg.message_type === 'image' ? 'Photo' : msg.message_type === 'voice' ? '🎤 Voice message' : msg.message_type === 'mixed' ? `Photo · ${msg.content}` : msg.content;
+        const isMine = msg.sender_id === currentUserIdRef.current;
+        const preview = isMine ? `You: ${rawPreview}` : rawPreview;
 
         // Try to update existing conversation first
         let found = false;
@@ -328,6 +338,48 @@ export default function MessagesPage() {
 
     return () => { cancelled = true; supabase.removeChannel(convChannel); };
   }, []);
+
+  // Search messages across conversations
+  useEffect(() => {
+    if (!currentUserId || searchQuery.trim().length < 2) {
+      setSearchResults(new Map());
+      setSearchingMessages(false);
+      return;
+    }
+
+    setSearchingMessages(true);
+    const timeout = setTimeout(async () => {
+      const supabase = createClient();
+      const q = searchQuery.trim();
+      const { data: matches } = await supabase
+        .from('messages')
+        .select('conversation_id, content')
+        .ilike('content', `%${q}%`)
+        .is('deleted_at', null)
+        .limit(50);
+
+      if (!matches) {
+        setSearchResults(new Map());
+        setSearchingMessages(false);
+        return;
+      }
+
+      const snippetMap = new Map<string, string>();
+      for (const m of matches) {
+        if (!snippetMap.has(m.conversation_id)) {
+          const idx = m.content.toLowerCase().indexOf(q.toLowerCase());
+          const start = Math.max(0, idx - 20);
+          const end = Math.min(m.content.length, idx + q.length + 20);
+          const snippet = (start > 0 ? '...' : '') + m.content.slice(start, end) + (end < m.content.length ? '...' : '');
+          snippetMap.set(m.conversation_id, snippet);
+        }
+      }
+      setSearchResults(snippetMap);
+      setSearchingMessages(false);
+    }, 300);
+
+    return () => clearTimeout(timeout);
+  }, [currentUserId, searchQuery]);
 
   // H15: Load more conversations pagination
   const loadMoreConversations = useCallback(async () => {
@@ -996,6 +1048,46 @@ export default function MessagesPage() {
     }
   }, []);
 
+  const handleForward = useCallback(async (targetConversationId: string) => {
+    if (!forwardMessage) return;
+    const content = forwardMessage.content || '';
+    const media: MediaMetadata | undefined = forwardMessage.media_path ? {
+      path: forwardMessage.media_path,
+      mimeType: 'image/webp',
+    } : undefined;
+    const result = await sendMessage(targetConversationId, content, media);
+    if (result.success) {
+      showToast('Message forwarded', 'success');
+    } else {
+      showToast(result.error || 'Failed to forward');
+    }
+    setForwardMessage(null);
+    setForwardSearch('');
+  }, [forwardMessage, showToast]);
+
+  const handleDeleteConversation = useCallback(async () => {
+    if (!deleteConvId) return;
+    const supabase = createClient();
+    // Remove participant row (user leaves the conversation)
+    const { error } = await supabase
+      .from('conversation_participants')
+      .delete()
+      .eq('conversation_id', deleteConvId)
+      .eq('user_id', currentUserId);
+
+    if (!error) {
+      setConversations(prev => prev.filter(c => c.id !== deleteConvId));
+      if (selectedId === deleteConvId) {
+        setSelectedId(null);
+        setShowMobileChat(false);
+      }
+      showToast('Conversation deleted', 'success');
+    } else {
+      showToast('Failed to delete conversation');
+    }
+    setDeleteConvId(null);
+  }, [deleteConvId, currentUserId, selectedId, showToast]);
+
   const handleSaveMedia = useCallback(async (mediaUrl: string, messageType: string, mediaPath?: string) => {
     try {
       let url = mediaUrl;
@@ -1316,7 +1408,8 @@ export default function MessagesPage() {
                 .filter(conv => {
                   if (!searchQuery.trim()) return true;
                   const q = searchQuery.toLowerCase();
-                  return (conv.other_user?.display_name?.toLowerCase().includes(q) || conv.other_user?.username?.toLowerCase().includes(q));
+                  if (conv.other_user?.display_name?.toLowerCase().includes(q) || conv.other_user?.username?.toLowerCase().includes(q)) return true;
+                  return searchResults.has(conv.id);
                 })
                 .map((conv) => {
                 const isUnread = conv.unread_count > 0;
@@ -1327,6 +1420,15 @@ export default function MessagesPage() {
                     role="listitem"
                     aria-current={isSelected ? 'true' : undefined}
                     onClick={() => handleSelectConversation(conv)}
+                    onContextMenu={(e) => { e.preventDefault(); setDeleteConvId(conv.id); }}
+                    onTouchStart={(e) => {
+                      const touch = e.touches[0];
+                      (e.currentTarget as HTMLButtonElement & { _lt?: ReturnType<typeof setTimeout> })._lt = setTimeout(() => {
+                        setDeleteConvId(conv.id);
+                      }, 500);
+                    }}
+                    onTouchEnd={(e) => { clearTimeout((e.currentTarget as HTMLButtonElement & { _lt?: ReturnType<typeof setTimeout> })._lt); }}
+                    onTouchCancel={(e) => { clearTimeout((e.currentTarget as HTMLButtonElement & { _lt?: ReturnType<typeof setTimeout> })._lt); }}
                     className={cn(
                       'w-full flex items-center gap-3 px-4 py-2.5 transition-colors-fast text-left',
                       isSelected ? 'bg-[var(--bg-tertiary)]' : 'hover:bg-[var(--bg-secondary)]'
@@ -1360,7 +1462,7 @@ export default function MessagesPage() {
                           'text-[13px] truncate leading-tight',
                           isUnread ? 'text-[var(--text-primary)] font-semibold' : 'text-[var(--text-muted)]'
                         )}>
-                          {conv.last_message}
+                          {searchResults.has(conv.id) ? searchResults.get(conv.id) : conv.last_message}
                         </p>
                         {isUnread && (
                           <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[var(--accent-red)] text-white text-[10px] font-bold flex items-center justify-center">
@@ -1559,6 +1661,7 @@ export default function MessagesPage() {
                               onCopy={handleCopy}
                               onReport={handleReport}
                               onSaveMedia={handleSaveMedia}
+                              onForward={(m) => { setForwardMessage(m); setForwardSearch(''); }}
                               onImageClick={(url) => {
                                 const imgMsg = messages.find(m => m.media_url === url || m.thumbnail_url === url);
                                 setEnlargedImage({ url, mediaPath: imgMsg?.media_path || undefined });
@@ -1759,6 +1862,115 @@ export default function MessagesPage() {
               }
             }}
           />
+        </div>
+      )}
+      {/* Delete conversation confirmation */}
+      {deleteConvId && (
+        <div
+          role="dialog"
+          aria-label="Delete conversation"
+          className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center"
+          onClick={() => setDeleteConvId(null)}
+        >
+          <div
+            className="bg-[var(--bg-secondary)] rounded-2xl p-5 w-[320px] shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-base font-bold text-[var(--text-primary)] mb-2">Delete conversation?</h3>
+            <p className="text-sm text-[var(--text-muted)] mb-5">This will remove the conversation from your inbox. The other person will still see it.</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setDeleteConvId(null)}
+                className="flex-1 py-2 rounded-xl text-sm font-medium bg-[var(--bg-tertiary)] text-[var(--text-primary)] hover:bg-[var(--border-subtle)] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteConversation}
+                className="flex-1 py-2 rounded-xl text-sm font-medium bg-[var(--accent-red)] text-white hover:opacity-90 transition-opacity"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Forward message dialog */}
+      {forwardMessage && (
+        <div
+          role="dialog"
+          aria-label="Forward message"
+          className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-end md:items-center justify-center"
+          onClick={() => { setForwardMessage(null); setForwardSearch(''); }}
+        >
+          <div
+            className="bg-[var(--bg-secondary)] w-full md:w-[420px] md:rounded-2xl rounded-t-2xl max-h-[80vh] flex flex-col animate-slide-in-from-bottom"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-4 pt-4 pb-2">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-base font-bold text-[var(--text-primary)]">Forward to</h3>
+                <button
+                  onClick={() => { setForwardMessage(null); setForwardSearch(''); }}
+                  className="p-1.5 rounded-full hover:bg-[var(--bg-tertiary)] text-[var(--text-muted)]"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+                  </svg>
+                </button>
+              </div>
+              {/* Message preview */}
+              <div className="px-3 py-2 rounded-xl bg-[var(--bg-tertiary)] mb-3">
+                <p className="text-xs text-[var(--text-muted)] mb-0.5">{forwardMessage.sender?.display_name || 'User'}</p>
+                <p className="text-sm text-[var(--text-primary)] line-clamp-2">{forwardMessage.content || (forwardMessage.message_type === 'image' ? '📷 Photo' : forwardMessage.message_type === 'voice' ? '🎤 Voice message' : 'Media')}</p>
+              </div>
+              {/* Search */}
+              <div className="relative">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                  <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Search conversations"
+                  value={forwardSearch}
+                  onChange={(e) => setForwardSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 rounded-xl bg-[var(--bg-tertiary)] text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none"
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-4">
+              {conversations
+                .filter(c => c.id !== selectedId)
+                .filter(c => {
+                  if (!forwardSearch.trim()) return true;
+                  const q = forwardSearch.toLowerCase();
+                  return c.other_user?.display_name?.toLowerCase().includes(q) || c.other_user?.username?.toLowerCase().includes(q);
+                })
+                .map((conv) => (
+                  <button
+                    key={conv.id}
+                    onClick={() => handleForward(conv.id)}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[var(--bg-tertiary)] transition-colors text-left"
+                  >
+                    <Avatar
+                      src={conv.other_user?.avatar_url || null}
+                      name={conv.other_user?.display_name || 'User'}
+                      size="md"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[15px] font-medium text-[var(--text-primary)] truncate">{conv.other_user?.display_name || 'User'}</p>
+                      <p className="text-xs text-[var(--text-muted)] truncate">@{conv.other_user?.username}</p>
+                    </div>
+                  </button>
+                ))
+              }
+              {conversations.filter(c => c.id !== selectedId).length === 0 && (
+                <p className="text-center text-sm text-[var(--text-muted)] py-6">No other conversations</p>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </MainLayout>

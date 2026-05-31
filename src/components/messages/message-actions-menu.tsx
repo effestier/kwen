@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 
-export type ActionKind = 'react' | 'reply' | 'copy' | 'delete-me' | 'delete-everyone' | 'report' | 'save';
+export type ActionKind = 'react' | 'reply' | 'copy' | 'delete-me' | 'delete-everyone' | 'report' | 'save' | 'forward';
 
 interface MessageActionsMenuProps {
   isMine: boolean;
@@ -51,6 +51,7 @@ export function MessageActionsMenu({ isMine, isText, onAction, onClose, variant 
   const actions = [
     { kind: 'react' as ActionKind, label: 'React', icon: '😊', show: true },
     { kind: 'reply' as ActionKind, label: 'Reply', icon: '↩️', show: true },
+    { kind: 'forward' as ActionKind, label: 'Forward', icon: '↪️', show: true },
     { kind: 'copy' as ActionKind, label: 'Copy', icon: '📋', show: isText },
     { kind: 'save' as ActionKind, label: 'Save media', icon: '💾', show: hasMedia },
     { kind: 'delete-me' as ActionKind, label: 'Delete for me', icon: '🗑️', show: true },

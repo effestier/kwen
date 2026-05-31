@@ -415,6 +415,17 @@ input, textarea, select, [contenteditable="true"] {
   clip-path: polygon(100% 0, 0 100%, 100% 100%);
 }
 
+/* Double-tap heart animation */
+@keyframes doubleTapHeart {
+  0% { transform: scale(0); opacity: 0; }
+  15% { transform: scale(1.3); opacity: 1; }
+  30% { transform: scale(0.95); opacity: 1; }
+  45% { transform: scale(1.05); opacity: 1; }
+  80% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1); opacity: 0; }
+}
+.animate-double-tap-heart { animation: doubleTapHeart 800ms ease-out forwards; }
+
 /* Skeleton loading */
 .skeleton {
   background: var(--skeleton-bg);

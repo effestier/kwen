@@ -39,8 +39,6 @@ interface MessageBubbleProps {
   message: MessageBubbleData;
   showAvatar: boolean;
   showTail: boolean;
-  isLatestSeen: boolean;
-  isNewestOutgoing: boolean;
   onReact: (messageId: string, emoji: string) => void;
   onReply: (message: MessageBubbleData) => void;
   onDelete: (messageId: string, deleteForEveryone: boolean) => void;
@@ -56,21 +54,9 @@ function formatTime(dateStr: string): string {
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-function formatSeenTime(dateStr: string): string {
-  const d = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - d.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  if (diffMins < 1) return 'Seen';
-  if (diffMins < 60) return `Seen ${diffMins}m ago`;
-  const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `Seen ${diffHours}h ago`;
-  return `Seen ${d.toLocaleDateString([], { month: 'short', day: 'numeric' })}`;
-}
-
 const QUICK_REACTIONS = ['❤️', '👍', '😂', '😮', '😢', '🔥'];
 
-export function MessageBubble({ message, showAvatar, showTail, isLatestSeen, isNewestOutgoing, onReact, onReply, onDelete, onCopy, onReport, onSaveMedia, onImageClick, onRefreshUrl }: MessageBubbleProps) {
+export function MessageBubble({ message, showAvatar, showTail, onReact, onReply, onDelete, onCopy, onReport, onSaveMedia, onImageClick, onRefreshUrl }: MessageBubbleProps) {
   const [showPicker, setShowPicker] = useState(false);
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
@@ -78,20 +64,13 @@ export function MessageBubble({ message, showAvatar, showTail, isLatestSeen, isN
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const longPressTriggered = useRef(false);
+  const lastTapRef = useRef<number>(0);
+  const [showHeart, setShowHeart] = useState(false);
 
   const isText = message.message_type === 'text' || message.message_type === 'mixed' || message.message_type === 'story_reply';
   const hasMedia = !isText;
   const reactions = message.reactions ?? {};
   const hasReactions = Object.keys(reactions).length > 0;
-
-  const showReadReceipt = message.isMine && (
-    (isLatestSeen && message.seen_at) ||
-    (isNewestOutgoing && !message.seen_at && message.delivered_at) ||
-    (isNewestOutgoing && !message.seen_at && !message.delivered_at)
-  );
-  const readReceiptText = message.seen_at
-    ? formatSeenTime(message.seen_at)
-    : message.delivered_at ? 'Delivered' : 'Sent';
 
   // Dismiss on click outside
   useEffect(() => {
@@ -127,7 +106,18 @@ export function MessageBubble({ message, showAvatar, showTail, isLatestSeen, isN
     if (longPressTriggered.current) { longPressTriggered.current = false; return; }
     if (showPicker) { setShowPicker(false); return; }
     if (showMenu) { setShowMenu(false); return; }
-  }, [showPicker, showMenu]);
+
+    // Double-tap to react with heart (mobile)
+    const now = Date.now();
+    if (now - lastTapRef.current < 300) {
+      onReact(message.id, '❤️');
+      setShowHeart(true);
+      setTimeout(() => setShowHeart(false), 800);
+      lastTapRef.current = 0;
+      return;
+    }
+    lastTapRef.current = now;
+  }, [showPicker, showMenu, message.id, onReact]);
 
   const handleAction = useCallback((action: ActionKind) => {
     setShowActionSheet(false);
@@ -270,9 +260,16 @@ export function MessageBubble({ message, showAvatar, showTail, isLatestSeen, isN
                 {message.content}
               </p>
             )}
+
+            {/* Double-tap heart animation */}
+            {showHeart && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <span className="text-5xl animate-double-tap-heart">❤️</span>
+              </div>
+            )}
           </div>
 
-          {/* Metadata row — timestamp + seen */}
+          {/* Metadata row — timestamp + status icon */}
           <div className={cn(
             'flex items-center gap-1 mt-0.5',
             message.isMine ? 'justify-start' : 'justify-end'
@@ -280,12 +277,24 @@ export function MessageBubble({ message, showAvatar, showTail, isLatestSeen, isN
             <span className="text-[11px] text-[var(--text-muted)] opacity-0 group-hover/msg:opacity-100 transition-opacity duration-150">
               {formatTime(message.createdAt)}
             </span>
-            {showReadReceipt && (
-              <span className={cn(
-                'text-[11px] opacity-0 group-hover/msg:opacity-100 transition-opacity duration-150',
-                message.seen_at ? 'text-blue-400' : 'text-[var(--text-muted)]'
-              )}>
-                {readReceiptText}
+            {message.isMine && (
+              <span className="opacity-0 group-hover/msg:opacity-100 transition-opacity duration-150">
+                {message.seen_at ? (
+                  // Double check — seen (blue)
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18 6 7 17l-5-5" /><path d="m22 10-9.5 9.5L10 17" />
+                  </svg>
+                ) : message.delivered_at ? (
+                  // Double check — delivered (gray)
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18 6 7 17l-5-5" /><path d="m22 10-9.5 9.5L10 17" />
+                  </svg>
+                ) : (
+                  // Single check — sent
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18 6 7 17l-5-5" />
+                  </svg>
+                )}
               </span>
             )}
           </div>

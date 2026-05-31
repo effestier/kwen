@@ -14,6 +14,7 @@ import { ReplyPreview } from '@/components/messages/reply-preview';
 import { compressForMessage, generateThumbnail, validateRawFile, verifyImageContent } from '@/lib/image-compress';
 import { ListSkeleton, Skeleton } from '@/components/design-system/skeleton';
 import { VoiceRecorder } from '@/components/messages/voice-recorder';
+import { usePresence, formatLastSeen } from '@/hooks/use-presence';
 
 interface Message {
   id: string;
@@ -69,6 +70,8 @@ interface Conversation {
     username: string;
     display_name: string;
     avatar_url: string | null;
+    is_online?: boolean;
+    last_seen_at?: string | null;
   } | null;
   last_message: string | null;
   unread_count: number;
@@ -104,6 +107,8 @@ export default function MessagesPage() {
   const [replyTo, setReplyTo] = useState<MessageBubbleData | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' } | null>(null);
   const [isRecordingVoice, setIsRecordingVoice] = useState(false);
+  const [showScrollDown, setShowScrollDown] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
 
@@ -115,6 +120,9 @@ export default function MessagesPage() {
   // User state
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
+
+  // Presence
+  const { onlineUsers, isOnline } = usePresence(currentUserId);
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -221,10 +229,10 @@ export default function MessagesPage() {
       const otherUserIds = [...new Set(others?.map(o => o.user_id) || [])];
       const otherMap = new Map(others?.map(o => [o.conversation_id, o]) || []);
 
-      // Fetch profiles for other users
+      // Fetch profiles for other users (including presence fields)
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('id, username, display_name, avatar_url')
+        .select('id, username, display_name, avatar_url, is_online, last_seen_at')
         .in('id', otherUserIds);
 
       const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
@@ -249,7 +257,7 @@ export default function MessagesPage() {
 
         return {
           id: c.id,
-          other_user: profile ? { id: profile.id, username: profile.username, display_name: profile.display_name, avatar_url: profile.avatar_url } : null,
+          other_user: profile ? { id: profile.id, username: profile.username, display_name: profile.display_name, avatar_url: profile.avatar_url, is_online: profile.is_online, last_seen_at: profile.last_seen_at } : null,
           last_message: lastMsg?.message_type === 'image' ? 'Photo' : lastMsg?.message_type === 'voice' ? '🎤 Voice message' : lastMsg?.message_type === 'mixed' ? `Photo · ${lastMsg.content}` : (lastMsg?.content || 'Start a conversation'),
           unread_count: participant?.unread_count || 0,
           updated_at: lastMsg?.created_at || c.updated_at,
@@ -294,7 +302,7 @@ export default function MessagesPage() {
         if (!found && msg.sender_id !== currentUserIdRef.current) {
           const { data: convData } = await supabase.from('conversations').select('id, created_at, updated_at').eq('id', msg.conversation_id).single();
           if (convData) {
-            const { data: profile } = await supabase.from('profiles').select('id, username, display_name, avatar_url').eq('id', msg.sender_id).single();
+            const { data: profile } = await supabase.from('profiles').select('id, username, display_name, avatar_url, is_online, last_seen_at').eq('id', msg.sender_id).single();
             const newConv: Conversation = {
               id: convData.id,
               updated_at: convData.updated_at || convData.created_at,
@@ -360,7 +368,7 @@ export default function MessagesPage() {
     const otherUserIds = [...new Set(others?.map(o => o.user_id) || [])];
     const { data: profiles } = await supabase
       .from('profiles')
-      .select('id, username, display_name, avatar_url')
+      .select('id, username, display_name, avatar_url, is_online, last_seen_at')
       .in('id', otherUserIds);
 
     const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
@@ -1278,8 +1286,20 @@ export default function MessagesPage() {
           "w-full md:w-80 border-r border-[var(--border-subtle)] flex flex-col bg-[var(--bg-primary)]",
           showMobileChat && 'hidden md:flex'
         )}>
-          <div className="px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] border-b border-[var(--border-subtle)]">
-            <h1 className="text-lg font-bold text-[var(--text-primary)]">Messages</h1>
+          <div className="px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+            <h1 className="text-lg font-bold text-[var(--text-primary)] mb-2">Messages</h1>
+            <div className="relative">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-[7px] rounded-xl bg-[var(--bg-tertiary)] text-[15px] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none"
+              />
+            </div>
           </div>
           <div role="list" aria-label="Conversations" className="flex-1 min-h-0 overflow-y-auto">
             {loading ? (
@@ -1292,7 +1312,13 @@ export default function MessagesPage() {
                 </div>
               </div>
             ) : conversations.length > 0 ? (
-              conversations.map((conv) => {
+              conversations
+                .filter(conv => {
+                  if (!searchQuery.trim()) return true;
+                  const q = searchQuery.toLowerCase();
+                  return (conv.other_user?.display_name?.toLowerCase().includes(q) || conv.other_user?.username?.toLowerCase().includes(q));
+                })
+                .map((conv) => {
                 const isUnread = conv.unread_count > 0;
                 const isSelected = selectedId === conv.id;
                 return (
@@ -1310,22 +1336,20 @@ export default function MessagesPage() {
                       <Avatar
                         src={conv.other_user?.avatar_url || null}
                         name={conv.other_user?.display_name || 'User'}
-                        size="md"
+                        size="lg"
+                        showOnline={isOnline(conv.other_user?.id || '')}
                       />
-                      {isUnread && (
-                        <div className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-[var(--accent-primary)] border-2 border-[var(--bg-primary)]" />
-                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
                         <p className={cn(
-                          'text-sm truncate',
-                          isUnread ? 'font-semibold text-[var(--text-primary)]' : 'font-normal text-[var(--text-primary)]'
+                          'text-[15px] truncate',
+                          isUnread ? 'font-bold text-[var(--text-primary)]' : 'font-normal text-[var(--text-primary)]'
                         )}>
                           {conv.other_user?.display_name || 'User'}
                         </p>
                         <span className={cn(
-                          'text-[11px] flex-shrink-0',
+                          'text-xs flex-shrink-0',
                           isUnread ? 'text-[var(--text-primary)] font-semibold' : 'text-[var(--text-muted)]'
                         )}>
                           {formatTime(conv.updated_at)}
@@ -1333,13 +1357,13 @@ export default function MessagesPage() {
                       </div>
                       <div className="flex items-center justify-between gap-2 mt-0.5">
                         <p className={cn(
-                          'text-[13px] truncate',
+                          'text-[13px] truncate leading-tight',
                           isUnread ? 'text-[var(--text-primary)] font-semibold' : 'text-[var(--text-muted)]'
                         )}>
                           {conv.last_message}
                         </p>
                         {isUnread && (
-                          <span className="flex-shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-[var(--accent-red)] text-white text-[11px] font-bold flex items-center justify-center">
+                          <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[var(--accent-red)] text-white text-[10px] font-bold flex items-center justify-center">
                             {conv.unread_count > 99 ? '99+' : conv.unread_count}
                           </span>
                         )}
@@ -1371,11 +1395,25 @@ export default function MessagesPage() {
               </button>
             )}
           </div>
+
+          {/* New chat button */}
+          <div className="p-3 border-t border-[var(--border-subtle)]">
+            <Link
+              href="/explore"
+              className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-[var(--accent-primary)] text-[var(--text-inverse)] text-sm font-semibold active:opacity-80 transition-opacity"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                <line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" />
+              </svg>
+              New message
+            </Link>
+          </div>
         </div>
 
         {/* Chat Area */}
         <div className={cn(
-          'flex-1 flex flex-col bg-[var(--bg-primary)]',
+          'relative flex-1 flex flex-col bg-[var(--bg-primary)]',
           !showMobileChat && 'hidden md:flex'
         )}>
           {selectedConversation ? (
@@ -1395,17 +1433,25 @@ export default function MessagesPage() {
                   src={selectedConversation.other_user?.avatar_url || null}
                   name={selectedConversation.other_user?.display_name || 'User'}
                   size="md"
+                  showOnline={isOnline(selectedConversation.other_user?.id || '')}
                 />
                 <div className="flex-1 min-w-0">
                   <Link href={`/profile/${selectedConversation.other_user?.username}`} className="font-semibold text-[var(--text-primary)] hover:underline text-[15px] leading-tight block truncate">
                     {selectedConversation.other_user?.display_name || 'User'}
                   </Link>
-                  {typingUsers.size > 0 && (
+                  {typingUsers.size > 0 ? (
                     <div className="flex items-center gap-1 mt-0.5">
                       <div className="typing-dot" />
                       <div className="typing-dot" />
                       <div className="typing-dot" />
                     </div>
+                  ) : (
+                    <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                      {formatLastSeen(
+                        selectedConversation.other_user?.last_seen_at || null,
+                        isOnline(selectedConversation.other_user?.id || '')
+                      )}
+                    </p>
                   )}
                 </div>
               </div>
@@ -1413,11 +1459,14 @@ export default function MessagesPage() {
               {/* Messages */}
               <div role="log" aria-label="Messages" aria-live="polite" ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto px-3 md:px-4 py-3"
                 onScroll={(e) => {
-                  // H16: Trigger load-older when scrolled near top
                   const el = e.currentTarget;
+                  // Load older messages when near top
                   if (el.scrollTop < 50 && hasMoreMessages && !loadingOlderMessages) {
                     loadMoreMessages();
                   }
+                  // Show scroll-to-bottom button when scrolled up
+                  const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+                  setShowScrollDown(distFromBottom > 200);
                 }}
               >
                 {loadingMessages ? (
@@ -1504,8 +1553,6 @@ export default function MessagesPage() {
                                 const nextMsg = i < messages.length - 1 ? messages[i + 1] : null;
                                 return !nextMsg || nextMsg.senderId !== msg.senderId;
                               })()}
-                              isLatestSeen={latestSeenId === msg.id}
-                              isNewestOutgoing={newestOutgoingId === msg.id}
                               onReact={handleReact}
                               onReply={handleReply}
                               onDelete={handleDelete}
@@ -1539,6 +1586,21 @@ export default function MessagesPage() {
                 )}
                 <div ref={messagesEndRef} />
               </div>
+
+              {/* Scroll to bottom button */}
+              {showScrollDown && (
+                <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-10">
+                  <button
+                    onClick={() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--bg-secondary)] border border-[var(--border-subtle)] shadow-lg text-[var(--text-muted)] text-xs font-medium hover:bg-[var(--bg-tertiary)] transition-colors"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="m6 9 6 6 6-6" />
+                    </svg>
+                    New messages
+                  </button>
+                </div>
+              )}
 
               {/* Message Input */}
               <form onSubmit={handleSend} className="border-t border-[var(--border-subtle)] shrink-0 bg-[var(--bg-primary)]">

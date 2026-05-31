@@ -48,37 +48,58 @@ interface AvatarProps {
   name: string;
   size?: keyof typeof sizeClasses;
   className?: string;
+  showOnline?: boolean;
 }
+
+const onlineDotSizes = {
+  xs: 'w-1.5 h-1.5 border',
+  sm: 'w-2 h-2 border-[1.5px]',
+  md: 'w-2.5 h-2.5 border-2',
+  lg: 'w-3 h-3 border-2',
+  xl: 'w-3.5 h-3.5 border-2',
+  '2xl': 'w-4 h-4 border-2',
+};
 
 const Avatar = React.forwardRef<
   React.ElementRef<typeof AvatarPrimitive.Root>,
   AvatarProps
->(({ src, name, size = 'md', className }, ref) => {
+>(({ src, name, size = 'md', className, showOnline }, ref) => {
   const [imageError, setImageError] = useState(false);
 
   return (
     <AvatarPrimitive.Root
       ref={ref}
       className={cn(
-        'relative flex shrink-0 overflow-hidden rounded-full',
+        'relative flex shrink-0 overflow-visible rounded-full',
         sizeClasses[size],
         className
       )}
     >
-      <AvatarPrimitive.Image
-        className="aspect-square h-full w-full object-cover"
-        src={imageError ? undefined : src || undefined}
-        alt={name}
-        onError={() => setImageError(true)}
-      />
-      <AvatarPrimitive.Fallback
-        className={cn(
-          'flex h-full w-full items-center justify-center rounded-full font-medium text-white',
-          getColorFromName(name)
-        )}
-      >
-        {getInitials(name)}
-      </AvatarPrimitive.Fallback>
+      <div className="relative w-full h-full rounded-full overflow-hidden">
+        <AvatarPrimitive.Image
+          className="aspect-square h-full w-full object-cover"
+          src={imageError ? undefined : src || undefined}
+          alt={name}
+          onError={() => setImageError(true)}
+        />
+        <AvatarPrimitive.Fallback
+          className={cn(
+            'flex h-full w-full items-center justify-center rounded-full font-medium text-white',
+            getColorFromName(name)
+          )}
+        >
+          {getInitials(name)}
+        </AvatarPrimitive.Fallback>
+      </div>
+      {showOnline && (
+        <span
+          className={cn(
+            'absolute bottom-0 right-0 rounded-full bg-emerald-500 border-[var(--bg-primary)]',
+            onlineDotSizes[size]
+          )}
+          aria-label="Online"
+        />
+      )}
     </AvatarPrimitive.Root>
   );
 });

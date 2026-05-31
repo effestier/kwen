@@ -1284,8 +1284,13 @@ export default function MessagesPage() {
           </div>
           <div role="list" aria-label="Conversations" className="flex-1 min-h-0 overflow-y-auto">
             {loading ? (
-              <div role="status" className="p-3">
-                <ListSkeleton items={6} />
+              <div role="status" className="relative p-3">
+                <div className="blur-[2px] opacity-60">
+                  <ListSkeleton items={6} />
+                </div>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-6 h-6 border-2 border-[var(--text-muted)] border-t-transparent rounded-full animate-spin" />
+                </div>
               </div>
             ) : conversations.length > 0 ? (
               conversations.map((conv) => {
@@ -1407,15 +1412,20 @@ export default function MessagesPage() {
                 }}
               >
                 {loadingMessages ? (
-                  <div role="status" className="py-2 space-y-3">
-                    {[40, 60, 50, 55, 35, 50].map((w, i) => (
-                      <div key={i} className={`flex ${i % 2 === 0 ? 'justify-start' : 'justify-end'}`}>
-                        <div className="flex items-end gap-2" style={{ maxWidth: '65%' }}>
-                          {i % 2 === 0 && <Skeleton variant="circular" width={32} height={32} className="flex-shrink-0" />}
-                          <Skeleton className="rounded-2xl" width={`${w}%`} height={36} />
+                  <div role="status" className="relative py-2 space-y-3">
+                    <div className="blur-[2px] opacity-60">
+                      {[40, 60, 50, 55, 35, 50].map((w, i) => (
+                        <div key={i} className={`flex ${i % 2 === 0 ? 'justify-start' : 'justify-end'}`}>
+                          <div className="flex items-end gap-2" style={{ maxWidth: '65%' }}>
+                            {i % 2 === 0 && <Skeleton variant="circular" width={32} height={32} className="flex-shrink-0" />}
+                            <Skeleton className="rounded-2xl" width={`${w}%`} height={36} />
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-6 h-6 border-2 border-[var(--text-muted)] border-t-transparent rounded-full animate-spin" />
+                    </div>
                   </div>
                 ) : messages.length > 0 ? (
                   <div className="py-2">

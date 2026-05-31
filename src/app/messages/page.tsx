@@ -426,18 +426,21 @@ export default function MessagesPage() {
 
     const { data: others } = await supabase
       .from('conversation_participants')
-      .select('conversation_id, user_id')
+      .select('conversation_id, user_id, profiles:user_id(id, username, display_name, avatar_url, is_online, last_seen_at)')
       .in('conversation_id', newIds)
       .neq('user_id', user.id);
 
-    const otherUserIds = [...new Set(others?.map(o => o.user_id) || [])];
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('id, username, display_name, avatar_url, is_online, last_seen_at')
-      .in('id', otherUserIds);
+    const othersTyped = others as Array<{ conversation_id: string; user_id: string; profiles: Record<string, unknown> | null }> | null;
 
-    const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
-    const otherMap = new Map(others?.map(o => [o.conversation_id, o]) || []);
+    // Fallback for any missing profiles
+    const missingIds = othersTyped?.filter(o => !o.profiles).map(o => o.user_id) || [];
+    let fallbackMap = new Map<string, Record<string, unknown>>();
+    if (missingIds.length > 0) {
+      const { data: fb } = await supabase.from('profiles').select('id, username, display_name, avatar_url, is_online, last_seen_at').in('id', [...new Set(missingIds)]);
+      fallbackMap = new Map(fb?.map(p => [p.id, p]) || []);
+    }
+
+    const otherMap = new Map(othersTyped?.map(o => [o.conversation_id, o]) || []);
     const participantMap = new Map(pagedParticipants.map(p => [p.conversation_id, p]));
 
     const { data: recentMsgs } = await supabase
@@ -457,7 +460,8 @@ export default function MessagesPage() {
 
     const newConversations: Conversation[] = newIds.map(id => {
       const other = otherMap.get(id);
-      const profile = other ? profileMap.get(other.user_id) : null;
+      const joinedProfile = other?.profiles as Record<string, unknown> | null | undefined;
+      const profile = joinedProfile || (other ? fallbackMap.get(other.user_id) : null);
       const p = participantMap.get(id);
       const latest = latestMsgMap.get(id);
       return {
@@ -465,7 +469,7 @@ export default function MessagesPage() {
         unread_count: p?.unread_count || 0,
         last_message: latest?.content || '',
         updated_at: latest?.created_at || '',
-        other_user: profile ? { id: profile.id, username: profile.username, display_name: profile.display_name, avatar_url: profile.avatar_url } : null,
+        other_user: profile ? { id: profile.id as string, username: profile.username as string, display_name: profile.display_name as string, avatar_url: profile.avatar_url as string | null } : null,
       };
     });
 

@@ -1298,7 +1298,7 @@ export default function MessagesPage() {
                     aria-current={isSelected ? 'true' : undefined}
                     onClick={() => handleSelectConversation(conv)}
                     className={cn(
-                      'w-full flex items-center gap-3 px-3 py-2.5 transition-colors-fast text-left',
+                      'w-full flex items-center gap-3 px-3 py-1.5 transition-colors-fast text-left',
                       isSelected ? 'bg-[var(--bg-tertiary)]' : 'hover:bg-[var(--bg-secondary)]'
                     )}
                   >

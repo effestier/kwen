@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     default: `${BRAND.name} — ${BRAND.tagline}`,
     template: `%s | ${BRAND.name}`,
   },
-  description: BRAND.tagline,
+  description: 'Connect. Share. Discover. KWEN brings stories, messaging, posts, reels, and communities together in a fast, modern social experience.',
   metadataBase: new URL(BRAND.auth.siteUrl),
   alternates: {
     canonical: '/',
@@ -34,18 +34,26 @@ export const metadata: Metadata = {
   manifest: '/site.webmanifest',
 
   openGraph: {
-    title: BRAND.name,
-    description: BRAND.tagline,
+    title: `${BRAND.name} — ${BRAND.tagline}`,
+    description: 'Connect. Share. Discover. KWEN brings stories, messaging, posts, reels, and communities together in a fast, modern social experience.',
     url: BRAND.social.website,
     siteName: BRAND.name,
     locale: 'en_US',
     type: 'website',
+    images: [
+      {
+        url: '/web-app-manifest-512x512.png',
+        width: 512,
+        height: 512,
+        alt: 'KWEN',
+      },
+    ],
   },
 
   twitter: {
     card: 'summary_large_image',
-    title: BRAND.name,
-    description: BRAND.tagline,
+    title: `${BRAND.name} — ${BRAND.tagline}`,
+    description: 'Connect. Share. Discover. KWEN brings stories, messaging, posts, reels, and communities together in a fast, modern social experience.',
   },
 
   robots: {

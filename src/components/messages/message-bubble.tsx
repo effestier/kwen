@@ -404,7 +404,7 @@ export function MessageBubble({ message, showAvatar, showTail, onReact, onReply,
             {message.isMine && (
               <span className="opacity-0 group-hover/msg:opacity-100 transition-opacity duration-150 select-none">
                 {message.seen_at ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M18 6 7 17l-5-5" /><path d="m22 10-9.5 9.5L10 17" />
                   </svg>
                 ) : message.delivered_at ? (
@@ -473,26 +473,42 @@ export function MessageBubble({ message, showAvatar, showTail, onReact, onReply,
           </div>
         )}
 
-        {/* Desktop dropdown menu */}
+        {/* Desktop centered popup menu (Instagram-style) */}
         {showMenu && (
           <>
-            <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} aria-hidden="true" />
+            <div className="fixed inset-0 z-[9998] bg-black/50 backdrop-blur-sm animate-fadeIn" onClick={() => setShowMenu(false)} aria-hidden="true" />
             <div
-              role="menu"
+              role="dialog"
               aria-label="Message actions"
-              className={cn(
-                'absolute z-50 top-full mt-1 bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-xl shadow-xl py-1 min-w-[160px] animate-scaleIn',
-                message.isMine ? 'left-0' : 'right-0'
-              )}
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[9999] w-[min(320px,calc(100vw-2rem))] bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-2xl shadow-2xl overflow-hidden animate-scaleIn"
             >
+              {/* Message preview */}
+              <div className={cn(
+                'px-4 pt-4 pb-3',
+                message.isMine ? 'bg-[var(--accent-primary)]/5' : ''
+              )}>
+                <p className="text-[11px] font-medium text-[var(--text-muted)] mb-1">
+                  {message.isMine ? 'You' : (message.sender?.display_name || 'User')}
+                </p>
+                {message.content && message.message_type !== 'voice' && (
+                  <p className="text-sm text-[var(--text-primary)] line-clamp-2 leading-snug">{message.content}</p>
+                )}
+                {message.message_type === 'voice' && (
+                  <p className="text-sm text-[var(--text-muted)] italic">Voice message</p>
+                )}
+                {message.media_url && (message.message_type === 'image' || message.message_type === 'mixed') && (
+                  <p className="text-xs text-[var(--text-muted)] mt-1">📷 Photo</p>
+                )}
+              </div>
+
               {/* Quick reactions */}
-              <div className="flex items-center justify-center gap-0.5 px-2 py-1.5 border-b border-[var(--border-subtle)]">
+              <div className="flex items-center justify-center gap-1 px-3 py-3 border-t border-[var(--border-subtle)]">
                 {QUICK_REACTIONS.map((emoji) => (
                   <button
                     key={emoji}
                     onClick={(e) => { e.stopPropagation(); onReact(message.id, emoji); setShowMenu(false); }}
                     className={cn(
-                      'w-8 h-8 flex items-center justify-center rounded-full text-lg transition-all hover:scale-125 active:scale-95',
+                      'w-10 h-10 flex items-center justify-center rounded-full text-xl transition-all hover:scale-125 active:scale-95',
                       message.my_reaction === emoji ? 'bg-[var(--accent-primary)]/15 scale-110' : 'hover:bg-[var(--bg-tertiary)]'
                     )}
                   >
@@ -500,22 +516,38 @@ export function MessageBubble({ message, showAvatar, showTail, onReact, onReply,
                   </button>
                 ))}
               </div>
-              {menuItems.map((action) => (
+
+              <div className="h-px bg-[var(--border-subtle)]" />
+
+              {/* Menu items */}
+              <div className="py-1">
+                {menuItems.map((action) => (
+                  <button
+                    key={action.kind}
+                    role="menuitem"
+                    onClick={(e) => { e.stopPropagation(); handleAction(action.kind); }}
+                    className={cn(
+                      'w-full flex items-center gap-3 px-4 py-3 text-left transition-colors text-[15px]',
+                      action.destructive
+                        ? 'active:bg-[var(--destructive)]/10 text-[var(--destructive)]'
+                        : 'active:bg-[var(--bg-tertiary)] text-[var(--text-primary)]'
+                    )}
+                  >
+                    <span className="text-base w-5 text-center">{action.icon}</span>
+                    <span>{action.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Cancel */}
+              <div className="border-t border-[var(--border-subtle)]">
                 <button
-                  key={action.kind}
-                  role="menuitem"
-                  onClick={(e) => { e.stopPropagation(); handleAction(action.kind); }}
-                  className={cn(
-                    'w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors text-sm',
-                    action.destructive
-                      ? 'hover:bg-[var(--destructive)]/10 text-[var(--destructive)]'
-                      : 'hover:bg-[var(--bg-tertiary)] text-[var(--text-primary)]'
-                  )}
+                  onClick={() => setShowMenu(false)}
+                  className="w-full py-3 text-[15px] font-semibold text-[var(--accent-primary)] active:bg-[var(--bg-tertiary)] transition-colors"
                 >
-                  <span className="text-base">{action.icon}</span>
-                  <span>{action.label}</span>
+                  Cancel
                 </button>
-              ))}
+              </div>
             </div>
           </>
         )}

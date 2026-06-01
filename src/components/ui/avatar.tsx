@@ -25,16 +25,16 @@ function getInitials(name: string): string {
 
 function getColorFromName(name: string): string {
   const colors = [
-    'bg-violet-600',
-    'bg-teal-600',
-    'bg-emerald-600',
-    'bg-amber-600',
-    'bg-rose-600',
-    'bg-orange-600',
-    'bg-purple-600',
-    'bg-pink-600',
-    'bg-fuchsia-600',
-    'bg-lime-600',
+    'bg-neutral-600',
+    'bg-neutral-700',
+    'bg-neutral-800',
+    'bg-zinc-600',
+    'bg-zinc-700',
+    'bg-zinc-800',
+    'bg-stone-600',
+    'bg-stone-700',
+    'bg-gray-600',
+    'bg-gray-700',
   ];
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
@@ -94,7 +94,7 @@ const Avatar = React.forwardRef<
       {showOnline && (
         <span
           className={cn(
-            'absolute bottom-0 right-0 rounded-full bg-emerald-500 border-[var(--bg-primary)]',
+            'absolute bottom-0 right-0 rounded-full bg-[var(--accent-green)] border-[var(--bg-primary)]',
             onlineDotSizes[size]
           )}
           aria-label="Online"

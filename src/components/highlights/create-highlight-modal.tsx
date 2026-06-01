@@ -160,7 +160,7 @@ export function CreateHighlightModal({ onClose, onSuccess }: CreateHighlightModa
 
                       {/* Blue tint overlay when selected */}
                       {isSelected && (
-                        <div className="absolute inset-0 bg-blue-500/20 rounded-lg" />
+                        <div className="absolute inset-0 bg-[var(--accent-primary)]/20 rounded-lg" />
                       )}
 
                       {/* Selection checkbox */}

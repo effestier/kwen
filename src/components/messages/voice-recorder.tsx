@@ -339,7 +339,7 @@ export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
         <div className="flex items-center gap-1.5 flex-shrink-0">
           <div className={cn(
             'w-2 h-2 rounded-full animate-pulse',
-            isPaused ? 'bg-[var(--text-muted)]' : 'bg-red-500'
+            isPaused ? 'bg-[var(--text-muted)]' : 'bg-[var(--accent-red)]'
           )} />
           <span className="text-[13px] font-mono text-[var(--text-primary)]">
             {formatDuration(duration)}

@@ -198,7 +198,7 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
                 </div>
               </div>
               {/* Add icon — always visible so user can add more stories */}
-              <div className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center border-2 border-[var(--bg-primary)]">
+              <div className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-[var(--accent-primary)] flex items-center justify-center border-2 border-[var(--bg-primary)]">
                 <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M5 12h14" /><path d="M12 5v14" />
                 </svg>

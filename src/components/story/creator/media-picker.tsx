@@ -309,7 +309,7 @@ export function MediaPicker({ onMediaSelected, onCancel }: MediaPickerProps) {
           {/* Recording indicator */}
           {isRecording && (
             <div className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/60 rounded-full px-4 py-2 z-10">
-              <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
+              <div className="w-3 h-3 rounded-full bg-[var(--accent-red)] animate-pulse" />
               <span className="text-white text-sm font-medium">{formatRecordingTime(recordingTime)}</span>
             </div>
           )}
@@ -343,7 +343,7 @@ export function MediaPicker({ onMediaSelected, onCancel }: MediaPickerProps) {
               )}>
                 <div className={cn(
                   'rounded-full transition-all duration-300',
-                  isRecording ? 'w-8 h-8 bg-red-500' : 'w-16 h-16 bg-white'
+                  isRecording ? 'w-8 h-8 bg-[var(--accent-red)]' : 'w-16 h-16 bg-white'
                 )} />
               </div>
               {isRecording && (

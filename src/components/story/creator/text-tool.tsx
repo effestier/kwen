@@ -332,7 +332,7 @@ export function TextTool({ overlay, onUpdate, onDelete, onAddNew, onClose }: Tex
               {overlay && (
                 <button
                   onClick={() => { onDelete(); onClose(); }}
-                  className="px-4 py-3 bg-red-600 text-white rounded-xl text-sm font-medium"
+                  className="px-4 py-3 bg-[var(--destructive)] text-white rounded-xl text-sm font-medium"
                 >
                   Delete
                 </button>

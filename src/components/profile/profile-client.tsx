@@ -364,12 +364,19 @@ export function ProfileClient({ username }: { username: string }) {
     if (!profile || messaging) return;
 
     setMessaging(true);
-    const result = await getOrCreateConversation(profile.id);
+    try {
+      const result = await getOrCreateConversation(profile.id);
 
-    if (result.conversationId) {
-      router.push(`/messages?open=${result.conversationId}`);
+      if (result.error) {
+        alert(result.error);
+      } else if (result.conversationId) {
+        router.push(`/messages?open=${result.conversationId}`);
+      }
+    } catch {
+      alert('Could not start conversation. Please try again.');
+    } finally {
+      setMessaging(false);
     }
-    setMessaging(false);
   };
 
   if (loading) {

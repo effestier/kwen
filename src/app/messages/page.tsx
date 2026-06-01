@@ -74,8 +74,10 @@ interface Conversation {
     last_seen_at?: string | null;
   } | null;
   last_message: string | null;
+  last_message_raw?: string;
   unread_count: number;
   updated_at: string;
+  has_messages?: boolean;
 }
 
 interface UserProfile {
@@ -88,6 +90,7 @@ interface UserProfile {
 export default function MessagesPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [loadingMoreConversations, setLoadingMoreConversations] = useState(false);
   const [hasMoreConversations, setHasMoreConversations] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -181,7 +184,7 @@ export default function MessagesPage() {
         supabase.from('profiles').select('id, username, display_name, avatar_url').eq('id', user.id).single(),
         supabase
           .from('conversation_participants')
-          .select('conversation_id, unread_count, last_read_at, conversations!inner(updated_at)')
+          .select('conversation_id, unread_count, last_read_at, conversations(updated_at)')
           .eq('user_id', user.id)
           .limit(100),
       ]);
@@ -193,17 +196,32 @@ export default function MessagesPage() {
 
       if (participantsErr) {
         console.error('[MESSAGES] Failed to load conversations:', participantsErr);
+        setLoadError(`RLS error: ${participantsErr.message}`);
         setLoading(false);
         return;
       }
 
-      if (!participants || participants.length === 0) { setLoading(false); return; }
+      if (!participants || participants.length === 0) {
+        // Double-check: try a direct query without the join to see if it's an RLS issue
+        const { count, error: countErr } = await supabase
+          .from('conversation_participants')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id);
+
+        if (countErr) {
+          setLoadError(`Cannot load conversations: ${countErr.message}. Check if migration 055 was applied.`);
+        } else if (count && count > 0) {
+          setLoadError(`You have ${count} conversations but they failed to load. This is likely an RLS policy issue. Apply migration 055_fix_conversation_participants_rls.sql to fix.`);
+        }
+        setLoading(false);
+        return;
+      }
 
       // Sort by conversation updated_at client-side to avoid foreign-table order issues
       participants.sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
-        const aTime = (a.conversations as Record<string, unknown>)?.updated_at || '';
-        const bTime = (b.conversations as Record<string, unknown>)?.updated_at || '';
-        return (bTime as string).localeCompare(aTime as string);
+        const aTime = (a.conversations as Record<string, unknown> | null)?.updated_at || '';
+        const bTime = (b.conversations as Record<string, unknown> | null)?.updated_at || '';
+        return String(bTime).localeCompare(String(aTime));
       });
 
       // H15: Track whether more conversations exist
@@ -213,13 +231,29 @@ export default function MessagesPage() {
       const conversationIds = pagedParticipants.map(p => p.conversation_id);
       const participantMap = new Map(pagedParticipants.map(p => [p.conversation_id, p]));
 
-      // Parallel: others with profiles (join) + last messages + conversations
-      const [othersRes, lastMessagesRes, convsRes] = await Promise.all([
-        supabase
-          .from('conversation_participants')
-          .select('conversation_id, user_id, profiles:user_id(id, username, display_name, avatar_url, is_online, last_seen_at)')
-          .in('conversation_id', conversationIds)
-          .neq('user_id', user.id),
+      // Get other participants (just IDs, no join — avoid RLS cascade issues)
+      const othersRes = await supabase
+        .from('conversation_participants')
+        .select('conversation_id, user_id')
+        .in('conversation_id', conversationIds)
+        .neq('user_id', user.id);
+
+      const others = othersRes.data as Array<{ conversation_id: string; user_id: string }> | null;
+      const otherMap = new Map(others?.map(o => [o.conversation_id, o]) || []);
+
+      // Fetch profiles separately (profiles table is public, no RLS issues)
+      const otherUserIds = [...new Set(others?.map(o => o.user_id) || [])];
+      let profileMap = new Map<string, Record<string, unknown>>();
+      if (otherUserIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, username, display_name, avatar_url, is_online, last_seen_at')
+          .in('id', otherUserIds);
+        profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+      }
+
+      // Last messages + conversations in parallel
+      const [lastMessagesRes, convsRes] = await Promise.all([
         supabase
           .from('messages')
           .select('conversation_id, content, created_at, message_type, deleted_at, sender_id')
@@ -232,21 +266,6 @@ export default function MessagesPage() {
           .select('id, updated_at')
           .in('id', conversationIds),
       ]);
-
-      const others = othersRes.data as Array<{ conversation_id: string; user_id: string; profiles: Record<string, unknown> | null }> | null;
-
-      // Fallback: if join returned null profiles, fetch them separately
-      const missingProfileIds = others?.filter(o => !o.profiles).map(o => o.user_id) || [];
-      let fallbackProfileMap = new Map<string, Record<string, unknown>>();
-      if (missingProfileIds.length > 0) {
-        const { data: fallbackProfiles } = await supabase
-          .from('profiles')
-          .select('id, username, display_name, avatar_url, is_online, last_seen_at')
-          .in('id', [...new Set(missingProfileIds)]);
-        fallbackProfileMap = new Map(fallbackProfiles?.map(p => [p.id, p]) || []);
-      }
-
-      const otherMap = new Map(others?.map(o => [o.conversation_id, o]) || []);
 
       // M3: Limit to reasonable count instead of fetching ALL messages
       const lastMessages = lastMessagesRes.data;
@@ -265,13 +284,12 @@ export default function MessagesPage() {
         const participant = participantMap.get(c.id);
         const lastMsg = lastMessageMap.get(c.id);
 
-        // Resolve profile from join or fallback
-        const joinedProfile = other?.profiles as Record<string, unknown> | null | undefined;
-        const profile = joinedProfile || (other ? fallbackProfileMap.get(other.user_id) : null);
+        // Resolve profile from separate fetch
+        const profile = other ? profileMap.get(other.user_id) : null;
 
         const isLastMine = lastMsg?.sender_id === user.id;
 
-        const preview = lastMsg?.message_type === 'image' ? '📷 Photo' : lastMsg?.message_type === 'voice' ? '🎤 Voice message' : lastMsg?.message_type === 'mixed' ? `📷 Photo · ${lastMsg.content}` : (lastMsg?.content || 'Start a conversation');
+        const preview = lastMsg?.message_type === 'image' ? '📷 Photo' : lastMsg?.message_type === 'voice' ? '🎤 Voice message' : lastMsg?.message_type === 'mixed' ? `📷 Photo · ${lastMsg.content}` : (lastMsg?.content || '');
 
         return {
           id: c.id,
@@ -284,10 +302,12 @@ export default function MessagesPage() {
             last_seen_at: profile.last_seen_at as string | null,
           } : null,
           last_message: isLastMine ? `You: ${preview}` : preview,
+          last_message_raw: lastMsg?.content || '',
           unread_count: participant?.unread_count || 0,
           updated_at: lastMsg?.created_at || c.updated_at,
+          has_messages: !!lastMsg,
         };
-      }) || [];
+      }).filter(c => c.has_messages) || [];
 
       // Sort by actual last message time — newest first
       convList.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
@@ -303,10 +323,60 @@ export default function MessagesPage() {
           setSelectedId(openConvId);
           setShowMobileChat(true);
         } else {
-          // Conversation just created — not in list yet. Open it directly.
+          // New conversation — not in list yet. Don't add to list (only show after first message).
+          // Just fetch the other user's profile so the chat header renders.
+          const { data: otherParticipant } = await supabase
+            .from('conversation_participants')
+            .select('user_id')
+            .eq('conversation_id', openConvId)
+            .neq('user_id', user.id)
+            .limit(1)
+            .maybeSingle();
+
+          let otherProfile: Record<string, unknown> | null = null;
+          if (otherParticipant?.user_id) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('id, username, display_name, avatar_url, is_online, last_seen_at')
+              .eq('id', otherParticipant.user_id)
+              .single();
+            otherProfile = profile;
+          }
+
+          if (otherProfile) {
+            otherUserProfileRef.current = {
+              id: otherProfile.id as string,
+              username: otherProfile.username as string,
+              display_name: otherProfile.display_name as string,
+              avatar_url: otherProfile.avatar_url as string | null,
+              is_online: otherProfile.is_online as boolean,
+              last_seen_at: otherProfile.last_seen_at as string | null,
+            };
+          }
+
+          // Add to conversations state so chat area can render (but has_messages=false keeps it out of sidebar)
+          const newConv: Conversation = {
+            id: openConvId,
+            other_user: otherProfile ? {
+              id: otherProfile.id as string,
+              username: otherProfile.username as string,
+              display_name: otherProfile.display_name as string,
+              avatar_url: otherProfile.avatar_url as string | null,
+              is_online: otherProfile.is_online as boolean,
+              last_seen_at: otherProfile.last_seen_at as string | null,
+            } : null,
+            last_message: null,
+            unread_count: 0,
+            updated_at: new Date().toISOString(),
+            has_messages: false,
+          };
+          setConversations(prev => [newConv, ...prev]);
           setSelectedId(openConvId);
           setShowMobileChat(true);
         }
+
+        // Clean URL so refresh doesn't re-trigger
+        window.history.replaceState({}, '', '/messages');
       }
 
       setLoading(false);
@@ -333,6 +403,7 @@ export default function MessagesPage() {
                 ...c,
                 last_message: preview,
                 updated_at: msg.created_at,
+                has_messages: true,
                 unread_count: msg.sender_id !== currentUserIdRef.current ? (c.unread_count || 0) + 1 : 0,
               };
             }
@@ -350,6 +421,7 @@ export default function MessagesPage() {
               updated_at: convData.updated_at || convData.created_at,
               last_message: preview,
               unread_count: 1,
+              has_messages: true,
               other_user: profile || null,
             };
             setConversations(prev => [newConv, ...prev].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()));
@@ -445,21 +517,19 @@ export default function MessagesPage() {
 
     const { data: others } = await supabase
       .from('conversation_participants')
-      .select('conversation_id, user_id, profiles:user_id(id, username, display_name, avatar_url, is_online, last_seen_at)')
+      .select('conversation_id, user_id')
       .in('conversation_id', newIds)
       .neq('user_id', user.id);
 
-    const othersTyped = others as Array<{ conversation_id: string; user_id: string; profiles: Record<string, unknown> | null }> | null;
+    const otherMap = new Map(others?.map(o => [o.conversation_id, o]) || []);
 
-    // Fallback for any missing profiles
-    const missingIds = othersTyped?.filter(o => !o.profiles).map(o => o.user_id) || [];
-    let fallbackMap = new Map<string, Record<string, unknown>>();
-    if (missingIds.length > 0) {
-      const { data: fb } = await supabase.from('profiles').select('id, username, display_name, avatar_url, is_online, last_seen_at').in('id', [...new Set(missingIds)]);
-      fallbackMap = new Map(fb?.map(p => [p.id, p]) || []);
+    // Fetch profiles separately (no RLS cascade)
+    const otherUserIds = [...new Set(others?.map(o => o.user_id) || [])];
+    let profileMap = new Map<string, Record<string, unknown>>();
+    if (otherUserIds.length > 0) {
+      const { data: profiles } = await supabase.from('profiles').select('id, username, display_name, avatar_url, is_online, last_seen_at').in('id', otherUserIds);
+      profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
     }
-
-    const otherMap = new Map(othersTyped?.map(o => [o.conversation_id, o]) || []);
     const participantMap = new Map(pagedParticipants.map(p => [p.conversation_id, p]));
 
     const { data: recentMsgs } = await supabase
@@ -479,8 +549,7 @@ export default function MessagesPage() {
 
     const newConversations: Conversation[] = newIds.map(id => {
       const other = otherMap.get(id);
-      const joinedProfile = other?.profiles as Record<string, unknown> | null | undefined;
-      const profile = joinedProfile || (other ? fallbackMap.get(other.user_id) : null);
+      const profile = other ? profileMap.get(other.user_id) : null;
       const p = participantMap.get(id);
       const latest = latestMsgMap.get(id);
       return {
@@ -488,9 +557,10 @@ export default function MessagesPage() {
         unread_count: p?.unread_count || 0,
         last_message: latest?.content || '',
         updated_at: latest?.created_at || '',
+        has_messages: !!latest,
         other_user: profile ? { id: profile.id as string, username: profile.username as string, display_name: profile.display_name as string, avatar_url: profile.avatar_url as string | null } : null,
       };
-    });
+    }).filter(c => c.has_messages);
 
     setConversations(prev => {
       const existing = new Set(prev.map(c => c.id));
@@ -1243,6 +1313,8 @@ export default function MessagesPage() {
 
     if (result.success && result.message) {
       tid.delete(tempId);
+      // Mark conversation as having messages (so it appears in sidebar)
+      setConversations(prev => prev.map(c => c.id === sid ? { ...c, has_messages: true, last_message: `You: ${displayContent}`, updated_at: result.message!.created_at } : c));
       // Resolve signed URLs for the confirmed message
       const [signedMedia, signedThumb] = await Promise.all([
         media?.path ? getOrRefreshSignedUrl(media.path) : Promise.resolve(null),
@@ -1330,6 +1402,7 @@ export default function MessagesPage() {
 
     if (result.success && result.message) {
       tid.delete(tempId);
+      setConversations(prev => prev.map(c => c.id === sid ? { ...c, has_messages: true, last_message: '🎤 Voice message', updated_at: result.message!.created_at } : c));
       const signedMedia = await getOrRefreshSignedUrl(voicePath);
       URL.revokeObjectURL(voiceBlobUrl);
       setMessages(prev => deduplicateMessages(prev.map(m => m.id === tempId ? {
@@ -1439,6 +1512,7 @@ export default function MessagesPage() {
             ) : conversations.length > 0 ? (
               conversations
                 .filter(conv => {
+                  if (!conv.has_messages) return false; // hide empty conversations from sidebar
                   if (!searchQuery.trim()) return true;
                   const q = searchQuery.toLowerCase();
                   if (conv.other_user?.display_name?.toLowerCase().includes(q) || conv.other_user?.username?.toLowerCase().includes(q)) return true;
@@ -1514,9 +1588,22 @@ export default function MessagesPage() {
                     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                   </svg>
                 </div>
-                <p className="font-semibold text-[var(--text-primary)] text-[15px]">No conversations yet</p>
-                <p className="text-sm text-[var(--text-muted)] mt-0.5 mb-3">Start a conversation with someone</p>
-                <Link href="/explore" className="text-sm font-semibold text-[var(--accent-primary)] hover:underline">Find people</Link>
+                <p className="font-semibold text-[var(--text-primary)] text-[15px]">
+                  {loadError ? 'Failed to load conversations' : 'No conversations yet'}
+                </p>
+                <p className="text-sm text-[var(--text-muted)] mt-0.5 mb-3">
+                  {loadError || 'Start a conversation with someone'}
+                </p>
+                {loadError ? (
+                  <button
+                    onClick={() => { setLoadError(null); window.location.reload(); }}
+                    className="text-sm font-semibold text-[var(--accent-primary)] hover:underline"
+                  >
+                    Retry
+                  </button>
+                ) : (
+                  <Link href="/explore" className="text-sm font-semibold text-[var(--accent-primary)] hover:underline">Find people</Link>
+                )}
               </div>
             )}
             {/* H15: Load more conversations */}
@@ -1709,14 +1796,21 @@ export default function MessagesPage() {
                   </div>
                 ) : (
                   <div className="flex items-center justify-center h-full">
-                    <div className="text-center">
-                      <div className="w-16 h-16 rounded-full bg-[var(--bg-tertiary)] mx-auto mb-3 flex items-center justify-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                        </svg>
-                      </div>
-                      <p className="font-semibold text-[var(--text-primary)] text-[15px]">No messages yet</p>
-                      <p className="text-sm text-[var(--text-muted)] mt-0.5">Send a message to start the conversation</p>
+                    <div className="text-center max-w-xs px-4">
+                      <Avatar
+                        src={selectedConversation.other_user?.avatar_url || null}
+                        name={selectedConversation.other_user?.display_name || 'User'}
+                        size="xl"
+                      />
+                      <p className="font-semibold text-[var(--text-primary)] text-lg mt-4">
+                        {selectedConversation.other_user?.display_name || 'User'}
+                      </p>
+                      <p className="text-sm text-[var(--text-muted)] mt-0.5">
+                        @{selectedConversation.other_user?.username || 'user'}
+                      </p>
+                      <p className="text-sm text-[var(--text-muted)] mt-4">
+                        No messages yet. Say hello!
+                      </p>
                     </div>
                   </div>
                 )}

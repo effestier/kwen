@@ -92,77 +92,96 @@ export function FeedClient({ initialProfile, initialFollowingIds }: FeedClientPr
 
   // Initial load — profile already provided, load posts + stories
   useEffect(() => {
+    let cancelled = false;
+
     async function loadData() {
       try {
         setError(null);
         const authUserId = initialProfile.id;
-        const fIds = new Set(initialFollowingIds);
         const allUserIds = [authUserId, ...initialFollowingIds];
 
-        // Load posts + stories + views in parallel
-        const [postsRes, storiesRes, viewsRes] = await Promise.all([
-          loadPosts(authUserId, []),
-          supabase
-            .from('stories')
-            .select('id, user_id, media_url, media_type, visibility, expires_at, created_at, user:profiles!inner(id, username, display_name, avatar_url, is_verified)')
-            .in('user_id', allUserIds)
-            .gt('expires_at', new Date().toISOString())
-            .order('created_at', { ascending: false })
-            .limit(50),
-          supabase.from('story_views').select('story_id').eq('user_id', authUserId),
-        ]);
+        // Load posts — main content, must succeed
+        let feedPosts: FeedPost[] = [];
+        try {
+          feedPosts = await loadPosts(authUserId, []);
+        } catch (err) {
+          console.error('[FEED] posts load error:', err);
+        }
+
+        if (cancelled) return;
 
         // Process posts
-        const feedPosts = postsRes || [];
-        seenIdsRef.current = new Set(feedPosts.map((p: FeedPost) => p.id));
-        setPosts(feedPosts);
-        postsRef.current = feedPosts;
-        if (feedPosts.length < 20) setHasMore(false);
+        const posts = feedPosts || [];
+        seenIdsRef.current = new Set(posts.map((p: FeedPost) => p.id));
+        setPosts(posts);
+        postsRef.current = posts;
+        if (posts.length < 20) setHasMore(false);
 
-        // Process stories
-        let filteredStories = storiesRes.data || [];
-        const closeFriendOwnerIds = filteredStories
-          .filter((s: any) => s.visibility === 'close_friends' && s.user_id !== authUserId)
-          .map((s: any) => s.user_id);
+        // Load stories + views (non-critical, don't fail the feed)
+        let filteredStories: any[] = [];
+        try {
+          const [storiesRes, viewsRes] = await Promise.all([
+            supabase
+              .from('stories')
+              .select('id, user_id, media_url, media_type, visibility, expires_at, created_at, user:profiles!inner(id, username, display_name, avatar_url, is_verified)')
+              .in('user_id', allUserIds)
+              .gt('expires_at', new Date().toISOString())
+              .order('created_at', { ascending: false })
+              .limit(50),
+            supabase.from('story_views').select('story_id').eq('user_id', authUserId),
+          ]);
 
-        if (closeFriendOwnerIds.length > 0) {
-          const { data: closeFriendRows } = await supabase
-            .from('close_friends')
-            .select('user_id')
-            .in('user_id', [...new Set(closeFriendOwnerIds)])
-            .eq('friend_id', authUserId);
-          const closeFriendSet = new Set(closeFriendRows?.map(r => r.user_id) || []);
-          filteredStories = filteredStories.filter((s: any) => {
-            if (s.user_id === authUserId) return true;
-            if (!s.visibility || s.visibility === 'public') return true;
-            if (s.visibility === 'followers') return true;
-            if (s.visibility === 'close_friends') return closeFriendSet.has(s.user_id);
-            return true;
-          });
+          if (storiesRes.error) console.error('[FEED] stories error:', storiesRes.error);
+          filteredStories = storiesRes.data || [];
+
+          const closeFriendOwnerIds = filteredStories
+            .filter((s: any) => s.visibility === 'close_friends' && s.user_id !== authUserId)
+            .map((s: any) => s.user_id);
+
+          if (closeFriendOwnerIds.length > 0) {
+            const { data: closeFriendRows } = await supabase
+              .from('close_friends')
+              .select('user_id')
+              .in('user_id', [...new Set(closeFriendOwnerIds)])
+              .eq('friend_id', authUserId);
+            const closeFriendSet = new Set(closeFriendRows?.map(r => r.user_id) || []);
+            filteredStories = filteredStories.filter((s: any) => {
+              if (s.user_id === authUserId) return true;
+              if (!s.visibility || s.visibility === 'public') return true;
+              if (s.visibility === 'followers') return true;
+              if (s.visibility === 'close_friends') return closeFriendSet.has(s.user_id);
+              return true;
+            });
+          }
+
+          const viewedSet = new Set(viewsRes.data?.map(v => v.story_id) || []);
+          let mutedUsers: string[] = [];
+          try { const stored = localStorage.getItem('kw-muted-users'); if (stored) mutedUsers = JSON.parse(stored); } catch { /* ignore */ }
+          if (mutedUsers.length > 0) {
+            const mutedSet = new Set(mutedUsers);
+            filteredStories = filteredStories.filter((s: any) => !mutedSet.has(s.user_id));
+          }
+
+          if (!cancelled) {
+            setStories(filteredStories.map((s: any) => ({
+              id: s.id, user_id: s.user_id, media_url: s.media_url, media_type: s.media_type || 'image',
+              expires_at: s.expires_at, created_at: s.created_at, user: s.user, hasViewed: viewedSet.has(s.id),
+            })));
+          }
+        } catch (storyErr) {
+          console.error('[FEED] stories load error:', storyErr);
+          // Stories failed but posts still loaded — don't kill the feed
         }
-
-        const viewedSet = new Set(viewsRes.data?.map(v => v.story_id) || []);
-        let mutedUsers: string[] = [];
-        try { const stored = localStorage.getItem('kw-muted-users'); if (stored) mutedUsers = JSON.parse(stored); } catch { /* ignore */ }
-        if (mutedUsers.length > 0) {
-          const mutedSet = new Set(mutedUsers);
-          filteredStories = filteredStories.filter((s: any) => !mutedSet.has(s.user_id));
-        }
-
-        setStories(filteredStories.map((s: any) => ({
-          id: s.id, user_id: s.user_id, media_url: s.media_url, media_type: s.media_type || 'image',
-          expires_at: s.expires_at, created_at: s.created_at, user: s.user, hasViewed: viewedSet.has(s.id),
-        })));
 
       } catch (e: any) {
         console.error('Feed load error:', e);
-        const msg = e?.message || e?.error_description || String(e);
-        setError(`Failed to load your feed: ${msg}`);
+        setError('Failed to load your feed. Please try again.');
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
     loadData();
+    return () => { cancelled = true; };
   }, [initialProfile, initialFollowingIds, loadPosts, supabase]);
 
   // Infinite scroll

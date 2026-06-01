@@ -4,7 +4,14 @@ import { FeedClient } from './feed-client';
 
 export default async function FeedPage() {
   const supabase = await createClient();
-  const { data: { user: authUser } } = await supabase.auth.getUser();
+
+  let authUser;
+  try {
+    const { data } = await supabase.auth.getUser();
+    authUser = data.user;
+  } catch {
+    redirect('/auth/login');
+  }
 
   if (!authUser) {
     redirect('/auth/login');

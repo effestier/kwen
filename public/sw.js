@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kwen-v3';
+const CACHE_NAME = 'kwen-v4';
 const SHELL_URLS = ['/', '/feed/', '/auth/login/'];
 
 self.addEventListener('install', (event) => {
@@ -31,19 +31,20 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // SPA routing: network-first for navigations, fallback to cached shell
-  // This handles Capacitor static export where /profile/karan/index.html doesn't exist
+  // SPA routing: network-first for navigations
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request).then((response) => {
-        if (response.ok) return response;
-        // Non-200 (404 etc) — serve the shell for client-side routing
-        return caches.match('/');
-      }).catch(() => caches.match('/'))
+      fetch(request)
+        .then((response) => {
+          // Always return the real server response — redirects (3xx) must be
+          // followed so auth flows work; errors (4xx/5xx) show proper error UI.
+          // Only fall back to shell on complete network failure (offline).
+          return response;
+        })
+        .catch(() => caches.match('/'))
     );
   } else {
-    // M39: Network-first for _next/static chunks to prevent stale JS/CSS after deploy
-    // Next.js hashes static assets, but stale HTML shell could reference old hashes
+    // Network-first for _next/static chunks to prevent stale JS/CSS after deploy
     const isStatic = url.pathname.startsWith('/_next/static/');
     if (isStatic) {
       event.respondWith(

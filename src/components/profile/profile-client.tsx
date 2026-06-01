@@ -367,7 +367,7 @@ export function ProfileClient({ username }: { username: string }) {
     const result = await getOrCreateConversation(profile.id);
 
     if (result.conversationId) {
-      router.push('/messages');
+      router.push(`/messages?open=${result.conversationId}`);
     }
     setMessaging(false);
   };

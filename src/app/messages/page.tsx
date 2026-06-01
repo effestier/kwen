@@ -114,7 +114,11 @@ export default function MessagesPage() {
   const [forwardMessage, setForwardMessage] = useState<MessageBubbleData | null>(null);
   const [forwardSearch, setForwardSearch] = useState('');
   const [deleteConvId, setDeleteConvId] = useState<string | null>(null);
+  const hasOpenedFromProfile = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Read ?open= param synchronously (avoids useSearchParams Suspense requirement)
+  const openConvId = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('open') : null;
 
 
   const showToast = useCallback((message: string, type: 'error' | 'success' = 'error') => {
@@ -289,6 +293,21 @@ export default function MessagesPage() {
       convList.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
 
       setConversations(convList);
+
+      // Auto-open conversation from profile "Message" button
+      if (openConvId && !hasOpenedFromProfile.current) {
+        hasOpenedFromProfile.current = true;
+        const targetConv = convList.find(c => c.id === openConvId);
+        if (targetConv) {
+          if (targetConv.other_user) otherUserProfileRef.current = targetConv.other_user;
+          setSelectedId(openConvId);
+          setShowMobileChat(true);
+        } else {
+          // Conversation just created — not in list yet. Open it directly.
+          setSelectedId(openConvId);
+          setShowMobileChat(true);
+        }
+      }
 
       setLoading(false);
     }

@@ -210,7 +210,7 @@ export function FeedClient({ initialProfile, initialFollowingIds }: FeedClientPr
 
   if (loading) {
     return (
-      <MainLayout>
+      <MainLayout initialProfile={initialProfile}>
         <PageLoader />
       </MainLayout>
     );

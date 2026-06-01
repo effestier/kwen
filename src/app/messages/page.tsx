@@ -13,6 +13,7 @@ import { MessageBubble, type MessageBubbleData } from '@/components/messages/mes
 import { ReplyPreview } from '@/components/messages/reply-preview';
 import { compressForMessage, generateThumbnail, validateRawFile, verifyImageContent } from '@/lib/image-compress';
 import { ListSkeleton, Skeleton } from '@/components/design-system/skeleton';
+import { blockUser } from '@/services/posts';
 import { VoiceRecorder } from '@/components/messages/voice-recorder';
 import { usePresence, formatLastSeen } from '@/hooks/use-presence';
 
@@ -119,6 +120,7 @@ export default function MessagesPage() {
   const [forwardMessage, setForwardMessage] = useState<MessageBubbleData | null>(null);
   const [forwardSearch, setForwardSearch] = useState('');
   const [deleteConvId, setDeleteConvId] = useState<string | null>(null);
+  const [blockUserId, setBlockUserId] = useState<string | null>(null);
   const hasOpenedFromProfile = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -1047,6 +1049,25 @@ export default function MessagesPage() {
     }
   }, []);
 
+  const handleBlock = useCallback(async (userId: string) => {
+    setBlockUserId(userId);
+  }, []);
+
+  const confirmBlock = useCallback(async () => {
+    if (!blockUserId) return;
+    const result = await blockUser(blockUserId);
+    if (result.success) {
+      showToast('User blocked', 'success');
+      // Remove conversation with blocked user from sidebar
+      setConversations(prev => prev.filter(c => c.other_user?.id !== blockUserId));
+      // Close mobile chat view
+      setShowMobileChat(false);
+    } else {
+      showToast(result.error || 'Failed to block user');
+    }
+    setBlockUserId(null);
+  }, [blockUserId, showToast]);
+
   const handleForward = useCallback(async (targetConversationId: string) => {
     if (!forwardMessage) return;
     const content = forwardMessage.content || '';
@@ -1675,6 +1696,7 @@ export default function MessagesPage() {
                               onDelete={handleDelete}
                               onCopy={handleCopy}
                               onReport={handleReport}
+                              onBlock={handleBlock}
                               onSaveMedia={handleSaveMedia}
                               onForward={(m) => { setForwardMessage(m); setForwardSearch(''); }}
                               onImageClick={(url) => {
@@ -1912,6 +1934,37 @@ export default function MessagesPage() {
                 className="flex-1 py-2 rounded-xl text-sm font-medium bg-[var(--accent-red)] text-white hover:opacity-90 transition-opacity"
               >
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {blockUserId && (
+        <div
+          role="dialog"
+          aria-label="Block user"
+          className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center"
+          onClick={() => setBlockUserId(null)}
+        >
+          <div
+            className="bg-[var(--bg-secondary)] rounded-2xl p-5 w-[320px] shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-base font-bold text-[var(--text-primary)] mb-2">Block this person?</h3>
+            <p className="text-sm text-[var(--text-muted)] mb-5">They won&apos;t be able to find your profile, posts, or stories on kwen. They won&apos;t be notified that you blocked them.</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setBlockUserId(null)}
+                className="flex-1 py-2 rounded-xl text-sm font-medium bg-[var(--bg-tertiary)] text-[var(--text-primary)] hover:bg-[var(--border-subtle)] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmBlock}
+                className="flex-1 py-2 rounded-xl text-sm font-medium bg-[var(--accent-red)] text-white hover:opacity-90 transition-opacity"
+              >
+                Block
               </button>
             </div>
           </div>

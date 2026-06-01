@@ -12,68 +12,69 @@ interface Profile {
   avatar_url: string | null;
 }
 
-export function MobileNav() {
+export function MobileNav({ initialProfile }: { initialProfile?: Profile | null }) {
   const pathname = usePathname();
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(initialProfile ?? null);
   const [messageCount, setMessageCount] = useState(0);
   const supabaseRef = useRef(createClient());
   const supabase = supabaseRef.current;
-  const userIdRef = useRef<string | null>(null);
+  const userIdRef = useRef<string | null>(initialProfile?.id ?? null);
 
   useEffect(() => {
-    async function loadProfile() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+    // Skip profile fetch if already provided server-side
+    if (!initialProfile) {
+      async function loadProfile() {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
 
-      let { data } = await supabase
-        .from('profiles')
-        .select('id, username, display_name, avatar_url')
-        .eq('id', user.id)
-        .single();
-
-      if (!data) {
-        const tempUsername = `user_${user.id.slice(0, 8)}`;
-        const { data: newProfile } = await supabase
+        let { data } = await supabase
           .from('profiles')
-          .upsert({
-            id: user.id,
-            username: tempUsername,
-            display_name: user.email?.split('@')[0] || 'User',
-          }, { onConflict: 'id' })
           .select('id, username, display_name, avatar_url')
+          .eq('id', user.id)
           .single();
-        data = newProfile;
-      }
 
-      if (data) {
-        userIdRef.current = data.id;
-        setProfile(data);
+        if (!data) {
+          const tempUsername = `user_${user.id.slice(0, 8)}`;
+          const { data: newProfile } = await supabase
+            .from('profiles')
+            .upsert({
+              id: user.id,
+              username: tempUsername,
+              display_name: user.email?.split('@')[0] || 'User',
+            }, { onConflict: 'id' })
+            .select('id, username, display_name, avatar_url')
+            .single();
+          data = newProfile;
+        }
+
+        if (data) {
+          userIdRef.current = data.id;
+          setProfile(data);
+          loadMessageCount(data.id);
+        }
       }
+      loadProfile();
+    } else {
+      loadMessageCount(initialProfile.id);
     }
 
-    async function loadMessageCount() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: participants } = await supabase
+    async function loadMessageCount(uid: string) {
+      const { count } = await supabase
         .from('conversation_participants')
-        .select('unread_count')
-        .eq('user_id', user.id);
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', uid)
+        .eq('has_unread', true);
 
-      const total = participants?.reduce((sum, p) => sum + (p.unread_count || 0), 0) || 0;
-      setMessageCount(total);
+      setMessageCount(count || 0);
     }
-
-    loadProfile();
-    loadMessageCount();
 
     // Subscribe to new messages for realtime badge updates
     const channel = supabase
       .channel('mobile-messages-badge')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversation_participants' }, (payload) => {
-        const updated = payload.new as { user_id: string; unread_count: number };
-        if (updated.user_id === userIdRef.current) {
-          loadMessageCount();
+        const updated = payload.new as { user_id: string; has_unread: boolean };
+        if (updated.user_id === userIdRef.current && userIdRef.current) {
+          loadMessageCount(userIdRef.current);
         }
       })
       .subscribe();
@@ -81,7 +82,7 @@ export function MobileNav() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [initialProfile]);
 
   const isActive = (href: string) => {
     if (href === '/feed') return pathname === '/feed';

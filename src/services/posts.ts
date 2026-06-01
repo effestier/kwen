@@ -238,6 +238,41 @@ export async function unblockUser(userId: string) {
   }
 }
 
+export async function getBlockedUsers() {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { blocked: [], error: 'Not authenticated' };
+
+    const { data, error } = await supabase
+      .from('blocks')
+      .select('blocked_id, created_at')
+      .eq('blocker_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (error || !data || data.length === 0) return { blocked: [] };
+
+    const userIds = data.map(b => b.blocked_id);
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, username, display_name, avatar_url')
+      .in('id', userIds);
+
+    const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+
+    const blocked = data.map(b => ({
+      id: b.blocked_id,
+      blocked_at: b.created_at,
+      profile: profileMap.get(b.blocked_id) || null,
+    }));
+
+    return { blocked };
+  } catch {
+    return { blocked: [] };
+  }
+}
+
 export async function muteUser(userId: string) {
   try {
     const supabase = createClient();

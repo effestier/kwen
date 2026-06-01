@@ -59,10 +59,10 @@ const secondaryNavItems: NavItem[] = [
   },
 ];
 
-export function Sidebar() {
+export function Sidebar({ initialProfile }: { initialProfile?: Profile | null }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [user, setUser] = useState<Profile | null>(null);
+  const [user, setUser] = useState<Profile | null>(initialProfile ?? null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -70,75 +70,65 @@ export function Sidebar() {
   const [messageCount, setMessageCount] = useState(0);
   const searchRef = useRef<HTMLDivElement>(null);
   const accountMenuRef = useRef<HTMLDivElement>(null);
-  const userIdRef = useRef<string | null>(null);
+  const userIdRef = useRef<string | null>(initialProfile?.id ?? null);
   const supabaseRef = useRef(createClient());
   const supabase = supabaseRef.current;
 
   useEffect(() => {
-    async function loadUser() {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) return;
+    // Skip profile fetch if already provided server-side
+    if (!initialProfile) {
+      async function loadUser() {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (!authUser) return;
 
-      let { data: profile } = await supabase
-        .from('profiles')
-        .select('id, username, display_name, avatar_url')
-        .eq('id', authUser.id)
-        .single();
-
-      // Fallback: create profile if missing
-      if (!profile) {
-        const tempUsername = `user_${authUser.id.slice(0, 8)}`;
-        const { data: newProfile } = await supabase
+        let { data: profile } = await supabase
           .from('profiles')
-          .upsert({
-            id: authUser.id,
-            username: tempUsername,
-            display_name: authUser.email?.split('@')[0] || 'User',
-          }, { onConflict: 'id' })
           .select('id, username, display_name, avatar_url')
+          .eq('id', authUser.id)
           .single();
-        profile = newProfile;
+
+        if (!profile) {
+          const tempUsername = `user_${authUser.id.slice(0, 8)}`;
+          const { data: newProfile } = await supabase
+            .from('profiles')
+            .upsert({
+              id: authUser.id,
+              username: tempUsername,
+              display_name: authUser.email?.split('@')[0] || 'User',
+            }, { onConflict: 'id' })
+            .select('id, username, display_name, avatar_url')
+            .single();
+          profile = newProfile;
+        }
+
+        if (profile) {
+          setUser(profile);
+          userIdRef.current = profile.id;
+          loadCounts(profile.id);
+        }
       }
-
-      if (profile) {
-        setUser(profile);
-        userIdRef.current = profile.id;
-      }
+      loadUser();
+    } else {
+      // Profile already available — just load counts
+      loadCounts(initialProfile.id);
     }
 
-    loadUser();
-
-    // Load notification count
-    async function loadNotificationCount() {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) return;
-
-      const { count } = await supabase
-        .from('notifications')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', authUser.id)
-        .eq('is_read', false);
-
-      setNotificationCount(count || 0);
+    async function loadCounts(uid: string) {
+      const [notifRes, msgRes] = await Promise.all([
+        supabase
+          .from('notifications')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', uid)
+          .eq('is_read', false),
+        supabase
+          .from('conversation_participants')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', uid)
+          .eq('has_unread', true),
+      ]);
+      setNotificationCount(notifRes.count || 0);
+      setMessageCount(msgRes.count || 0);
     }
-
-    loadNotificationCount();
-
-    // Load message count
-    async function loadMessageCount() {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) return;
-
-      const { data: participants } = await supabase
-        .from('conversation_participants')
-        .select('unread_count')
-        .eq('user_id', authUser.id);
-
-      const total = participants?.reduce((sum, p) => sum + (p.unread_count || 0), 0) || 0;
-      setMessageCount(total);
-    }
-
-    loadMessageCount();
 
     // Subscribe to realtime notifications
     const channel = supabase
@@ -154,10 +144,10 @@ export function Sidebar() {
     const msgChannel = supabase
       .channel('sidebar-messages')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversation_participants' }, (payload) => {
-        const updated = payload.new as { user_id: string; unread_count: number };
+        const updated = payload.new as { user_id: string; has_unread: boolean };
         if (updated.user_id === userIdRef.current) {
-          // Reload message count
-          loadMessageCount();
+          // Reload counts
+          if (userIdRef.current) loadCounts(userIdRef.current);
         }
       })
       .subscribe();

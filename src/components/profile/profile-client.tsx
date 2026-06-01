@@ -59,7 +59,7 @@ interface Post {
   disableComments: boolean;
 }
 
-export function ProfileClient({ username }: { username: string }) {
+export function ProfileClient({ username, currentUserProfile }: { username: string; currentUserProfile?: { id: string; username: string; display_name: string; avatar_url: string | null } | null }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [savedPosts, setSavedPosts] = useState<Post[]>([]);
@@ -381,7 +381,7 @@ export function ProfileClient({ username }: { username: string }) {
 
   if (loading) {
     return (
-      <MainLayout>
+      <MainLayout initialProfile={currentUserProfile}>
         <PageLoader />
       </MainLayout>
     );
@@ -389,7 +389,7 @@ export function ProfileClient({ username }: { username: string }) {
 
   if (error) {
     return (
-      <MainLayout>
+      <MainLayout initialProfile={currentUserProfile}>
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-center">
             <p className="text-[var(--text-muted)] mb-4">{error}</p>
@@ -407,7 +407,7 @@ export function ProfileClient({ username }: { username: string }) {
 
   if (!profile) {
     return (
-      <MainLayout>
+      <MainLayout initialProfile={currentUserProfile}>
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-[var(--text-muted)]">User not found</div>
         </div>

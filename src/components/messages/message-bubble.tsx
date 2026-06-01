@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import { ReactionPicker } from './reaction-picker';
 import { VoiceMessage } from './voice-message';
 
-export type ActionKind = 'react' | 'reply' | 'copy' | 'delete-me' | 'delete-everyone' | 'report' | 'save' | 'forward';
+export type ActionKind = 'react' | 'reply' | 'copy' | 'delete-me' | 'delete-everyone' | 'report' | 'save' | 'forward' | 'block';
 
 export interface MessageBubbleData {
   id: string;
@@ -44,6 +44,7 @@ interface MessageBubbleProps {
   onDelete: (messageId: string, deleteForEveryone: boolean) => void;
   onCopy: (text: string) => void;
   onReport: (messageId: string) => void;
+  onBlock?: (userId: string) => void;
   onSaveMedia?: (mediaUrl: string, messageType: string, mediaPath?: string) => void;
   onImageClick?: (url: string) => void;
   onRefreshUrl?: (mediaPath: string) => Promise<string | null>;
@@ -70,7 +71,7 @@ function isImageUrl(url: string): boolean {
   return /\.(jpg|jpeg|png|gif|webp|avif)(\?|$)/i.test(url);
 }
 
-export function MessageBubble({ message, showAvatar, showTail, onReact, onReply, onDelete, onCopy, onReport, onSaveMedia, onImageClick, onRefreshUrl, onForward }: MessageBubbleProps) {
+export function MessageBubble({ message, showAvatar, showTail, onReact, onReply, onDelete, onCopy, onReport, onBlock, onSaveMedia, onImageClick, onRefreshUrl, onForward }: MessageBubbleProps) {
   const [showPicker, setShowPicker] = useState(false);
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
@@ -183,8 +184,9 @@ export function MessageBubble({ message, showAvatar, showTail, onReact, onReply,
       case 'delete-everyone': onDelete(message.id, true); break;
       case 'report': onReport(message.id); break;
       case 'save': if (message.media_url) onSaveMedia?.(message.media_url, message.message_type, message.media_path || undefined); break;
+      case 'block': if (message.senderId) onBlock?.(message.senderId); break;
     }
-  }, [message, onReply, onCopy, onDelete, onReport, onSaveMedia, onForward]);
+  }, [message, onReply, onCopy, onDelete, onReport, onBlock, onSaveMedia, onForward]);
 
   const handleReactionSelect = useCallback((emoji: string) => {
     onReact(message.id, emoji);
@@ -199,6 +201,7 @@ export function MessageBubble({ message, showAvatar, showTail, onReact, onReply,
     { kind: 'delete-me' as ActionKind, label: 'Delete for me', icon: '🗑️', show: true, destructive: true },
     { kind: 'delete-everyone' as ActionKind, label: 'Unsend', icon: '🗑️', show: message.isMine, destructive: true },
     { kind: 'report' as ActionKind, label: 'Report', icon: '⚠️', show: !message.isMine, destructive: true },
+    { kind: 'block' as ActionKind, label: 'Block user', icon: '🚫', show: !message.isMine, destructive: true },
   ].filter(a => a.show);
 
   return (

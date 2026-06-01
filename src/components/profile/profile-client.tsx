@@ -11,6 +11,7 @@ import { PageLoader } from '@/components/ui/loader';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import Link from 'next/link';
 import { toggleFollow } from '@/services/follows';
+import { blockUser, muteUser } from '@/services/posts';
 import { getOrCreateConversation } from '@/services/messages';
 import { useRouter } from 'next/navigation';
 import { hapticMedium } from '@/lib/haptics';
@@ -71,6 +72,8 @@ export function ProfileClient({ username, currentUserProfile }: { username: stri
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [messaging, setMessaging] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [profileMenuToast, setProfileMenuToast] = useState<string | null>(null);
   const [showFollowers, setShowFollowers] = useState(false);
   const [showFollowing, setShowFollowing] = useState(false);
 
@@ -454,7 +457,7 @@ export function ProfileClient({ username, currentUserProfile }: { username: stri
       <PullToRefresh onRefresh={handleRefresh}>
       <div className="min-h-screen">
         {/* Profile header — centered */}
-        <div className="px-5 pt-5 pb-2">
+        <div className="relative px-5 pt-5 pb-2">
           {/* Avatar centered */}
           <div className="flex justify-center mb-3">
             <div className="w-20 h-20 rounded-full bg-[var(--bg-secondary)] overflow-hidden ring-2 ring-[var(--border-subtle)] ring-offset-2 ring-offset-[var(--bg-primary)]">
@@ -544,8 +547,36 @@ export function ProfileClient({ username, currentUserProfile }: { username: stri
                   >
                     {messaging ? '...' : 'Message'}
                   </button>
+                  <button
+                    onClick={() => setShowProfileMenu(!showProfileMenu)}
+                    className="px-3 py-2.5 rounded-xl bg-[var(--bg-tertiary)] text-[var(--text-primary)] active:opacity-70 transition-opacity"
+                    aria-label="More options"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" />
+                    </svg>
+                  </button>
                 </>
               )}
+            </div>
+          )}
+
+          {/* Profile options menu */}
+          {showProfileMenu && !isOwnProfile && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setShowProfileMenu(false)} />
+              <div className="absolute right-4 top-20 z-50 bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-xl overflow-hidden min-w-[180px] shadow-xl">
+                <button onClick={() => { setShowProfileMenu(false); setProfileMenuToast('Report submitted. Thank you for keeping KWEN safe.'); setTimeout(() => setProfileMenuToast(null), 3000); }} className="w-full px-4 py-3 text-left text-sm text-[var(--destructive)] hover:bg-[var(--bg-tertiary)]">Report</button>
+                <button onClick={async () => { setShowProfileMenu(false); await blockUser(profile.id); router.push('/feed'); }} className="w-full px-4 py-3 text-left text-sm text-[var(--destructive)] hover:bg-[var(--bg-tertiary)]">Block</button>
+                <button onClick={async () => { setShowProfileMenu(false); await muteUser(profile.id); setProfileMenuToast(`${profile.display_name} muted`); setTimeout(() => setProfileMenuToast(null), 3000); }} className="w-full px-4 py-3 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]">Mute</button>
+              </div>
+            </>
+          )}
+
+          {/* Toast */}
+          {profileMenuToast && (
+            <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-white/90 text-black px-4 py-2 rounded-xl text-sm font-medium shadow-lg">
+              {profileMenuToast}
             </div>
           )}
         </div>

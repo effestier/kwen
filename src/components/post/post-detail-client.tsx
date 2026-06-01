@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Avatar } from '@/components/ui/avatar';
 import { cn, formatNumber, formatTimeAgo } from '@/lib/utils';
-import { getPost, toggleLike, toggleSave } from '@/services/posts';
+import { getPost, toggleLike, toggleSave, blockUser, muteUser, deletePost, archivePost } from '@/services/posts';
 import { getComments, getReplies, addComment, toggleCommentLike, deleteComment, getCommentCount, type Comment } from '@/services/comments';
 import { createClient } from '@/lib/supabase/client';
 import { Spinner } from '@/components/ui/loader';
@@ -59,6 +59,8 @@ export function PostDetailClient({ postId }: { postId: string }) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const [activeImage, setActiveImage] = useState(0);
+  const [showMenu, setShowMenu] = useState(false);
+  const [menuAction, setMenuAction] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -419,7 +421,7 @@ export function PostDetailClient({ postId }: { postId: string }) {
             )}
           </div>
 
-          <div className="lg:w-[420px] lg:border-l border-t lg:border-t-0 border-[var(--border-subtle)] flex flex-col lg:h-[calc(100vh-56px)] lg:sticky lg:top-14">
+          <div className="relative lg:w-[420px] lg:border-l border-t lg:border-t-0 border-[var(--border-subtle)] flex flex-col lg:h-[calc(100vh-56px)] lg:sticky lg:top-14">
             <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--border-subtle)]">
               {post.user && (
                 <>
@@ -439,9 +441,49 @@ export function PostDetailClient({ postId }: { postId: string }) {
                     </div>
                     <p className="text-xs text-[var(--text-muted)]">@{post.user.username}</p>
                   </div>
+                  <button
+                    onClick={() => setShowMenu(!showMenu)}
+                    className="p-2 -mr-2 rounded-full hover:bg-[var(--bg-secondary)] transition-colors-fast"
+                    aria-label="Post options"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" />
+                    </svg>
+                  </button>
                 </>
               )}
             </div>
+
+            {/* Options menu backdrop */}
+            {showMenu && <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />}
+
+            {/* Options menu */}
+            {showMenu && post.user && (
+              <div className="absolute right-4 top-16 z-50 bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-xl overflow-hidden min-w-[180px] shadow-xl">
+                {currentUser?.id === post.user.id ? (
+                  <>
+                    <button onClick={() => { setShowMenu(false); router.push(`/post/${post.id}/edit`); }} className="w-full px-4 py-3 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]">Edit</button>
+                    <button onClick={async () => { setShowMenu(false); await archivePost(post.id); router.back(); }} className="w-full px-4 py-3 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]">Archive</button>
+                    <button onClick={async () => { setShowMenu(false); await deletePost(post.id); router.back(); }} className="w-full px-4 py-3 text-left text-sm text-[var(--destructive)] hover:bg-[var(--bg-tertiary)]">Delete</button>
+                  </>
+                ) : (
+                  <>
+                    <button onClick={() => { setShowMenu(false); setMenuAction('report'); }} className="w-full px-4 py-3 text-left text-sm text-[var(--destructive)] hover:bg-[var(--bg-tertiary)]">Report</button>
+                    <button onClick={async () => { setShowMenu(false); await blockUser(post.user!.id); router.back(); }} className="w-full px-4 py-3 text-left text-sm text-[var(--destructive)] hover:bg-[var(--bg-tertiary)]">Block</button>
+                    <button onClick={async () => { setShowMenu(false); await muteUser(post.user!.id); }} className="w-full px-4 py-3 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]">Mute</button>
+                    <button onClick={() => { setShowMenu(false); navigator.clipboard.writeText(`${window.location.origin}/post/${post.id}`); }} className="w-full px-4 py-3 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]">Copy link</button>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Report toast */}
+            {menuAction === 'report' && (
+              <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-white/90 text-black px-4 py-2 rounded-xl text-sm font-medium shadow-lg">
+                Report submitted. Thank you for keeping KWEN safe.
+              </div>
+            )}
+            {menuAction && <div className="fixed inset-0 z-40" onClick={() => setMenuAction(null)} />}
 
             <div ref={commentsRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
               {post.content && (

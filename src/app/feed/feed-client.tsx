@@ -310,7 +310,7 @@ export function FeedClient({ initialProfile, initialFollowingIds }: FeedClientPr
           {posts.length > 0 ? (
             <div>
               {posts.map((post, index) => (
-                <PostCard key={post.id} feedIndex={index} isInfiniteScroll={index >= 20} post={{
+                <PostCard key={post.id} feedIndex={index} isInfiniteScroll={index >= 20} isOwnPost={post.user_id === initialProfile.id} post={{
                   id: post.id,
                   user: { id: post.user_id, username: post.username, displayName: post.display_name, avatar: post.avatar_url || '', isVerified: post.is_verified },
                   content: post.content || '',

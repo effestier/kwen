@@ -8,6 +8,7 @@ import { addStoryReaction, getStoryReactions, sendStoryReply, getStoryViewers, m
 import { AddToHighlightModal } from '@/components/highlights/add-to-highlight-modal';
 import { pushOverlay, popOverlay } from '@/lib/overlay-stack';
 import { hapticLight } from '@/lib/haptics';
+import { muteUser, unmuteUser } from '@/services/posts';
 import { PollDisplay } from '@/components/stickers/poll-sticker';
 import { QuestionDisplay } from '@/components/stickers/question-sticker';
 import { CountdownDisplay } from '@/components/stickers/countdown-sticker';
@@ -126,6 +127,7 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
 
   // More menu
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [mutedUserIds, setMutedUserIds] = useState<Set<string>>(new Set());
 
   // Toast
   const [viewerToast, setViewerToast] = useState<string | null>(null);
@@ -1101,6 +1103,7 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
                     <path d="M22 2 11 13" />
                   </svg>
                 </button>
+                {!isOwner && (
                 <button
                   onClick={() => setShowReplyInput(true)}
                   className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/20 text-white hover:bg-white/30"
@@ -1110,6 +1113,7 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
                   </svg>
                   <span className="text-sm">Reply</span>
                 </button>
+                )}
                 {!isOwner && (
                   <button
                     onClick={() => setShowMoreMenu(!showMoreMenu)}
@@ -1178,21 +1182,31 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
         {showMoreMenu && (
           <div className="absolute bottom-24 right-4 z-30 bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-xl overflow-hidden min-w-[180px] shadow-xl">
             <button
-              onClick={() => {
-                const muted = JSON.parse(localStorage.getItem('kw-muted-users') || '[]') as string[]
-                if (!muted.includes(currentStory.user_id)) {
-                  muted.push(currentStory.user_id)
-                  localStorage.setItem('kw-muted-users', JSON.stringify(muted))
+              onClick={async () => {
+                const uid = currentStory.user_id;
+                const isMuted = mutedUserIds.has(uid);
+                if (isMuted) {
+                  await unmuteUser(uid);
+                  setMutedUserIds(prev => { const n = new Set(prev); n.delete(uid); return n; });
+                  setViewerToast(`${currentUser.displayName} unmuted`);
+                } else {
+                  await muteUser(uid);
+                  setMutedUserIds(prev => new Set(prev).add(uid));
+                  setViewerToast(`${currentUser.displayName} muted`);
+                  goToNext();
                 }
-                setShowMoreMenu(false)
-                goToNext()
+                setShowMoreMenu(false);
               }}
               className="w-full px-4 py-3 text-left text-white text-sm hover:bg-[var(--bg-tertiary)] flex items-center gap-3"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+                {mutedUserIds.has(currentStory?.user_id) ? (
+                  <><path d="M18 6 6 18" /><path d="m6 6 12 12" /></>
+                ) : (
+                  <><path d="M18 6 6 18" /><path d="m6 6 12 12" /></>
+                )}
               </svg>
-              Mute {currentUser.displayName}
+              {mutedUserIds.has(currentStory?.user_id) ? `Unmute ${currentUser.displayName}` : `Mute ${currentUser.displayName}`}
             </button>
             <button
               onClick={() => {

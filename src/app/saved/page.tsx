@@ -33,11 +33,13 @@ interface SavedPost {
 export default function SavedPage() {
   const [posts, setPosts] = useState<SavedPost[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const supabase = createClient();
 
   async function loadSavedPosts() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
+    setCurrentUserId(user.id);
 
     const { data: saved } = await supabase
       .from('saved_posts')
@@ -127,7 +129,7 @@ export default function SavedPage() {
           <div className="divide-y divide-[var(--border-subtle)]">
             {posts.map((post) => (
               <div key={post.id} className="p-3">
-                <PostCard post={post} />
+                <PostCard post={post} isOwnPost={post.user.id === currentUserId} />
               </div>
             ))}
           </div>

@@ -37,6 +37,7 @@ export function TagPageClient() {
   const [seenIds, setSeenIds] = useState<string[]>([]);
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const supabaseRef = useRef(createClient());
   const supabase = supabaseRef.current;
@@ -49,6 +50,7 @@ export function TagPageClient() {
       try {
         setError(null);
         const { data: { user } } = await supabase.auth.getUser();
+        if (user) setCurrentUserId(user.id);
         const { data, error: rpcError } = await supabase.rpc('search_explore', {
           p_user_id: user?.id ?? '00000000-0000-0000-0000-000000000000',
           p_query: tag,
@@ -139,6 +141,7 @@ export function TagPageClient() {
             {posts.map((post) => (
               <PostCard
                 key={post.id}
+                isOwnPost={post.user_id === currentUserId}
                 post={{
                   id: post.id,
                   user: { id: post.user_id, username: post.username, displayName: post.display_name, avatar: post.avatar_url || '', isVerified: post.is_verified },

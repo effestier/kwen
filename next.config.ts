@@ -61,7 +61,6 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  typescript: { ignoreBuildErrors: true },
   ...(isCapacitorBuild ? { output: 'export', trailingSlash: true } : {}),
   images: {
     ...(isCapacitorBuild ? { unoptimized: true } : {}),

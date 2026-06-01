@@ -165,9 +165,9 @@ export function ProfileClient({ username }: { username: string }) {
 
         // Parallel: auth profile, follow status, counts, highlights, posts
         const promises: Promise<unknown>[] = [
-          supabase.from('posts').select('id', { count: 'exact', head: true }).eq('user_id', targetProfile.id).is('deleted_at', null).is('archived_at', null),
-          supabase.from('follows').select('id', { count: 'exact', head: true }).eq('following_id', targetProfile.id),
-          supabase.from('follows').select('id', { count: 'exact', head: true }).eq('follower_id', targetProfile.id),
+          supabase.from('posts').select('id', { count: 'exact', head: true }).eq('user_id', targetProfile.id).is('deleted_at', null).is('archived_at', null) as unknown as Promise<unknown>,
+          supabase.from('follows').select('id', { count: 'exact', head: true }).eq('following_id', targetProfile.id) as unknown as Promise<unknown>,
+          supabase.from('follows').select('id', { count: 'exact', head: true }).eq('follower_id', targetProfile.id) as unknown as Promise<unknown>,
           getUserHighlights(targetProfile.id),
           supabase
             .from('posts')
@@ -176,14 +176,14 @@ export function ProfileClient({ username }: { username: string }) {
             .is('deleted_at', null)
             .is('archived_at', null)
             .order('created_at', { ascending: false })
-            .limit(9),
+            .limit(9) as unknown as Promise<unknown>,
         ];
 
         if (authUser) {
           promises.push(
-            supabase.from('profiles').select('id, username, display_name, avatar_url, bio, is_verified').eq('id', authUser.id).single(),
+            supabase.from('profiles').select('id, username, display_name, avatar_url, bio, is_verified').eq('id', authUser.id).single() as unknown as Promise<unknown>,
             targetProfile.id !== authUser.id
-              ? supabase.from('follows').select('id').eq('follower_id', authUser.id).eq('following_id', targetProfile.id).single()
+              ? supabase.from('follows').select('id').eq('follower_id', authUser.id).eq('following_id', targetProfile.id).single() as unknown as Promise<unknown>
               : Promise.resolve({ data: null })
           );
         }
@@ -217,7 +217,7 @@ export function ProfileClient({ username }: { username: string }) {
         if (cancelled) return;
 
         if (userPosts && userPosts.length > 0) {
-          const postIds = userPosts.map(p => p.id);
+          const postIds = userPosts.map((p: any) => p.id);
 
           const { data: media } = await supabase
             .from('post_media')
@@ -248,7 +248,7 @@ export function ProfileClient({ username }: { username: string }) {
           });
 
           if (!cancelled) {
-            setPosts(userPosts.map(p => ({
+            setPosts(userPosts.map((p: any) => ({
               id: p.id,
               content: p.content,
               images: mediaMap.get(p.id) ? [mediaMap.get(p.id)!] : [],

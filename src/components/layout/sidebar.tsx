@@ -100,8 +100,10 @@ export function Sidebar() {
         profile = newProfile;
       }
 
-      setUser(profile);
-      userIdRef.current = profile.id;
+      if (profile) {
+        setUser(profile);
+        userIdRef.current = profile.id;
+      }
     }
 
     loadUser();

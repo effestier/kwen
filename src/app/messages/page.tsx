@@ -85,6 +85,8 @@ interface UserProfile {
   username: string;
   display_name: string;
   avatar_url: string | null;
+  is_online?: boolean;
+  last_seen_at?: string | null;
 }
 
 export default function MessagesPage() {
@@ -147,7 +149,6 @@ export default function MessagesPage() {
   const currentUserIdRef = useRef<string | null>(null);
   const currentUserProfileRef = useRef<UserProfile | null>(null);
   const selectedIdRef = useRef<string | null>(null);
-  const isSubscribedRef = useRef<boolean>(false);
   const signedUrlCacheRef = useRef<Map<string, { url: string; expiresAt: number }>>(new Map());
   const supabaseRef = useRef(createClient());
   const supabase = supabaseRef.current;
@@ -179,138 +180,67 @@ export default function MessagesPage() {
 
       setCurrentUserId(user.id);
 
-      // Fetch user profile + conversations in parallel
-      const [profileRes, participantsRes] = await Promise.all([
+      // Fetch user profile + conversations via RPC in parallel
+      const [profileRes, convsRes] = await Promise.all([
         supabase.from('profiles').select('id, username, display_name, avatar_url').eq('id', user.id).single(),
-        supabase
-          .from('conversation_participants')
-          .select('conversation_id, unread_count, last_read_at, conversations(updated_at)')
-          .eq('user_id', user.id)
-          .limit(100),
+        supabase.rpc('get_conversations_with_profiles'),
       ]);
 
       if (!cancelled && profileRes.data) setCurrentUserProfile(profileRes.data);
       if (cancelled) return;
 
-      const { data: participants, error: participantsErr } = participantsRes;
-
-      if (participantsErr) {
-        console.error('[MESSAGES] Failed to load conversations:', participantsErr);
-        setLoadError(`RLS error: ${participantsErr.message}`);
+      if (convsRes.error) {
+        console.error('[MESSAGES] RPC error:', convsRes.error);
+        setLoadError(`Failed to load conversations: ${convsRes.error.message}`);
         setLoading(false);
         return;
       }
 
-      if (!participants || participants.length === 0) {
-        // Double-check: try a direct query without the join to see if it's an RLS issue
-        const { count, error: countErr } = await supabase
-          .from('conversation_participants')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', user.id);
+      const rows = (convsRes.data || []) as Array<{
+        conversation_id: string;
+        unread_count: number;
+        updated_at: string;
+        other_user_id: string | null;
+        other_username: string | null;
+        other_display_name: string | null;
+        other_avatar_url: string | null;
+        other_is_online: boolean | null;
+        other_last_seen_at: string | null;
+        last_message_content: string | null;
+        last_message_type: string | null;
+        last_message_created_at: string | null;
+        last_message_sender_id: string | null;
+      }>;
 
-        if (countErr) {
-          setLoadError(`Cannot load conversations: ${countErr.message}. Check if migration 055 was applied.`);
-        } else if (count && count > 0) {
-          setLoadError(`You have ${count} conversations but they failed to load. This is likely an RLS policy issue. Apply migration 055_fix_conversation_participants_rls.sql to fix.`);
-        }
-        setLoading(false);
-        return;
-      }
+      setHasMoreConversations(rows.length > 20);
+      const paged = rows.slice(0, 20);
 
-      // Sort by conversation updated_at client-side to avoid foreign-table order issues
-      participants.sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
-        const aTime = (a.conversations as Record<string, unknown> | null)?.updated_at || '';
-        const bTime = (b.conversations as Record<string, unknown> | null)?.updated_at || '';
-        return String(bTime).localeCompare(String(aTime));
-      });
+      const convList: Conversation[] = paged
+        .filter(r => r.last_message_content !== null) // only show conversations with messages
+        .map(r => {
+          const isLastMine = r.last_message_sender_id === user.id;
+          const preview = r.last_message_type === 'image' ? '📷 Photo'
+            : r.last_message_type === 'voice' ? '🎤 Voice message'
+            : r.last_message_type === 'mixed' ? `📷 Photo · ${r.last_message_content}`
+            : (r.last_message_content || '');
 
-      // H15: Track whether more conversations exist
-      setHasMoreConversations(participants.length > 20);
-      const pagedParticipants = participants.slice(0, 20);
-
-      const conversationIds = pagedParticipants.map(p => p.conversation_id);
-      const participantMap = new Map(pagedParticipants.map(p => [p.conversation_id, p]));
-
-      // Get other participants (just IDs, no join — avoid RLS cascade issues)
-      const othersRes = await supabase
-        .from('conversation_participants')
-        .select('conversation_id, user_id')
-        .in('conversation_id', conversationIds)
-        .neq('user_id', user.id);
-
-      const others = othersRes.data as Array<{ conversation_id: string; user_id: string }> | null;
-      const otherMap = new Map(others?.map(o => [o.conversation_id, o]) || []);
-
-      // Fetch profiles separately (profiles table is public, no RLS issues)
-      const otherUserIds = [...new Set(others?.map(o => o.user_id) || [])];
-      let profileMap = new Map<string, Record<string, unknown>>();
-      if (otherUserIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, username, display_name, avatar_url, is_online, last_seen_at')
-          .in('id', otherUserIds);
-        profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
-      }
-
-      // Last messages + conversations in parallel
-      const [lastMessagesRes, convsRes] = await Promise.all([
-        supabase
-          .from('messages')
-          .select('conversation_id, content, created_at, message_type, deleted_at, sender_id')
-          .in('conversation_id', conversationIds)
-          .is('deleted_at', null)
-          .order('created_at', { ascending: false })
-          .limit(conversationIds.length * 5),
-        supabase
-          .from('conversations')
-          .select('id, updated_at')
-          .in('id', conversationIds),
-      ]);
-
-      // M3: Limit to reasonable count instead of fetching ALL messages
-      const lastMessages = lastMessagesRes.data;
-
-      const lastMessageMap = new Map<string, { content: string; created_at: string; message_type?: string; sender_id?: string }>();
-      lastMessages?.forEach(m => {
-        if (!lastMessageMap.has(m.conversation_id) && !m.deleted_at) {
-          lastMessageMap.set(m.conversation_id, { content: m.content, created_at: m.created_at, message_type: m.message_type, sender_id: m.sender_id });
-        }
-      });
-
-      const convs = convsRes.data;
-
-      const convList = convs?.map(c => {
-        const other = otherMap.get(c.id);
-        const participant = participantMap.get(c.id);
-        const lastMsg = lastMessageMap.get(c.id);
-
-        // Resolve profile from separate fetch
-        const profile = other ? profileMap.get(other.user_id) : null;
-
-        const isLastMine = lastMsg?.sender_id === user.id;
-
-        const preview = lastMsg?.message_type === 'image' ? '📷 Photo' : lastMsg?.message_type === 'voice' ? '🎤 Voice message' : lastMsg?.message_type === 'mixed' ? `📷 Photo · ${lastMsg.content}` : (lastMsg?.content || '');
-
-        return {
-          id: c.id,
-          other_user: profile ? {
-            id: profile.id as string,
-            username: profile.username as string,
-            display_name: profile.display_name as string,
-            avatar_url: profile.avatar_url as string | null,
-            is_online: profile.is_online as boolean,
-            last_seen_at: profile.last_seen_at as string | null,
-          } : null,
-          last_message: isLastMine ? `You: ${preview}` : preview,
-          last_message_raw: lastMsg?.content || '',
-          unread_count: participant?.unread_count || 0,
-          updated_at: lastMsg?.created_at || c.updated_at,
-          has_messages: !!lastMsg,
-        };
-      }).filter(c => c.has_messages) || [];
-
-      // Sort by actual last message time — newest first
-      convList.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+          return {
+            id: r.conversation_id,
+            other_user: r.other_user_id ? {
+              id: r.other_user_id,
+              username: r.other_username || '',
+              display_name: r.other_display_name || 'User',
+              avatar_url: r.other_avatar_url,
+              is_online: r.other_is_online || false,
+              last_seen_at: r.other_last_seen_at,
+            } : null,
+            last_message: isLastMine ? `You: ${preview}` : preview,
+            last_message_raw: r.last_message_content || '',
+            unread_count: r.unread_count || 0,
+            updated_at: r.last_message_created_at || r.updated_at,
+            has_messages: true,
+          };
+        });
 
       setConversations(convList);
 
@@ -453,7 +383,6 @@ export default function MessagesPage() {
 
     setSearchingMessages(true);
     const timeout = setTimeout(async () => {
-      const supabase = createClient();
       const q = searchQuery.trim();
       const { data: matches } = await supabase
         .from('messages')
@@ -490,83 +419,54 @@ export default function MessagesPage() {
     if (loadingMoreConversations || !hasMoreConversations) return;
     setLoadingMoreConversations(true);
 
-    const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoadingMoreConversations(false); return; }
 
-    const oldestLoaded = conversations[conversations.length - 1];
-    if (!oldestLoaded) { setLoadingMoreConversations(false); return; }
+    const offset = conversations.length;
+    const { data, error } = await supabase.rpc('get_conversations_with_profiles');
 
-    const { data: participants } = await supabase
-      .from('conversation_participants')
-      .select('conversation_id, unread_count, last_read_at, conversations!inner(updated_at)')
-      .eq('user_id', user.id)
-      .order('conversations(updated_at)', { ascending: false })
-      .lt('conversations(updated_at)', oldestLoaded.updated_at)
-      .limit(21);
-
-    if (!participants || participants.length === 0) {
+    if (error || !data) {
       setHasMoreConversations(false);
       setLoadingMoreConversations(false);
       return;
     }
 
-    setHasMoreConversations(participants.length > 20);
-    const pagedParticipants = participants.slice(0, 20);
-    const newIds = pagedParticipants.map(p => p.conversation_id);
+    const rows = data as Array<{
+      conversation_id: string; unread_count: number; updated_at: string;
+      other_user_id: string | null; other_username: string | null; other_display_name: string | null;
+      other_avatar_url: string | null; other_is_online: boolean | null; other_last_seen_at: string | null;
+      last_message_content: string | null; last_message_type: string | null;
+      last_message_created_at: string | null; last_message_sender_id: string | null;
+    }>;
 
-    const { data: others } = await supabase
-      .from('conversation_participants')
-      .select('conversation_id, user_id')
-      .in('conversation_id', newIds)
-      .neq('user_id', user.id);
+    // Skip already loaded, take next page
+    const existingIds = new Set(conversations.map(c => c.id));
+    const fresh = rows.filter(r => !existingIds.has(r.conversation_id) && r.last_message_content !== null);
+    const paged = fresh.slice(0, 20);
 
-    const otherMap = new Map(others?.map(o => [o.conversation_id, o]) || []);
+    setHasMoreConversations(fresh.length > 20);
 
-    // Fetch profiles separately (no RLS cascade)
-    const otherUserIds = [...new Set(others?.map(o => o.user_id) || [])];
-    let profileMap = new Map<string, Record<string, unknown>>();
-    if (otherUserIds.length > 0) {
-      const { data: profiles } = await supabase.from('profiles').select('id, username, display_name, avatar_url, is_online, last_seen_at').in('id', otherUserIds);
-      profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
-    }
-    const participantMap = new Map(pagedParticipants.map(p => [p.conversation_id, p]));
-
-    const { data: recentMsgs } = await supabase
-      .from('messages')
-      .select('conversation_id, content, message_type, created_at, sender_id, deleted_at')
-      .in('conversation_id', newIds)
-      .order('created_at', { ascending: false });
-
-    const latestMsgMap = new Map<string, { content: string; created_at: string; message_type: string }>();
-    if (recentMsgs) {
-      for (const msg of recentMsgs) {
-        if (!latestMsgMap.has(msg.conversation_id) && !msg.deleted_at) {
-          latestMsgMap.set(msg.conversation_id, { content: msg.content, created_at: msg.created_at, message_type: msg.message_type });
-        }
-      }
-    }
-
-    const newConversations: Conversation[] = newIds.map(id => {
-      const other = otherMap.get(id);
-      const profile = other ? profileMap.get(other.user_id) : null;
-      const p = participantMap.get(id);
-      const latest = latestMsgMap.get(id);
+    const newConversations: Conversation[] = paged.map(r => {
+      const isLastMine = r.last_message_sender_id === user.id;
+      const preview = r.last_message_type === 'image' ? '📷 Photo'
+        : r.last_message_type === 'voice' ? '🎤 Voice message'
+        : r.last_message_type === 'mixed' ? `📷 Photo · ${r.last_message_content}`
+        : (r.last_message_content || '');
       return {
-        id,
-        unread_count: p?.unread_count || 0,
-        last_message: latest?.content || '',
-        updated_at: latest?.created_at || '',
-        has_messages: !!latest,
-        other_user: profile ? { id: profile.id as string, username: profile.username as string, display_name: profile.display_name as string, avatar_url: profile.avatar_url as string | null } : null,
+        id: r.conversation_id,
+        other_user: r.other_user_id ? {
+          id: r.other_user_id, username: r.other_username || '',
+          display_name: r.other_display_name || 'User', avatar_url: r.other_avatar_url,
+          is_online: r.other_is_online || false, last_seen_at: r.other_last_seen_at,
+        } : null,
+        last_message: isLastMine ? `You: ${preview}` : preview,
+        unread_count: r.unread_count || 0,
+        updated_at: r.last_message_created_at || r.updated_at,
+        has_messages: true,
       };
-    }).filter(c => c.has_messages);
-
-    setConversations(prev => {
-      const existing = new Set(prev.map(c => c.id));
-      const fresh = newConversations.filter(c => !existing.has(c.id));
-      return [...prev, ...fresh];
     });
+
+    setConversations(prev => [...prev, ...newConversations]);
     setLoadingMoreConversations(false);
   }, [conversations, loadingMoreConversations, hasMoreConversations]);
 
@@ -581,7 +481,6 @@ export default function MessagesPage() {
   // Load messages when selectedId changes
   useEffect(() => {
     if (!selectedId || !currentUserId || !currentUserProfile) return;
-    if (isSubscribedRef.current && messageChannelRef.current) return;
 
     let cancelled = false;
 
@@ -590,7 +489,6 @@ export default function MessagesPage() {
       setMessages([]);
       setHasMoreMessages(true);
       setLoadingMessages(true);
-      isSubscribedRef.current = false;
 
       if (messageChannelRef.current) { supabase.removeChannel(messageChannelRef.current); messageChannelRef.current = null; }
       if (typingChannelRef.current) { supabase.removeChannel(typingChannelRef.current); typingChannelRef.current = null; }
@@ -707,7 +605,6 @@ export default function MessagesPage() {
         .subscribe();
 
       messageChannelRef.current = messageChannel;
-      isSubscribedRef.current = true;
 
       const typingChannel = supabase
         .channel(`typing-${selectedId}`)
@@ -801,7 +698,6 @@ export default function MessagesPage() {
 
     return () => {
       cancelled = true;
-      isSubscribedRef.current = false;
       if (messageChannelRef.current) { supabase.removeChannel(messageChannelRef.current); messageChannelRef.current = null; }
       if (typingChannelRef.current) { supabase.removeChannel(typingChannelRef.current); typingChannelRef.current = null; }
       if (reactionsChannelRef.current) { supabase.removeChannel(reactionsChannelRef.current); reactionsChannelRef.current = null; }
@@ -1170,7 +1066,6 @@ export default function MessagesPage() {
 
   const handleDeleteConversation = useCallback(async () => {
     if (!deleteConvId) return;
-    const supabase = createClient();
     // Remove participant row (user leaves the conversation)
     const { error } = await supabase
       .from('conversation_participants')
@@ -1911,7 +1806,7 @@ export default function MessagesPage() {
                       placeholder="Message..."
                       aria-label="Type a message"
                       disabled={!currentUserProfile}
-                      className="flex-1 px-4 py-2 rounded-full bg-[var(--bg-tertiary)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none disabled:opacity-50 text-[15px]"
+                      className="flex-1 px-4 py-2 rounded-full bg-[var(--bg-tertiary)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none disabled:opacity-50 text-[16px]"
                     />
                     {newMessage.trim() || imageFile ? (
                       <button

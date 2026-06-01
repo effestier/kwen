@@ -124,8 +124,7 @@ export async function sendMessage(conversationId: string, content: string, media
       .select()
       .single();
 
-    // If insert fails, retry with progressively fewer columns
-    // Fallback 1: remove duration column (migration 041 not applied)
+    // Fallback: remove duration column if it doesn't exist in DB
     if (error && insertData.duration != null) {
       const { duration: _, ...fallbackData } = insertData;
       const retry = await supabase
@@ -137,7 +136,7 @@ export async function sendMessage(conversationId: string, content: string, media
       error = retry.error;
     }
 
-    // Fallback 2: voice message_type not in CHECK constraint — use 'mixed'
+    // Fallback: voice message_type not in CHECK constraint — use 'mixed'
     if (error && insertData.message_type === 'voice') {
       insertData.message_type = 'mixed';
       const retry2 = await supabase

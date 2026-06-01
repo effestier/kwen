@@ -154,8 +154,10 @@ export function FeedClient({ initialProfile, initialFollowingIds }: FeedClientPr
           expires_at: s.expires_at, created_at: s.created_at, user: s.user, hasViewed: viewedSet.has(s.id),
         })));
 
-      } catch (e) {
-        setError('Failed to load your feed. Please try again.');
+      } catch (e: any) {
+        console.error('Feed load error:', e);
+        const msg = e?.message || e?.error_description || String(e);
+        setError(`Failed to load your feed: ${msg}`);
       } finally {
         setLoading(false);
       }

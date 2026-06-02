@@ -21,7 +21,6 @@ interface Story {
   media_type: string;
   expires_at: string;
   created_at: string;
-  visibility?: string;
   user: {
     id: string;
     username: string;
@@ -65,11 +64,6 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
     });
     return map;
   }, [otherStories]);
-
-  // Check if a user's stories are close_friends visibility
-  const isCloseFriendsStory = useCallback((story: Story) => {
-    return story.visibility === 'close_friends';
-  }, []);
 
   // Sort: own stories first (newest), then unseen users (newest), then seen users (newest)
   const allStoriesSorted = useMemo(() => {
@@ -186,9 +180,9 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
             <div className="relative">
               <div
                 className={cn(
-                  'w-14 h-14 rounded-full p-[3px]',
+                  'w-14 h-14 rounded-full p-0.5',
                   hasUnviewedMyStory
-                    ? 'bg-gradient-to-br from-[#f09433] via-[#e6683c] via-[#dc2743] via-[#cc2366] to-[#bc1888]'
+                    ? 'bg-gradient-to-br from-blue-500 via-blue-300 to-white'
                     : myStories.length > 0
                       ? 'bg-[var(--border-subtle)]'
                       : 'bg-[var(--border-subtle)]'
@@ -222,7 +216,6 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
           .map((user) => {
             const idx = groupedUsers.indexOf(user);
             const allViewed = user.stories.every(s => s.hasViewed);
-            const isClose = user.stories.some(s => s.visibility === 'close_friends');
             return (
               <button
                 key={user.userId}
@@ -231,12 +224,10 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
               >
                 <div
                   className={cn(
-                    'w-[66px] h-[66px] rounded-full p-[3px]',
+                    'w-[62px] h-[62px] rounded-full p-[2.5px]',
                     allViewed
                       ? 'bg-[var(--border-subtle)]'
-                      : isClose
-                        ? 'bg-gradient-to-br from-green-400 via-green-500 to-emerald-600'
-                        : 'bg-gradient-to-br from-[#f09433] via-[#e6683c] via-[#dc2743] via-[#cc2366] to-[#bc1888]'
+                      : 'bg-gradient-to-br from-blue-500 via-blue-300 to-white'
                   )}
                 >
                   <div className="w-full h-full rounded-full p-[2px] bg-[var(--bg-primary)] overflow-hidden">
@@ -248,10 +239,7 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
                     />
                   </div>
                 </div>
-                <span className={cn(
-                  'text-[11px] max-w-[66px] truncate text-center',
-                  allViewed ? 'text-[var(--text-muted)]' : 'text-[var(--text-secondary)]'
-                )}>
+                <span className="text-[11px] text-[var(--text-muted)] max-w-[62px] truncate text-center">
                   {user.displayName.split(' ')[0]}
                 </span>
               </button>

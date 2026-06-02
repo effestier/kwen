@@ -25,6 +25,7 @@ interface Story {
   media_type: string;
   expires_at: string;
   created_at: string;
+  visibility?: string;
   user: {
     id: string;
     username: string;
@@ -61,6 +62,17 @@ interface StoryViewerProps {
 const QUICK_REACTIONS = ['❤️', '😂', '😮', '😢', '🔥', '👏'];
 const IMAGE_DURATION = 5000;
 const MAX_VIDEO_DURATION = 60000;
+
+function timeAgo(dateStr: string): string {
+  const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
 
 // ---- Helpers ----
 
@@ -156,6 +168,12 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
 
   // Transition state
   const [transitionDirection, setTransitionDirection] = useState<'none' | 'left' | 'right'>('none');
+
+  // Opening animation
+  const [isOpen, setIsOpen] = useState(false);
+  useEffect(() => {
+    requestAnimationFrame(() => setIsOpen(true));
+  }, []);
 
   // Desktop detection
   const [isDesktop, setIsDesktop] = useState(false);
@@ -694,9 +712,9 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center ${
+      className={`fixed inset-0 z-50 flex items-center justify-center transition-all duration-300 ${
         isDesktop ? 'bg-black/80' : 'bg-black'
-      }`}
+      } ${isOpen ? 'opacity-100' : 'opacity-0'}`}
       style={{
         paddingTop: isDesktop ? 0 : 'env(safe-area-inset-top)',
         paddingBottom: isDesktop ? 0 : 'env(safe-area-inset-bottom)',
@@ -707,15 +725,15 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
     >
       {/* Desktop modal container */}
       <div
-        className={`relative ${
+        className={`relative transition-all duration-300 ${
           isDesktop
-            ? 'w-full max-w-[420px] max-h-[750px] h-full rounded-2xl overflow-hidden'
-            : 'w-full h-full'
+            ? `w-full max-w-[420px] max-h-[750px] h-full rounded-2xl overflow-hidden ${isOpen ? 'scale-100 opacity-100' : 'scale-90 opacity-0'}`
+            : `w-full h-full ${isOpen ? 'scale-100' : 'scale-95'}`
         }`}
         style={swipeDownDistance > 0 ? { transform: `translateY(${swipeDownDistance * 0.5}px)`, opacity: 1 - swipeDownDistance / 400 } : undefined}
       >
         {/* Close + mute buttons */}
-        <div className="absolute top-4 right-4 z-10 flex gap-2">
+        <div className="absolute right-4 z-10 flex gap-2" style={{ top: 'max(3rem, calc(env(safe-area-inset-top) + 1.5rem))' }}>
           {isVideo && (
             <button
               onClick={(e) => {
@@ -725,15 +743,15 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
                 localStorage.setItem('kw-story-muted', String(newMuted));
                 if (videoRef.current) videoRef.current.muted = newMuted;
               }}
-              className="w-8 h-8 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+              className="w-8 h-8 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-sm text-white hover:bg-black/60 transition-all active:scale-90"
             >
               {isMuted ? (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
                   <line x1="23" x2="17" y1="9" y2="15" /><line x1="17" x2="23" y1="9" y2="15" />
                 </svg>
               ) : (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
                   <path d="M15.54 8.46a5 5 0 0 1 0 7.07" /><path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
                 </svg>
@@ -742,29 +760,30 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
           )}
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-sm text-white hover:bg-black/60 transition-all active:scale-90"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M18 6 6 18" /><path d="m6 6 12 12" />
             </svg>
           </button>
         </div>
 
         {/* Progress bars — one segment per story in current user */}
-        <div className="absolute top-4 left-4 right-12 flex gap-1 z-10">
+        <div className="absolute top-2 left-3 right-14 flex gap-1 z-10" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
           {currentUser.stories.map((story, idx) => (
             <div
               key={story.id}
-              className="flex-1 h-1 bg-white/30 rounded-full overflow-hidden"
+              className="flex-1 h-[3px] bg-white/25 rounded-full overflow-hidden"
             >
               <div
-                className="h-full bg-white rounded-full transition-none"
+                className="h-full bg-white rounded-full"
                 style={{
                   width: idx === storyIndex
                     ? `${progress}%`
                     : idx < storyIndex
                       ? '100%'
-                      : '0%'
+                      : '0%',
+                  transition: idx === storyIndex ? 'none' : 'width 0.2s ease',
                 }}
               />
             </div>
@@ -772,7 +791,7 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
         </div>
 
         {/* User info */}
-        <div className="absolute top-12 left-4 right-4 flex items-center gap-3 z-10">
+        <div className="absolute left-4 right-4 flex items-center gap-3 z-10" style={{ top: 'max(2.5rem, calc(env(safe-area-inset-top) + 1rem))' }}>
           <div className="w-8 h-8 rounded-full overflow-hidden bg-[var(--bg-secondary)]">
             {currentUser.avatarUrl ? (
               <img src={currentUser.avatarUrl} alt={currentUser.displayName} className="w-full h-full object-cover" />
@@ -783,9 +802,16 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
             )}
           </div>
             <div className="flex-1">
-              <p className="text-white font-semibold text-sm">{currentUser.displayName}</p>
+              <div className="flex items-center gap-2">
+                <p className="text-white font-semibold text-sm">{currentUser.displayName}</p>
+                {currentUser.isVerified && (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="#3897f0" className="flex-shrink-0">
+                    <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm-1.7 14.3l-3.8-3.8 1.4-1.4 2.4 2.4 5.1-5.1 1.4 1.4-6.5 6.5z"/>
+                  </svg>
+                )}
+              </div>
               <p className="text-white/60 text-xs">
-                {new Date(currentStory.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {timeAgo(currentStory.created_at)}
               </p>
             </div>
             {isOwner && (
@@ -815,7 +841,7 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
 
         {/* Viewers list overlay */}
         {showViewers && (
-          <div className="absolute top-20 right-4 w-72 bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-xl z-20 max-h-80 overflow-hidden">
+          <div className="absolute w-72 bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-xl z-20 max-h-80 overflow-hidden" style={{ top: 'max(5rem, calc(env(safe-area-inset-top) + 3.5rem))', right: '1rem' }}>
             <div className="p-3 border-b border-[var(--border-subtle)]">
               <h3 className="font-semibold text-white">Viewers</h3>
             </div>
@@ -893,7 +919,7 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
             <video
               ref={videoRef}
               src={currentStory.media_url}
-              className="max-w-full max-h-full object-contain"
+              className="w-full h-full object-cover"
               autoPlay
               muted={isMuted}
               playsInline
@@ -915,7 +941,7 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
             <img
               src={currentStory.media_url}
               alt="Story"
-              className={`max-w-full max-h-full object-contain transition-opacity ${isLoading ? 'opacity-0' : 'opacity-100'}`}
+              className={`w-full h-full object-cover transition-opacity duration-300 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
               onLoad={() => setIsLoading(false)}
               onError={() => {
                 setIsLoading(false);
@@ -956,19 +982,19 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
             )}
           </div>
 
-          {/* Swipe up indicator */}
+          {/* Swipe up indicator — subtle bounce animation */}
           {!isOwner && !showReplyInput && (
-            <div className="absolute bottom-20 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-60">
+            <div className="absolute bottom-20 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 animate-bounce">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-40">
                 <path d="m18 15-6-6-6 6" />
               </svg>
-              <span className="text-white/60 text-xs">Swipe up to reply</span>
+              <span className="text-white/40 text-[11px] font-medium tracking-wide">Reply</span>
             </div>
           )}
         </div>
 
         {/* Bottom action bar */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/60 to-transparent z-10">
+        <div className="absolute bottom-0 left-0 right-0 px-4 pt-12 pb-4 bg-gradient-to-t from-black/80 via-black/30 to-transparent z-10">
           {/* Music display */}
           {/* H19: Use musicData state instead of mutating prop */}
           {musicData && (
@@ -1067,12 +1093,12 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
           {/* Reaction bar */}
           <div className="flex items-center justify-between">
             {/* Quick reactions */}
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5">
               {QUICK_REACTIONS.map((emoji) => (
                 <button
                   key={emoji}
                   onClick={() => handleReaction(emoji)}
-                  className="w-10 h-10 flex items-center justify-center text-xl hover:bg-white/10 rounded-full transition-transform hover:scale-125"
+                  className="w-9 h-9 flex items-center justify-center text-lg hover:bg-white/10 rounded-full transition-all hover:scale-125 active:scale-90"
                 >
                   {emoji}
                 </button>
@@ -1095,10 +1121,10 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setShowShareModal(true)}
-                  className="p-2 rounded-full bg-white/20 text-white hover:bg-white/30"
+                  className="p-2.5 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-all active:scale-90"
                   title="Share story"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="m22 2-7 20-4-9-9-4Z" />
                     <path d="M22 2 11 13" />
                   </svg>
@@ -1106,22 +1132,22 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
                 {!isOwner && (
                 <button
                   onClick={() => setShowReplyInput(true)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/20 text-white hover:bg-white/30"
+                  className="flex items-center gap-2 px-4 py-2 rounded-full border border-white/30 text-white text-sm hover:bg-white/10 transition-all active:scale-95"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                   </svg>
-                  <span className="text-sm">Reply</span>
+                  Reply
                 </button>
                 )}
                 {!isOwner && (
                   <button
                     onClick={() => setShowMoreMenu(!showMoreMenu)}
-                    className="p-2 rounded-full bg-white/20 text-white hover:bg-white/30"
+                    className="p-2.5 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-all active:scale-90"
                     title="More"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" />
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="1" /><circle cx="12" cy="5" r="1" /><circle cx="12" cy="19" r="1" />
                     </svg>
                   </button>
                 )}

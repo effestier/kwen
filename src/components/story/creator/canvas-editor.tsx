@@ -350,19 +350,19 @@ export function CanvasEditor({
   return (
     <div className="fixed inset-0 z-[9999] bg-black flex flex-col" style={{ height: '100dvh' }}>
       {/* Top toolbar */}
-      <div className="flex items-center justify-between px-4 py-3 z-20" style={{ paddingTop: 'max(12px, env(safe-area-inset-top))' }}>
-        <button onClick={onClose} className="text-white p-2 bg-black/40 rounded-full backdrop-blur-sm">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <div className="flex items-center justify-between px-3 py-2 z-20" style={{ paddingTop: 'max(8px, env(safe-area-inset-top))' }}>
+        <button onClick={onClose} className="text-white p-2.5 bg-black/40 rounded-full backdrop-blur-sm hover:bg-black/60 active:scale-90 transition-all">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M18 6 6 18" /><path d="m6 6 12 12" />
           </svg>
         </button>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           {selectedOverlayId && (
             <button
               onClick={() => onDeleteOverlay(selectedOverlayId)}
-              className="text-white p-2 bg-black/40 rounded-full backdrop-blur-sm"
+              className="text-white p-2.5 bg-red-500/80 rounded-full backdrop-blur-sm hover:bg-red-500 active:scale-90 transition-all"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
                 <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
               </svg>
@@ -370,12 +370,27 @@ export function CanvasEditor({
           )}
           <button
             onClick={onOpenAudience}
-            className="text-white p-2 bg-black/40 rounded-full backdrop-blur-sm"
+            className="text-white p-2.5 bg-black/40 rounded-full backdrop-blur-sm hover:bg-black/60 active:scale-90 transition-all"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
               <circle cx="12" cy="12" r="3" />
             </svg>
+          </button>
+          <button
+            onClick={onPost}
+            disabled={isPosting}
+            className="flex items-center gap-1.5 px-4 py-2 bg-white rounded-full text-black text-sm font-semibold hover:bg-white/90 active:scale-95 transition-all disabled:opacity-50"
+          >
+            {isPosting ? (
+              <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="m22 2-7 20-4-9-9-4Z" />
+                <path d="M22 2 11 13" />
+              </svg>
+            )}
+            Your story
           </button>
         </div>
       </div>
@@ -468,63 +483,63 @@ export function CanvasEditor({
         {children}
 
         {/* Tool buttons — video: supported tools only */}
-        <div className="flex items-center justify-around px-4 py-3">
-          {/* Text — supported for both image and video (burned via FFmpeg drawtext or overlay) */}
-          <button onClick={onOpenText} className="flex flex-col items-center gap-1">
-            <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+        <div className="flex items-center justify-around px-4 py-2.5">
+          {/* Text */}
+          <button onClick={onOpenText} className="flex flex-col items-center gap-1 active:scale-90 transition-transform">
+            <div className="w-11 h-11 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
                 <path d="M4 7V4h16v3" /><path d="M9 20h6" /><path d="M12 4v16" />
               </svg>
             </div>
-            <span className="text-white/70 text-[10px]">Text</span>
+            <span className="text-white/70 text-[10px] font-medium">Text</span>
           </button>
 
-          {/* Drawing — supported for both (burned as overlay layer) */}
-          <button onClick={onOpenDraw} className="flex flex-col items-center gap-1">
-            <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+          {/* Drawing */}
+          <button onClick={onOpenDraw} className="flex flex-col items-center gap-1 active:scale-90 transition-transform">
+            <div className="w-11 h-11 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
                 <path d="m12 19 7-7 3 3-7 7-3-3z" /><path d="m18 13-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
                 <path d="m2 2 7.586 7.586" /><circle cx="11" cy="11" r="2" />
               </svg>
             </div>
-            <span className="text-white/70 text-[10px]">Draw</span>
+            <span className="text-white/70 text-[10px] font-medium">Draw</span>
           </button>
 
-          {/* Stickers — supported for both (non-animated stickers burned as static overlay) */}
-          <button onClick={onOpenStickers} className="flex flex-col items-center gap-1">
-            <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+          {/* Stickers */}
+          <button onClick={onOpenStickers} className="flex flex-col items-center gap-1 active:scale-90 transition-transform">
+            <div className="w-11 h-11 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
                 <circle cx="12" cy="12" r="10" /><path d="M8 14s1.5 2 4 2 4-2 4-2" />
                 <line x1="9" x2="9.01" y1="9" y2="9" /><line x1="15" x2="15.01" y1="9" y2="9" />
               </svg>
             </div>
-            <span className="text-white/70 text-[10px]">Stickers</span>
+            <span className="text-white/70 text-[10px] font-medium">Stickers</span>
           </button>
 
-          {/* Filters — supported for both (FFmpeg eq filter for video) */}
-          <button onClick={onOpenFilters} className="flex flex-col items-center gap-1">
-            <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+          {/* Filters */}
+          <button onClick={onOpenFilters} className="flex flex-col items-center gap-1 active:scale-90 transition-transform">
+            <div className="w-11 h-11 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
                 <circle cx="12" cy="12" r="10" />
                 <path d="M12 2a10 10 0 0 1 0 20 7 7 0 0 1 0-14 3 3 0 0 0 0-6" />
               </svg>
             </div>
-            <span className="text-white/70 text-[10px]">Filters</span>
+            <span className="text-white/70 text-[10px] font-medium">Filters</span>
           </button>
 
-          {/* Music — DISABLED for video (not merged into video audio) */}
+          {/* Music — DISABLED for video */}
           <button
             onClick={media.type === 'video' ? undefined : onOpenMusic}
             disabled={media.type === 'video'}
-            className={`flex flex-col items-center gap-1 ${media.type === 'video' ? 'opacity-30' : ''}`}
+            className={`flex flex-col items-center gap-1 active:scale-90 transition-transform ${media.type === 'video' ? 'opacity-30' : ''}`}
             title={media.type === 'video' ? 'Music not available for video stories' : undefined}
           >
-            <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+            <div className="w-11 h-11 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
                 <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
               </svg>
             </div>
-            <span className="text-white/70 text-[10px]">Music</span>
+            <span className="text-white/70 text-[10px] font-medium">Music</span>
           </button>
         </div>
       </div>

@@ -277,13 +277,13 @@ export function MediaPicker({ onMediaSelected, onCancel }: MediaPickerProps) {
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 relative z-10" style={{ paddingTop: 'max(12px, env(safe-area-inset-top))' }}>
-        <button onClick={onCancel} className="text-white p-2">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <div className="flex items-center justify-between px-4 py-2 relative z-10" style={{ paddingTop: 'max(8px, env(safe-area-inset-top))' }}>
+        <button onClick={onCancel} className="text-white p-2.5 bg-black/40 rounded-full backdrop-blur-sm hover:bg-black/60 active:scale-90 transition-all">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M18 6 6 18" /><path d="m6 6 12 12" />
           </svg>
         </button>
-        <p className="text-white font-semibold text-sm">Story</p>
+        <p className="text-white font-semibold text-base">Story</p>
         <div className="w-10" />
       </div>
 
@@ -308,18 +308,18 @@ export function MediaPicker({ onMediaSelected, onCancel }: MediaPickerProps) {
 
           {/* Recording indicator */}
           {isRecording && (
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/60 rounded-full px-4 py-2 z-10">
-              <div className="w-3 h-3 rounded-full bg-[var(--accent-red)] animate-pulse" />
-              <span className="text-white text-sm font-medium">{formatRecordingTime(recordingTime)}</span>
+            <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/60 backdrop-blur-sm rounded-full px-4 py-1.5 z-10" style={{ top: 'max(1rem, env(safe-area-inset-top))' }}>
+              <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
+              <span className="text-white text-sm font-semibold tabular-nums">{formatRecordingTime(recordingTime)}</span>
             </div>
           )}
 
           {/* Camera controls */}
-          <div className="absolute bottom-0 left-0 right-0 p-6 flex items-center justify-between" style={{ paddingBottom: 'max(24px, env(safe-area-inset-bottom))' }}>
+          <div className="absolute bottom-0 left-0 right-0 px-6 pb-6 flex items-center justify-between" style={{ paddingBottom: 'max(24px, env(safe-area-inset-bottom))' }}>
             {/* Gallery */}
             <button
               onClick={() => setMode('gallery')}
-              className="w-10 h-10 rounded-lg border-2 border-white/50 overflow-hidden flex items-center justify-center bg-white/10"
+              className="w-11 h-11 rounded-xl border-2 border-white/40 overflow-hidden flex items-center justify-center bg-white/10 hover:bg-white/20 active:scale-90 transition-all"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
@@ -338,23 +338,23 @@ export function MediaPicker({ onMediaSelected, onCancel }: MediaPickerProps) {
               className="relative"
             >
               <div className={cn(
-                'w-20 h-20 rounded-full border-4 border-white flex items-center justify-center transition-all',
-                isRecording ? 'scale-110' : ''
+                'w-[76px] h-[76px] rounded-full border-[4px] border-white/90 flex items-center justify-center transition-all',
+                isRecording ? 'scale-110 border-red-500' : 'active:scale-95'
               )}>
                 <div className={cn(
                   'rounded-full transition-all duration-300',
-                  isRecording ? 'w-8 h-8 bg-[var(--accent-red)]' : 'w-16 h-16 bg-white'
+                  isRecording ? 'w-7 h-7 bg-red-500 rounded-md' : 'w-[60px] h-[60px] bg-white'
                 )} />
               </div>
               {isRecording && (
-                <div className="absolute inset-0 rounded-full border-4 border-red-500 animate-ping" />
+                <div className="absolute inset-0 rounded-full border-4 border-red-500/50 animate-ping" />
               )}
             </button>
 
             {/* Right side controls */}
             <div className="flex flex-col gap-3">
               {/* Flip camera */}
-              <button onClick={toggleCamera} className="w-10 h-10 flex items-center justify-center text-white">
+              <button onClick={toggleCamera} className="w-11 h-11 flex items-center justify-center text-white hover:text-white/80 active:scale-90 transition-all">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M11 19H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5" /><path d="M13 5h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5" />
                   <path d="m16 3-4 4 4 4" /><path d="m8 21 4-4-4-4" />
@@ -362,7 +362,7 @@ export function MediaPicker({ onMediaSelected, onCancel }: MediaPickerProps) {
               </button>
 
               {/* Flash */}
-              <button onClick={toggleFlash} className="w-10 h-10 flex items-center justify-center text-white">
+              <button onClick={toggleFlash} className="w-11 h-11 flex items-center justify-center text-white hover:text-white/80 active:scale-90 transition-all">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill={flashEnabled ? 'white' : 'none'} stroke="currentColor" strokeWidth="2">
                   <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
                 </svg>
@@ -371,7 +371,7 @@ export function MediaPicker({ onMediaSelected, onCancel }: MediaPickerProps) {
               {/* Timer */}
               <button
                 onClick={() => startTimer(3)}
-                className="w-10 h-10 flex items-center justify-center text-white"
+                className="w-11 h-11 flex items-center justify-center text-white hover:text-white/80 active:scale-90 transition-all"
               >
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
@@ -384,9 +384,9 @@ export function MediaPicker({ onMediaSelected, onCancel }: MediaPickerProps) {
           <div className="absolute bottom-28 left-0 right-0 text-center">
             <button
               onClick={() => setMode('gallery')}
-              className="text-white/60 text-xs flex flex-col items-center gap-1 mx-auto"
+              className="text-white/40 text-xs flex flex-col items-center gap-0.5 mx-auto animate-bounce"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="m18 15-6-6-6 6" />
               </svg>
               Gallery
@@ -399,32 +399,32 @@ export function MediaPicker({ onMediaSelected, onCancel }: MediaPickerProps) {
           <div className="flex-1 flex items-center justify-center p-8">
             <div
               onClick={() => fileInputRef.current?.click()}
-              className="w-full max-w-[260px] flex flex-col items-center cursor-pointer group"
+              className="w-full max-w-[280px] flex flex-col items-center cursor-pointer group"
             >
-              <div className="w-20 h-20 rounded-2xl bg-white/10 backdrop-blur-sm flex items-center justify-center mb-5 group-active:scale-95 transition-transform">
+              <div className="w-20 h-20 rounded-2xl bg-white/10 backdrop-blur-sm flex items-center justify-center mb-5 group-active:scale-95 transition-all group-hover:bg-white/15">
                 <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                   <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
                   <circle cx="9" cy="9" r="2" />
                   <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
                 </svg>
               </div>
-              <p className="text-white text-base font-semibold mb-1">Select from gallery</p>
+              <p className="text-white text-lg font-semibold mb-1">Select from gallery</p>
               <p className="text-white/40 text-sm">Photos & videos up to 15s</p>
-              <div className="mt-6 px-6 py-2.5 rounded-full bg-white text-black text-sm font-semibold active:scale-95 transition-transform">
+              <div className="mt-6 px-7 py-3 rounded-full bg-white text-black text-sm font-semibold active:scale-95 transition-transform hover:bg-white/90">
                 Choose media
               </div>
-              <p className="text-white/25 text-xs mt-4">or paste from clipboard</p>
+              <p className="text-white/25 text-xs mt-5">or paste from clipboard</p>
             </div>
           </div>
 
           {/* Bottom controls */}
           <div className="p-6 flex items-center justify-between" style={{ paddingBottom: 'max(24px, env(safe-area-inset-bottom))' }}>
-            <button onClick={onCancel} className="text-white/60 text-sm active:opacity-50">
+            <button onClick={onCancel} className="text-white/50 text-sm font-medium active:opacity-50 transition-opacity">
               Cancel
             </button>
             <button
               onClick={() => setMode('camera')}
-              className="flex items-center gap-2 text-white text-sm active:opacity-70"
+              className="flex items-center gap-2 text-white text-sm font-medium active:opacity-70 transition-opacity"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />

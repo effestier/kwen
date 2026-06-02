@@ -38,6 +38,7 @@ interface Story {
   media_type: string;
   expires_at: string;
   created_at: string;
+  visibility?: string;
   user: { id: string; username: string; display_name: string; avatar_url: string | null; is_verified: boolean };
   hasViewed: boolean;
 }
@@ -165,7 +166,7 @@ export function FeedClient({ initialProfile, initialFollowingIds }: FeedClientPr
           if (!cancelled) {
             setStories(filteredStories.map((s: any) => ({
               id: s.id, user_id: s.user_id, media_url: s.media_url, media_type: s.media_type || 'image',
-              expires_at: s.expires_at, created_at: s.created_at, user: s.user, hasViewed: viewedSet.has(s.id),
+              expires_at: s.expires_at, created_at: s.created_at, visibility: s.visibility, user: s.user, hasViewed: viewedSet.has(s.id),
             })));
           }
         } catch (storyErr) {

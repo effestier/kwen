@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { MainLayout } from '@/components/layout/main-layout';
 import { Avatar } from '@/components/ui/avatar';
 import { createClient } from '@/lib/supabase/client';
@@ -60,30 +60,19 @@ export default function ExplorePage() {
 
   useScrollPreservation({ key: 'explore' });
 
-  // Client-side category filtering (server doesn't have p_category yet)
-  const filteredPosts = useMemo(() => {
-    if (activeCategory === 'All') return posts;
-    return posts.filter(post => {
-      const hasImage = post.media?.some(m => m.media_type === 'image');
-      const hasVideo = post.media?.some(m => m.media_type === 'video');
-      const isText = !post.media || post.media.length === 0;
-      switch (activeCategory) {
-        case 'Photos': return hasImage && !hasVideo;
-        case 'Videos': return hasVideo;
-        case 'Text': return isText;
-        default: return true;
-      }
-    });
-  }, [posts, activeCategory]);
+  // Server-side category filtering via RPC p_category param
+  // No client-side filtering needed — RPC handles it
 
   // Load explore posts — uses exclude_ids for cursor-based pagination
-  // M22: Pass category to server-side filter
-  const loadPosts = useCallback(async (excludeIds: string[]) => {
+  // Server-side category filtering via RPC p_category param
+  const loadPosts = useCallback(async (excludeIds: string[], category: string) => {
     const { data: { user } } = await supabase.auth.getUser();
+    const rpcCategory = category === 'All' ? 'all' : category.toLowerCase();
     const { data: explorePosts } = await supabase.rpc('get_explore_feed', {
       p_user_id: user?.id ?? '00000000-0000-0000-0000-000000000000',
       p_limit: 30,
-      p_exclude_ids: excludeIds.length > 0 ? excludeIds : null,
+      p_exclude_ids: excludeIds,
+      p_category: rpcCategory,
     });
     return (explorePosts || []) as ExplorePost[];
   }, [supabase]);
@@ -96,18 +85,18 @@ export default function ExplorePage() {
 
   // Pull-to-refresh
   const handleRefresh = useCallback(async () => {
-    const freshPosts = await loadPosts([]);
+    const freshPosts = await loadPosts([], activeCategory);
     setPosts(freshPosts);
     setSeenIds(freshPosts.map(p => p.id));
     setHasMore(freshPosts.length >= 30);
-  }, [loadPosts]);
+  }, [loadPosts, activeCategory]);
 
 
   // Initial load
   useEffect(() => {
     async function init() {
       setLoading(true);
-      const initialPosts = await loadPosts([]);
+      const initialPosts = await loadPosts([], activeCategory);
       setPosts(initialPosts);
       setSeenIds(initialPosts.map(p => p.id));
       if (initialPosts.length < 30) setHasMore(false);
@@ -115,7 +104,7 @@ export default function ExplorePage() {
       setLoading(false);
     }
     init();
-  }, [loadPosts]);
+  }, [loadPosts, activeCategory]);
 
   // Infinite scroll
   useEffect(() => {
@@ -126,7 +115,7 @@ export default function ExplorePage() {
     const observer = new IntersectionObserver(async (entries) => {
       if (entries[0].isIntersecting && !loadingMore) {
         setLoadingMore(true);
-        const morePosts = await loadPosts(seenIds);
+        const morePosts = await loadPosts(seenIds, activeCategory);
         setPosts(prev => {
           const existingIds = new Set(prev.map(p => p.id));
           const newPosts = morePosts.filter(p => !existingIds.has(p.id));
@@ -445,9 +434,9 @@ export default function ExplorePage() {
 
         {/* Posts grid */}
         <div className="max-w-5xl mx-auto px-0.5">
-          {filteredPosts.length > 0 ? (
+          {posts.length > 0 ? (
             <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-0.5">
-              {filteredPosts.map((post, index) => {
+              {posts.map((post) => {
                 const hasImage = post.media?.some(m => m.media_type === 'image');
                 const hasVideo = post.media?.some(m => m.media_type === 'video');
                 const hasMultiple = (post.media?.length || 0) > 1;

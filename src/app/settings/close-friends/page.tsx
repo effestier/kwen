@@ -98,7 +98,7 @@ export default function CloseFriendsPage() {
     <MainLayout>
       <div className="min-h-screen">
         {/* Header */}
-        <div className="sticky top-0 z-10 bg-[var(--bg-primary)]/90 backdrop-blur-xl border-b border-[var(--border-subtle)] px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
+        <div className="sticky top-12 lg:top-0 z-10 bg-[var(--bg-primary)]/90 backdrop-blur-xl border-b border-[var(--border-subtle)] px-4 pt-2.5 pb-3">
           <h1 className="text-xl font-bold text-[var(--text-primary)]">Close Friends</h1>
           <p className="text-sm text-[var(--text-muted)] mt-1">
             Share stories exclusively with your close friends

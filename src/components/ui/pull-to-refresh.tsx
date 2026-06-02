@@ -40,12 +40,19 @@ export function PullToRefresh({
     const rawDiff = e.touches[0].clientY - startY.current;
 
     if (rawDiff <= 0) {
+      isPulling.current = false;
       setPullDistance(0);
       return;
     }
 
-    // Prevent native scroll while pulling
-    e.preventDefault();
+    // Only prevent native scroll when at top and pulling down
+    if (window.scrollY === 0) {
+      e.preventDefault();
+    } else {
+      isPulling.current = false;
+      setPullDistance(0);
+      return;
+    }
 
     // Progressive resistance: linear up to threshold, then diminishing returns
     let distance: number;
@@ -96,7 +103,7 @@ export function PullToRefresh({
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      style={{ touchAction: 'pan-x' }}
+      style={{ touchAction: 'pan-y' }}
     >
       {/* Pull indicator container */}
       <div

@@ -26,7 +26,7 @@ export function MainLayout({ children, initialProfile, showSidebar = true, showM
           <Sidebar initialProfile={initialProfile} />
         </div>
       )}
-      <MobileHeader initialProfile={initialProfile} />
+      {showMobileNav && <MobileHeader initialProfile={initialProfile} />}
       <main className={`flex-1 min-w-0 ${showSidebar ? 'lg:ml-0' : ''} pt-12 lg:pt-0 pb-[calc(4rem+env(safe-area-inset-bottom,0px))] lg:pb-0`}>
         {children}
       </main>

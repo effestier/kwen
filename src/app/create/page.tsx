@@ -180,7 +180,7 @@ export default function CreatePage() {
     <MainLayout>
       <div className="min-h-screen flex flex-col">
         {/* Header */}
-        <div className="sticky top-0 z-40 bg-[var(--bg-primary)]/90 backdrop-blur-xl border-b border-[var(--border-subtle)]">
+        <div className="sticky top-12 lg:top-0 z-40 bg-[var(--bg-primary)]/90 backdrop-blur-xl border-b border-[var(--border-subtle)]">
           <div className="flex items-center justify-between px-4 py-3">
             {step === 'select' ? (
               <>

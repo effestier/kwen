@@ -119,7 +119,7 @@ export default function SavedPage() {
     <MainLayout>
       <PullToRefresh onRefresh={handleRefresh}>
       <div className="min-h-screen">
-        <div className="sticky top-0 z-10 bg-[var(--bg-primary)]/90 backdrop-blur-xl border-b border-[var(--border-subtle)] px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2.5">
+        <div className="sticky top-12 lg:top-0 z-10 bg-[var(--bg-primary)]/90 backdrop-blur-xl border-b border-[var(--border-subtle)] px-4 pt-2.5 pb-2.5">
           <h1 className="text-xl font-bold text-[var(--text-primary)]">Saved</h1>
         </div>
 

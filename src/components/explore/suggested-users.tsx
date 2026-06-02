@@ -72,7 +72,7 @@ export function SuggestedUsers() {
                 <Avatar src={u.avatar_url} name={u.display_name} size="lg" />
               </Link>
               <div className="text-center min-w-0 w-full">
-                <Link href={`/profile/${u.username}`} className="block text-sm font-semibold text-[var(--text-primary)] truncate hover:underline">
+                <Link href={`/profile/${u.username}`} className="block text-sm font-semibold text-[var(--text-primary)] truncate">
                   {u.display_name}
                 </Link>
                 <p className="text-xs text-[var(--text-muted)] truncate">@{u.username}</p>

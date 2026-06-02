@@ -202,7 +202,7 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete, feedIndex, isInfinit
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <Link href={`/profile/${post.user.username}`} className="font-semibold text-sm text-[var(--text-primary)] hover:underline truncate">
+              <Link href={`/profile/${post.user.username}`} className="font-semibold text-sm text-[var(--text-primary)] truncate">
                 {post.user.displayName}
               </Link>
               {post.user.isVerified && (

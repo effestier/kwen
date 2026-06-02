@@ -42,7 +42,7 @@ function CommentItem({ comment, currentUserId, onReply, onDelete, onLike, isRepl
       </Link>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <Link href={`/profile/${comment.user.username}`} className="font-semibold text-sm text-[var(--text-primary)] hover:underline truncate">
+          <Link href={`/profile/${comment.user.username}`} className="font-semibold text-sm text-[var(--text-primary)] truncate">
             {comment.user.username}
           </Link>
           <span className="text-xs text-[var(--text-muted)] flex-shrink-0">{formatTimeAgo(comment.created_at)}</span>

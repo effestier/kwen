@@ -1574,7 +1574,7 @@ export default function MessagesPage() {
                   showOnline={isOnline(selectedConversation.other_user?.id || '')}
                 />
                 <div className="flex-1 min-w-0">
-                  <Link href={`/profile/${selectedConversation.other_user?.username}`} className="font-semibold text-[var(--text-primary)] hover:underline text-[15px] leading-tight block truncate">
+                  <Link href={`/profile/${selectedConversation.other_user?.username}`} className="font-semibold text-[var(--text-primary)] text-[15px] leading-tight block truncate">
                     {selectedConversation.other_user?.display_name || 'User'}
                   </Link>
                   {typingUsers.size > 0 ? (

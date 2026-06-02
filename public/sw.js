@@ -1,10 +1,6 @@
-const CACHE_NAME = 'kwen-v4';
-const SHELL_URLS = ['/', '/feed/', '/auth/login/'];
+const CACHE_NAME = 'kwen-v5';
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL_URLS))
-  );
   self.skipWaiting();
 });
 

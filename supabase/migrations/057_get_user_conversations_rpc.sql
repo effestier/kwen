@@ -46,7 +46,7 @@ AS $$
       AND m.deleted_at IS NULL
     ORDER BY m.conversation_id, m.created_at DESC
   )
-  SELECT
+  SELECT DISTINCT ON (mc.conversation_id)
     mc.conversation_id,
     mc.unread_count,
     mc.last_read_at,
@@ -66,7 +66,7 @@ AS $$
   LEFT JOIN other_parts op ON op.conversation_id = mc.conversation_id
   LEFT JOIN profiles p ON p.id = op.user_id
   LEFT JOIN last_msgs lm ON lm.conversation_id = mc.conversation_id
-  ORDER BY COALESCE(lm.created_at, c.updated_at) DESC;
+  ORDER BY mc.conversation_id, COALESCE(lm.created_at, c.updated_at) DESC;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.get_user_conversations(uuid) TO authenticated;

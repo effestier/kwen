@@ -175,6 +175,31 @@ export async function addComment(
 
     if (error) return { success: false, error: 'Failed to add comment' };
 
+    // Extract and send mention notifications
+    const mentions = cleanContent.match(/@[\w.]+/g)
+    if (mentions && mentions.length > 0) {
+      const usernames = [...new Set(mentions.map(m => m.slice(1).toLowerCase()))]
+      const { data: mentionedProfiles } = await supabase
+        .from('profiles')
+        .select('id, username')
+        .in('username', usernames)
+
+      if (mentionedProfiles && mentionedProfiles.length > 0) {
+        const otherMentions = mentionedProfiles.filter(p => p.id !== user.id)
+        if (otherMentions.length > 0) {
+          const notifications = otherMentions.map(p => ({
+            user_id: p.id,
+            type: 'mention' as const,
+            actor_id: user.id,
+            post_id: postId,
+            comment_id: comment.id,
+            is_read: false,
+          }))
+          await supabase.from('notifications').insert(notifications)
+        }
+      }
+    }
+
     return {
       success: true,
       comment: { ...comment, reply_count: 0, like_count: 0, is_liked: false } as unknown as Comment,

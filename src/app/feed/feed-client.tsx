@@ -68,6 +68,7 @@ export function FeedClient({ initialProfile, initialFollowingIds }: FeedClientPr
   const postsRef = useRef<FeedPost[]>([]);
   const userRef = useRef<Profile | null>(initialProfile);
   const seenIdsRef = useRef<Set<string>>(new Set());
+  const feedInitializedRef = useRef(false); // BUG 4 fix: separate init flag
   const supabaseRef = useRef(createClient());
   const supabase = supabaseRef.current;
 
@@ -213,6 +214,7 @@ export function FeedClient({ initialProfile, initialFollowingIds }: FeedClientPr
   }, [hasMore, loading, loadingMore, loadPosts, initialProfile.id]);
 
   // Realtime: new post insert
+  // BUG 3 fix: Fetch only the new post by ID instead of re-fetching entire feed
   useEffect(() => {
     const channel = supabase
       .channel('feed-updates')
@@ -221,18 +223,41 @@ export function FeedClient({ initialProfile, initialFollowingIds }: FeedClientPr
         if (seenIdsRef.current.has(newPost.id)) return;
         if (!followingIds.has(newPost.user_id) && newPost.user_id !== userRef.current?.id) return;
 
-        const freshPosts = await loadPosts(initialProfile.id, []);
-        const newPost2 = freshPosts.find((p: FeedPost) => p.id === newPost.id);
-        if (newPost2 && !seenIdsRef.current.has(newPost2.id)) {
-          seenIdsRef.current.add(newPost2.id);
-          setPosts(prev => [newPost2, ...prev]);
-          postsRef.current = [newPost2, ...postsRef.current];
+        // Fetch just the new post by ID instead of entire feed
+        const { data: postData } = await supabase
+          .from('posts')
+          .select('*, user:profiles!posts_user_id_fkey(id, username, display_name, avatar_url, is_verified)')
+          .eq('id', newPost.id)
+          .single();
+
+        if (postData) {
+          const feedPost: FeedPost = {
+            id: postData.id,
+            user_id: postData.user_id,
+            content: postData.content,
+            location: postData.location,
+            created_at: postData.created_at,
+            like_count: 0,
+            comment_count: 0,
+            save_count: 0,
+            share_count: 0,
+            is_liked: false,
+            is_saved: false,
+            display_name: postData.user?.display_name || '',
+            username: postData.user?.username || '',
+            avatar_url: postData.user?.avatar_url || null,
+            is_verified: postData.user?.is_verified || false,
+            media: [],
+          };
+          seenIdsRef.current.add(feedPost.id);
+          setPosts(prev => [feedPost, ...prev]);
+          postsRef.current = [feedPost, ...postsRef.current];
         }
       })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [followingIds, loadPosts, initialProfile.id, supabase]);
+  }, [followingIds, initialProfile.id, supabase]);
 
   if (loading) {
     return (

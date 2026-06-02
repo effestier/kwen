@@ -136,6 +136,7 @@ export function Sidebar({ initialProfile }: { initialProfile?: Profile | null })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload) => {
         if (payload.new && (payload.new as any).user_id === userIdRef.current) {
           setNotificationCount(prev => prev + 1);
+          window.dispatchEvent(new CustomEvent('notifications-unread'));
         }
       })
       .subscribe();

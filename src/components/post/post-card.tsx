@@ -231,7 +231,7 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete, feedIndex, isInfinit
             {showMoreMenu && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowMoreMenu(false)} />
-                <div className="absolute right-0 top-full mt-1 w-56 bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-xl shadow-lg z-50 overflow-hidden menu-enter">
+                <div className="absolute right-0 top-full mt-1 w-56 bg-[var(--bg-primary)]/95 backdrop-blur-xl border border-[var(--border-subtle)]/40 rounded-xl shadow-depth-lg z-50 overflow-hidden menu-enter">
                   {isOwnPost ? (
                     <>
                       {/* Edit */}

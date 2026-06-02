@@ -94,7 +94,7 @@ export function MobileNav({ initialProfile }: { initialProfile?: Profile | null 
   const profileHref = profile ? `/profile/${profile.username}` : null;
 
   return (
-    <nav aria-label="Mobile navigation" className="lg:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-[var(--border-subtle)] bg-[var(--bg-primary)]/95 backdrop-blur-xl pb-[env(safe-area-inset-bottom)]">
+    <nav aria-label="Mobile navigation" className="lg:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-[var(--border-subtle)]/40 bg-[var(--bg-primary)]/70 backdrop-blur-2xl pb-[env(safe-area-inset-bottom)]" style={{ boxShadow: '0 -4px 30px rgba(0,0,0,0.3), 0 -1px 0 rgba(255,255,255,0.03)' }}>
       <div className="flex items-center justify-around h-[52px] [&>a]:active:scale-90 [&>a]:transition-transform [&>a]:duration-150">
         {/* Home */}
         <Link href="/feed" className="flex flex-col items-center justify-center gap-0.5 w-full h-full" aria-label="Home" aria-current={isActive('/feed') ? 'page' : undefined}>

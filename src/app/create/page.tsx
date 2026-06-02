@@ -294,46 +294,75 @@ export default function CreatePage() {
               return null
             }
             return (
-              <ImageCropper
-                key={currentItem.id}
-                src={currentItem.url}
-                ratio={cropRatio}
-                onRatioChange={setCropRatio}
-                onCrop={async (blob, width, height) => {
-                  // Replace the image with the cropped version
-                  const croppedFile = new File([blob], currentItem.file.name, { type: 'image/webp' })
-                  const croppedUrl = URL.createObjectURL(blob)
+              <div className="flex-1 flex flex-col">
+                <ImageCropper
+                  key={currentItem.id}
+                  src={currentItem.url}
+                  ratio={cropRatio}
+                  onRatioChange={setCropRatio}
+                  imageIndex={cropIndex}
+                  totalImages={imageItems.length}
+                  onCrop={async (blob, width, height) => {
+                    const croppedFile = new File([blob], currentItem.file.name, { type: 'image/webp' })
+                    const croppedUrl = URL.createObjectURL(blob)
+                    URL.revokeObjectURL(currentItem.url)
 
-                  // Revoke old URL
-                  URL.revokeObjectURL(currentItem.url)
+                    const updated = mediaItems.map(m =>
+                      m.id === currentItem.id
+                        ? { ...m, file: croppedFile, url: croppedUrl, width, height, cropped: true }
+                        : m
+                    )
+                    setMediaItems(updated)
 
-                  const updated = mediaItems.map(m =>
-                    m.id === currentItem.id
-                      ? { ...m, file: croppedFile, url: croppedUrl, width, height }
-                      : m
-                  )
-                  setMediaItems(updated)
+                    const nextIndex = cropIndex + 1
+                    if (nextIndex < imageItems.length) {
+                      setCropIndex(nextIndex)
+                      setCropRatio('original')
+                    } else {
+                      setStep('preview')
+                    }
+                  }}
+                  onSkip={() => {
+                    const nextIndex = cropIndex + 1
+                    if (nextIndex < imageItems.length) {
+                      setCropIndex(nextIndex)
+                      setCropRatio('original')
+                    } else {
+                      setStep('preview')
+                    }
+                  }}
+                />
 
-                  // Move to next image or preview
-                  const nextIndex = cropIndex + 1
-                  if (nextIndex < imageItems.length) {
-                    setCropIndex(nextIndex)
-                    setCropRatio('original')
-                  } else {
-                    setStep('preview')
-                  }
-                }}
-                onSkip={() => {
-                  // Skip this image, move to next or preview
-                  const nextIndex = cropIndex + 1
-                  if (nextIndex < imageItems.length) {
-                    setCropIndex(nextIndex)
-                    setCropRatio('original')
-                  } else {
-                    setStep('preview')
-                  }
-                }}
-              />
+                {/* Thumbnail strip for multi-image */}
+                {imageItems.length > 1 && (
+                  <div className="flex items-center gap-2 px-4 py-2.5 bg-[var(--bg-secondary)] overflow-x-auto scrollbar-hide">
+                    {imageItems.map((item, idx) => (
+                      <button
+                        key={item.id}
+                        onClick={() => {
+                          setCropIndex(idx)
+                          setCropRatio('original')
+                        }}
+                        className={`relative flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden border-2 transition-all ${
+                          idx === cropIndex
+                            ? 'border-[var(--accent-primary)] scale-105'
+                            : 'border-transparent opacity-60 hover:opacity-100'
+                        }`}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={item.url} alt="" className="w-full h-full object-cover" />
+                        {(item as any).cropped && (
+                          <div className="absolute bottom-0 right-0 w-4 h-4 bg-[var(--accent-primary)] rounded-tl-full flex items-end justify-start p-0.5">
+                            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="var(--text-inverse)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             )
           })()}
 

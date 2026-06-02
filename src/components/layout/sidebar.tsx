@@ -189,7 +189,7 @@ export function Sidebar({ initialProfile }: { initialProfile?: Profile | null })
   }, []);
 
   return (
-    <aside className="hidden lg:flex flex-col w-64 h-screen fixed top-0 left-0 border-r border-[var(--border-subtle)] bg-[var(--bg-primary)] z-40">
+    <aside className="hidden lg:flex flex-col w-64 h-screen fixed top-0 left-0 border-r border-[var(--border-subtle)]/50 bg-[var(--bg-primary)]/80 backdrop-blur-xl z-40">
       {/* Logo */}
       <div className="p-5">
         <Link href="/feed" className="flex items-center">

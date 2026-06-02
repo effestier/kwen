@@ -244,7 +244,7 @@ export default function ExplorePage() {
       <div className="min-h-screen">
 
         {/* Mobile Header */}
-        <div className="lg:hidden sticky top-0 z-20 bg-[var(--bg-primary)]/90 backdrop-blur-xl border-b border-[var(--border-subtle)] px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2.5">
+        <div className="lg:hidden sticky top-12 z-20 bg-[var(--bg-primary)]/90 backdrop-blur-xl border-b border-[var(--border-subtle)] px-4 pt-2.5 pb-2.5">
           <h1 className="text-xl font-bold text-[var(--text-primary)] mb-3">Explore</h1>
 
           {/* Search bar */}

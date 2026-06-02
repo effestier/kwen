@@ -263,17 +263,7 @@ export function FeedClient({ initialProfile, initialFollowingIds }: FeedClientPr
       <PullToRefresh onRefresh={handleRefresh}>
       <div className="min-h-screen">
 
-        {/* Mobile Header */}
-        <div className="lg:hidden sticky top-0 z-20 bg-[var(--bg-primary)]/90 backdrop-blur-xl border-b border-[var(--border-subtle)] px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2.5">
-          <div className="flex items-center justify-between">
-            <h1 className="text-[22px] font-bold text-[var(--text-primary)] tracking-tight">KWEN</h1>
-            <Link href="/notifications" aria-label="Notifications" className="p-1.5 -mr-1.5 rounded-full active:bg-[var(--bg-secondary)] transition-colors relative">
-              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--text-secondary)]" aria-hidden="true">
-                <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-              </svg>
-            </Link>
-          </div>
-        </div>
+        {/* Mobile: header provided by MobileHeader in layout */}
 
         {/* Desktop Header */}
         <div className="hidden lg:block sticky top-0 z-20 bg-[var(--bg-primary)]/80 backdrop-blur-xl border-b border-[var(--border-subtle)]">

@@ -65,7 +65,7 @@ export function MobileHeader({ initialProfile }: { initialProfile?: Profile | nu
   }, [initialProfile]);
 
   return (
-    <header className="lg:hidden fixed top-0 left-0 right-0 z-50 h-12 flex items-center justify-between px-4 bg-[var(--bg-primary)]/80 backdrop-blur-xl border-b border-[var(--border-subtle)]/30" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+    <header className="lg:hidden fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 bg-[var(--bg-primary)]/80 backdrop-blur-xl border-b border-[var(--border-subtle)]/30" style={{ height: 'calc(48px + env(safe-area-inset-top, 0px))', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
       {/* Logo */}
       <Link href="/feed" className="flex items-center">
         <span className="text-lg font-bold text-[var(--text-primary)] tracking-tight">{BRAND.name}</span>

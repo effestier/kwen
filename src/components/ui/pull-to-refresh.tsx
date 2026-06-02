@@ -45,10 +45,8 @@ export function PullToRefresh({
       return;
     }
 
-    // Only prevent native scroll when at top and pulling down
-    if (window.scrollY === 0) {
-      e.preventDefault();
-    } else {
+    // Only activate pull-to-refresh when at the very top and not already scrolling
+    if (window.scrollY > 0) {
       isPulling.current = false;
       setPullDistance(0);
       return;
@@ -103,7 +101,6 @@ export function PullToRefresh({
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      style={{ touchAction: 'pan-y' }}
     >
       {/* Pull indicator container */}
       <div

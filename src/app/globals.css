@@ -210,9 +210,6 @@
 
 html {
   color-scheme: dark;
-  overscroll-behavior: contain;
-  /* Prevent horizontal overflow on mobile */
-  overflow-x: hidden;
 }
 
 a {
@@ -229,8 +226,6 @@ body {
   -webkit-tap-highlight-color: transparent;
   line-height: 1.5;
   min-height: 100svh;
-  /* Prevent horizontal scroll on mobile */
-  overflow-x: hidden;
   /* Safe area handled by individual sticky headers and bottom nav */
 }
 
@@ -1042,10 +1037,6 @@ a, button, [role="button"], input, select, textarea {
   touch-action: manipulation;
 }
 
-/* Prevent pull-to-refresh on non-scrollable areas */
-body {
-  overscroll-behavior-y: contain;
-}
 
 /* ===========================================
    POLISH — Story Ring Animation

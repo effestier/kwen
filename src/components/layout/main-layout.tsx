@@ -23,14 +23,14 @@ export function MainLayout({ children, initialProfile, showSidebar = true, showM
   const isDesktop = useMediaQuery('(min-width: 1024px)');
 
   return (
-    <div className="flex min-h-screen bg-[var(--bg-primary)]">
+    <div className="flex flex-col lg:flex-row min-h-[100dvh] bg-[var(--bg-primary)]">
       {showSidebar && isDesktop && (
         <div className="w-[72px] xl:w-[244px] flex-shrink-0">
           <Sidebar initialProfile={initialProfile} />
         </div>
       )}
       {showMobileNav && !isDesktop && <MobileHeader />}
-      <main className={`flex-1 min-w-0 ${showSidebar ? 'lg:ml-0' : ''} pt-12 lg:pt-0 pb-[calc(4rem+env(safe-area-inset-bottom,0px))] lg:pb-0`}>
+      <main className={`flex-1 min-w-0 overflow-x-hidden ${showSidebar ? 'lg:ml-0' : ''} pt-12 lg:pt-0 pb-[calc(4rem+env(safe-area-inset-bottom,0px))] lg:pb-0`}>
         {children}
       </main>
       {showMobileNav && !isDesktop && (

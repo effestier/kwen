@@ -300,9 +300,11 @@ export default function CreateStoryPage() {
         .select()
         .single();
 
+      let storyData = story;
+
       if (storyError) {
         if (storyError.code === '42703' || storyError.message?.includes('visibility')) {
-          const { error: retryErr } = await supabase.from('stories').insert({
+          const { data: retryStory, error: retryErr } = await supabase.from('stories').insert({
             user_id: user.id,
             media_url: uploadResult.url,
             media_type: mediaType,
@@ -313,13 +315,14 @@ export default function CreateStoryPage() {
             showToast(`Failed to create story: ${retryErr.message}`, 10);
             return;
           }
+          storyData = retryStory;
         } else {
           showToast(`Failed to create story: ${storyError.message}`, 10);
           return;
         }
       }
 
-      if (!story) {
+      if (!storyData) {
         showToast('Failed to create story', 10);
         return;
       }

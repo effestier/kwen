@@ -185,7 +185,7 @@ export default function MessagesPage() {
       // Fetch user profile + conversations via RPC in parallel
       const [profileRes, convsRes] = await Promise.all([
         supabase.from('profiles').select('id, username, display_name, avatar_url').eq('id', user.id).single(),
-        supabase.rpc('get_conversations_with_profiles'),
+        supabase.rpc('get_conversations_with_profiles', { p_user_id: user.id }),
       ]);
 
       if (!cancelled && profileRes.data) setCurrentUserProfile(profileRes.data);
@@ -425,7 +425,7 @@ export default function MessagesPage() {
     if (!user) { setLoadingMoreConversations(false); return; }
 
     const offset = conversations.length;
-    const { data, error } = await supabase.rpc('get_conversations_with_profiles');
+    const { data, error } = await supabase.rpc('get_conversations_with_profiles', { p_user_id: user.id });
 
     if (error || !data) {
       setHasMoreConversations(false);

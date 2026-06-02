@@ -84,11 +84,13 @@ export function FeedClient({ initialProfile, initialFollowingIds }: FeedClientPr
   }, [supabase]);
 
   const handleRefresh = useCallback(async () => {
+    feedInitializedRef.current = false;
     const freshPosts = await loadPosts(initialProfile.id, []);
     seenIdsRef.current = new Set(freshPosts.map((p: FeedPost) => p.id));
     setPosts(freshPosts);
     postsRef.current = freshPosts;
     setHasMore(freshPosts.length >= 20);
+    feedInitializedRef.current = true;
   }, [loadPosts, initialProfile.id]);
 
   // Initial load — profile already provided, load posts + stories
@@ -117,6 +119,7 @@ export function FeedClient({ initialProfile, initialFollowingIds }: FeedClientPr
         setPosts(posts);
         postsRef.current = posts;
         if (posts.length < 20) setHasMore(false);
+        feedInitializedRef.current = true;
 
         // Load stories + views (non-critical, don't fail the feed)
         let filteredStories: any[] = [];
@@ -187,7 +190,7 @@ export function FeedClient({ initialProfile, initialFollowingIds }: FeedClientPr
 
   // Infinite scroll
   useEffect(() => {
-    if (!hasMore || loading || seenIdsRef.current.size === 0) return;
+    if (!hasMore || loading || !feedInitializedRef.current) return;
     const sentinel = sentinelRef.current;
     if (!sentinel) return;
 

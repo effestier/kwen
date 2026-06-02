@@ -1,5 +1,6 @@
 -- Recreates get_conversations_with_profiles without is_online/last_seen_at (those columns don't exist)
-CREATE OR REPLACE FUNCTION public.get_conversations_with_profiles()
+-- BUG 7 fix: add p_user_id param and DISTINCT ON to prevent duplicates from group chats
+CREATE OR REPLACE FUNCTION public.get_conversations_with_profiles(p_user_id uuid)
 RETURNS TABLE (
   conversation_id uuid,
   unread_count int,
@@ -21,7 +22,7 @@ SET search_path = public
 AS $$
 BEGIN
   RETURN QUERY
-  SELECT
+  SELECT DISTINCT ON (cp.conversation_id)
     cp.conversation_id,
     cp.unread_count,
     c.updated_at,
@@ -46,8 +47,8 @@ BEGIN
     WHERE m.conversation_id = cp.conversation_id AND m.deleted_at IS NULL
     ORDER BY m.created_at DESC LIMIT 1
   ) lm ON true
-  WHERE cp.user_id = auth.uid()
-  ORDER BY COALESCE(lm.created_at, c.updated_at) DESC;
+  WHERE cp.user_id = p_user_id
+  ORDER BY cp.conversation_id, COALESCE(lm.created_at, c.updated_at) DESC;
 END;
 $$;
 

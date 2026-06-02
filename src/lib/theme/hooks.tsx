@@ -7,6 +7,7 @@ import {
   useEffect,
   useState,
   useCallback,
+  useRef,
   type ReactNode,
 } from 'react';
 import { createClient } from '@/lib/supabase/client';
@@ -53,7 +54,8 @@ function applyThemeToDOM(resolved: 'light' | 'dark') {
 }
 
 export function ThemeProvider({ children, initialTheme }: ThemeProviderProps) {
-  const supabase = createClient();
+  const supabaseRef = useRef(createClient());
+  const supabase = supabaseRef.current;
 
   // Initialize synchronously from localStorage to prevent flash
   const [theme, setThemeState] = useState<Theme>(() => {

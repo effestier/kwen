@@ -112,6 +112,22 @@ export function ImageCropper({ src, ratio, onRatioChange, onCrop, onSkip }: Imag
     setCrop(prev => ({ ...prev, scale: Math.max(1, Math.min(5, prev.scale + delta)) }))
   }, [])
 
+  // Compute crop rect in container coords (shared by overlay and crop logic)
+  const getCropRect = useCallback((contW: number, contH: number) => {
+    if (aspect) {
+      let cropW: number, cropH: number
+      if (contW / contH > aspect) {
+        cropH = contH
+        cropW = contH * aspect
+      } else {
+        cropW = contW
+        cropH = contW / aspect
+      }
+      return { x: (contW - cropW) / 2, y: (contH - cropH) / 2, w: cropW, h: cropH }
+    }
+    return { x: 0, y: 0, w: contW, h: contH }
+  }, [aspect])
+
   // Generate cropped image
   const handleApplyCrop = useCallback(async () => {
     const img = imgRef.current
@@ -143,34 +159,26 @@ export function ImageCropper({ src, ratio, onRatioChange, onCrop, onSkip }: Imag
     const imgY = (contH - scaledH) / 2 + crop.offsetY
 
     // Determine crop rect in container coords
-    let cropX: number, cropY: number, cropW: number, cropH: number
-    if (aspect) {
-      // Fit aspect ratio within container
-      if (contW / contH > aspect) {
-        cropH = contH
-        cropW = contH * aspect
-      } else {
-        cropW = contW
-        cropH = contW / aspect
-      }
-      cropX = (contW - cropW) / 2
-      cropY = (contH - cropH) / 2
-    } else {
-      cropX = 0; cropY = 0; cropW = contW; cropH = contH
-    }
+    const cropRect = getCropRect(contW, contH)
 
     // Convert crop rect to image pixel coords
     const scaleX = imgSize.w / scaledW
     const scaleY = imgSize.h / scaledH
 
-    const srcX = Math.max(0, (cropX - imgX) * scaleX)
-    const srcY = Math.max(0, (cropY - imgY) * scaleY)
-    const srcW = Math.min(imgSize.w - srcX, cropW * scaleX)
-    const srcH = Math.min(imgSize.h - srcY, cropH * scaleY)
+    const srcX = Math.max(0, (cropRect.x - imgX) * scaleX)
+    const srcY = Math.max(0, (cropRect.y - imgY) * scaleY)
+    const srcW = Math.max(1, Math.min(imgSize.w - srcX, cropRect.w * scaleX))
+    const srcH = Math.max(1, Math.min(imgSize.h - srcY, cropRect.h * scaleY))
 
-    // Output canvas
-    const outW = Math.round(Math.min(srcW, 1920))
-    const outH = Math.round(Math.min(srcH, 1920))
+    // Output canvas — cap at 1920px, maintain aspect
+    const maxDim = 1920
+    let outW = Math.round(srcW)
+    let outH = Math.round(srcH)
+    if (outW > maxDim || outH > maxDim) {
+      const scale = maxDim / Math.max(outW, outH)
+      outW = Math.round(outW * scale)
+      outH = Math.round(outH * scale)
+    }
 
     const canvas = document.createElement('canvas')
     canvas.width = outW
@@ -181,7 +189,7 @@ export function ImageCropper({ src, ratio, onRatioChange, onCrop, onSkip }: Imag
     canvas.toBlob((blob) => {
       if (blob) onCrop(blob, outW, outH)
     }, 'image/webp', 0.92)
-  }, [imgSize, crop, aspect, onCrop])
+  }, [imgSize, crop, aspect, onCrop, getCropRect])
 
   return (
     <div className="flex-1 flex flex-col">
@@ -198,35 +206,42 @@ export function ImageCropper({ src, ratio, onRatioChange, onCrop, onSkip }: Imag
         onWheel={handleWheel}
       >
         {/* Crop overlay */}
-        {aspect && imgLoaded && (
-          <div className="absolute inset-0 z-10 pointer-events-none">
-            {/* Dark overlay outside crop area */}
-            <div className="absolute inset-0 bg-black/50" style={{
-              clipPath: `polygon(
-                0% 0%, 100% 0%, 100% 100%, 0% 100%,
-                0% ${50 - (aspect < 1 ? 50 : 50 / aspect)}%,
-                ${50 - (aspect > 1 ? 50 : 50 * aspect)}% ${50 - (aspect < 1 ? 50 : 50 / aspect)}%,
-                ${50 - (aspect > 1 ? 50 : 50 * aspect)}% ${50 + (aspect < 1 ? 50 : 50 / aspect)}%,
-                0% ${50 + (aspect < 1 ? 50 : 50 / aspect)}%
-              )`
-            }} />
-            {/* Crop border */}
-            <div className="absolute border-2 border-white/80" style={{
-              top: `${50 - (aspect < 1 ? 50 : 50 / aspect)}%`,
-              left: `${50 - (aspect > 1 ? 50 : 50 * aspect)}%`,
-              width: `${aspect > 1 ? 100 : 100 * aspect}%`,
-              height: `${aspect < 1 ? 100 : 100 / aspect}%`,
-            }}>
-              {/* Grid lines */}
-              <div className="absolute inset-0">
-                <div className="absolute left-1/3 top-0 bottom-0 w-px bg-white/20" />
-                <div className="absolute left-2/3 top-0 bottom-0 w-px bg-white/20" />
-                <div className="absolute top-1/3 left-0 right-0 h-px bg-white/20" />
-                <div className="absolute top-2/3 left-0 right-0 h-px bg-white/20" />
+        {aspect && imgLoaded && containerRef.current && (() => {
+          const rect = containerRef.current.getBoundingClientRect()
+          const c = getCropRect(rect.width, rect.height)
+          const pct = { top: (c.y / rect.height * 100), left: (c.x / rect.width * 100), width: (c.w / rect.width * 100), height: (c.h / rect.height * 100) }
+          return (
+            <div className="absolute inset-0 z-10 pointer-events-none">
+              {/* Dark overlay outside crop area */}
+              <div className="absolute inset-0 bg-black/50" style={{
+                clipPath: `polygon(
+                  0% 0%, 100% 0%, 100% 100%, 0% 100%,
+                  0% ${pct.top + pct.height}%,
+                  ${pct.left}% ${pct.top + pct.height}%,
+                  ${pct.left}% ${pct.top}%,
+                  ${pct.left + pct.width}% ${pct.top}%,
+                  ${pct.left + pct.width}% ${pct.top + pct.height}%,
+                  0% ${pct.top + pct.height}%
+                )`
+              }} />
+              {/* Crop border */}
+              <div className="absolute border-2 border-white/80" style={{
+                top: `${pct.top}%`,
+                left: `${pct.left}%`,
+                width: `${pct.width}%`,
+                height: `${pct.height}%`,
+              }}>
+                {/* Grid lines */}
+                <div className="absolute inset-0">
+                  <div className="absolute left-1/3 top-0 bottom-0 w-px bg-white/20" />
+                  <div className="absolute left-2/3 top-0 bottom-0 w-px bg-white/20" />
+                  <div className="absolute top-1/3 left-0 right-0 h-px bg-white/20" />
+                  <div className="absolute top-2/3 left-0 right-0 h-px bg-white/20" />
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )
+        })()}
 
         {/* Image */}
         {/* eslint-disable-next-line @next/next/no-img-element */}

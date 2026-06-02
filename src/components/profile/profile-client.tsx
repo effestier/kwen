@@ -341,12 +341,13 @@ export function ProfileClient({ username, currentUserProfile }: { username: stri
   const handleFollow = async () => {
     if (!profile || !currentUser) return;
 
-    // M31: Use functional setState to avoid stale closure on rapid clicks
+    // Use functional setState to capture the actual previous value
+    let wasFollowing = false;
     setIsFollowing(prev => {
+      wasFollowing = prev;
       if (!prev) hapticMedium();
       return !prev;
     });
-    const wasFollowing = isFollowing;
     setStats(prev => ({
       ...prev,
       followers: wasFollowing ? prev.followers - 1 : prev.followers + 1,
@@ -575,7 +576,7 @@ export function ProfileClient({ username, currentUserProfile }: { username: stri
 
           {/* Toast */}
           {profileMenuToast && (
-            <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-white/90 text-black px-4 py-2 rounded-xl text-sm font-medium shadow-lg">
+            <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-[var(--bg-primary)]/90 text-[var(--text-primary)] px-4 py-2 rounded-xl text-sm font-medium shadow-lg border border-[var(--border-subtle)]">
               {profileMenuToast}
             </div>
           )}

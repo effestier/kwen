@@ -48,7 +48,7 @@ export function renderRichText(text: string): React.ReactNode[] {
           'a',
           {
             key: `mention-${match.index}`,
-            href: `/user/${username}`,
+            href: `/profile/${username}`,
             className: 'text-[var(--accent-primary)] font-medium hover:underline',
             onClick: (e: React.MouseEvent) => {
               e.stopPropagation()

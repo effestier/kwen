@@ -102,20 +102,51 @@ export default function AccountPage() {
     const file = event.target.files?.[0];
     if (!file || !profile) return;
 
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image file');
+      return;
+    }
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Image must be smaller than 5MB');
+      return;
+    }
+
     setSaving(true);
+    setError(null);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user?.id) throw new Error('No authenticated user');
 
+      // Compress to WebP
+      const compressedBlob = await new Promise<Blob>((resolve, reject) => {
+        const img = new window.Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const maxDim = 512;
+          let w = img.naturalWidth, h = img.naturalHeight;
+          if (w > maxDim || h > maxDim) {
+            const scale = maxDim / Math.max(w, h);
+            w = Math.round(w * scale);
+            h = Math.round(h * scale);
+          }
+          canvas.width = w;
+          canvas.height = h;
+          canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
+          canvas.toBlob((b) => b ? resolve(b) : reject(new Error('Compression failed')), 'image/webp', 0.85);
+          URL.revokeObjectURL(img.src);
+        };
+        img.onerror = () => { URL.revokeObjectURL(img.src); reject(new Error('Failed to load image')); };
+        img.src = URL.createObjectURL(file);
+      });
 
-      const fileExt = file.name.split('.').pop() || 'jpg';
-      const fileName = `${Date.now()}.${fileExt}`;
+      const fileName = `${Date.now()}.webp`;
       const filePath = `${user.id}/${fileName}`;
-
 
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(filePath, file, { upsert: true });
+        .upload(filePath, compressedBlob, { upsert: true, contentType: 'image/webp' });
 
       if (uploadError) throw uploadError;
 
@@ -139,6 +170,7 @@ export default function AccountPage() {
       }));
     } catch (err) {
       console.error('Error uploading avatar:', err);
+      setError('Failed to upload avatar');
     } finally {
       setSaving(false);
       if (fileInputRef.current) fileInputRef.current.value = '';

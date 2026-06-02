@@ -1,70 +1,16 @@
-const CACHE_NAME = 'kwen-v5';
-
-self.addEventListener('install', (event) => {
+// Service worker disabled — was causing stale page loads after deploy.
+// This file unregisters itself and clears all caches to fix existing users.
+self.addEventListener('install', () => {
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(
-        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
-      )
-    )
+      Promise.all(keys.map((key) => caches.delete(key)))
+    ).then(() => self.registration.unregister())
   );
   self.clients.claim();
 });
 
-self.addEventListener('fetch', (event) => {
-  const { request } = event;
-
-  // Skip non-GET requests
-  if (request.method !== 'GET') return;
-
-  // NEVER intercept auth, API, or Supabase requests
-  const url = new URL(request.url);
-  if (url.pathname.startsWith('/auth') || url.pathname.startsWith('/api') || url.hostname.includes('supabase')) {
-    return;
-  }
-
-  // SPA routing: network-first for navigations
-  if (request.mode === 'navigate') {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          // Always return the real server response — redirects (3xx) must be
-          // followed so auth flows work; errors (4xx/5xx) show proper error UI.
-          // Only fall back to shell on complete network failure (offline).
-          return response;
-        })
-        .catch(() => caches.match('/'))
-    );
-  } else {
-    // Network-first for _next/static chunks to prevent stale JS/CSS after deploy
-    const isStatic = url.pathname.startsWith('/_next/static/');
-    if (isStatic) {
-      event.respondWith(
-        fetch(request).then((response) => {
-          if (response.ok && response.type === 'basic') {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-          }
-          return response;
-        }).catch(() => caches.match(request))
-      );
-    } else {
-      event.respondWith(
-        caches.match(request).then((cached) => {
-          if (cached) return cached;
-          return fetch(request).then((response) => {
-            if (response.ok && response.type === 'basic') {
-              const clone = response.clone();
-              caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-            }
-            return response;
-          });
-        })
-      );
-    }
-  }
-});
+// Do not intercept any requests

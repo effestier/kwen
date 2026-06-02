@@ -112,7 +112,7 @@ export default function RootLayout({
         />
         <script
           dangerouslySetInnerHTML={{
-            __html: `if ('serviceWorker' in navigator && !window.location.pathname.startsWith('/auth')) { navigator.serviceWorker.register('/sw.js', { scope: '/' }); }`,
+            __html: `if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(function(r){r.forEach(function(s){s.unregister()})});if('caches' in window){caches.keys().then(function(k){k.forEach(function(n){caches.delete(n)})})}}`,
           }}
         />
         <script

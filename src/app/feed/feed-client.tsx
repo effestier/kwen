@@ -193,13 +193,18 @@ export function FeedClient({ initialProfile, initialFollowingIds }: FeedClientPr
     const observer = new IntersectionObserver(async (entries) => {
       if (entries[0].isIntersecting && !loadingMore) {
         setLoadingMore(true);
-        const excludeIds = Array.from(seenIdsRef.current);
-        const morePosts = await loadPosts(initialProfile.id, excludeIds);
-        const freshPosts = morePosts.filter((p: FeedPost) => !seenIdsRef.current.has(p.id));
-        freshPosts.forEach((p: FeedPost) => seenIdsRef.current.add(p.id));
-        setPosts(prev => [...prev, ...freshPosts]);
-        if (morePosts.length < 20) setHasMore(false);
-        setLoadingMore(false);
+        try {
+          const excludeIds = Array.from(seenIdsRef.current);
+          const morePosts = await loadPosts(initialProfile.id, excludeIds);
+          const freshPosts = morePosts.filter((p: FeedPost) => !seenIdsRef.current.has(p.id));
+          freshPosts.forEach((p: FeedPost) => seenIdsRef.current.add(p.id));
+          setPosts(prev => [...prev, ...freshPosts]);
+          if (morePosts.length < 20) setHasMore(false);
+        } catch {
+          // Network error — allow retry on next scroll
+        } finally {
+          setLoadingMore(false);
+        }
       }
     }, { rootMargin: '400px' });
 

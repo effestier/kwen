@@ -188,9 +188,16 @@ export function MediaPicker({ selected, onSelect, maxItems = 10 }: MediaPickerPr
 
 function getImageDimensions(file: File): Promise<{ width: number; height: number }> {
   return new Promise((resolve) => {
+    const url = URL.createObjectURL(file)
     const img = new window.Image()
-    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight })
-    img.onerror = () => resolve({ width: 0, height: 0 })
-    img.src = URL.createObjectURL(file)
+    img.onload = () => {
+      resolve({ width: img.naturalWidth, height: img.naturalHeight })
+      URL.revokeObjectURL(url)
+    }
+    img.onerror = () => {
+      resolve({ width: 0, height: 0 })
+      URL.revokeObjectURL(url)
+    }
+    img.src = url
   })
 }

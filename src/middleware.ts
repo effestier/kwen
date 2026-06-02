@@ -35,7 +35,8 @@ export async function middleware(request: NextRequest) {
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api') ||
-    pathname.includes('.')
+    // Only skip auth for paths that look like files (have extension at the end)
+    /\.\w{2,5}$/.test(pathname)
   ) {
     return NextResponse.next()
   }

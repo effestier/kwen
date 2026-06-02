@@ -132,7 +132,7 @@ export default function CreatePage() {
         try {
           const uploadResult = await uploadMedia(item.file, (progress) => {
             setUploadProgress(prev => ({ ...prev, [item.id]: progress.percent }))
-          }, 'post')
+          }, 'post', item.type === 'image')
           result = { url: uploadResult.url, type: item.type }
         } catch (err) {
           setError(`Upload failed for ${item.file.name}`)

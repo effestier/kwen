@@ -62,7 +62,7 @@ export default function ReelsPage() {
         supabase.auth.getUser(),
       ]);
 
-      const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+      const profileMap = new Map((profiles as any[])?.map((p: any) => [p.id, p]) || []);
 
       // Get like counts and user's like status
       const postIds = mediaPosts.map((m: any) => m.post?.id).filter(Boolean);
@@ -72,8 +72,8 @@ export default function ReelsPage() {
       ]);
 
       const likeCountMap = new Map<string, number>();
-      likes?.forEach(l => likeCountMap.set(l.post_id, (likeCountMap.get(l.post_id) || 0) + 1));
-      const userLikeSet = new Set(userLikes?.map(l => l.post_id) || []);
+      (likes as any[])?.forEach((l: any) => likeCountMap.set(l.post_id, (likeCountMap.get(l.post_id) || 0) + 1));
+      const userLikeSet = new Set((userLikes as any[])?.map((l: any) => l.post_id) || []);
 
       const reelsData: Reel[] = mediaPosts
         .filter((m: any) => m.post)

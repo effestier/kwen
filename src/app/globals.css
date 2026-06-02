@@ -949,3 +949,195 @@ input[type="range"]::-moz-range-thumb {
   animation: threadExpand 300ms cubic-bezier(0.22, 1, 0.36, 1);
   overflow: hidden;
 }
+
+/* ===========================================
+   POLISH — Smooth Page Navigation
+   =========================================== */
+
+/* Instant page transitions — no flash */
+@view-transition {
+  navigation: auto;
+}
+
+/* Smooth content appearance on route change */
+@keyframes pageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page-enter {
+  animation: pageEnter 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ===========================================
+   POLISH — Button Interactions
+   =========================================== */
+
+.btn-press {
+  transition: transform 100ms ease, box-shadow 100ms ease;
+}
+.btn-press:active {
+  transform: scale(0.96);
+}
+
+/* Ripple effect on tap */
+@keyframes ripple {
+  from {
+    transform: scale(0);
+    opacity: 0.3;
+  }
+  to {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+/* ===========================================
+   POLISH — Image Loading
+   =========================================== */
+
+.img-skeleton {
+  background: var(--skeleton-bg);
+  background-image: linear-gradient(90deg, var(--skeleton-bg) 0%, var(--skeleton-shine) 50%, var(--skeleton-bg) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* ===========================================
+   POLISH — Notification Badge Pulse
+   =========================================== */
+
+@keyframes badgePop {
+  0% { transform: scale(0); }
+  60% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+.badge-pop {
+  animation: badgePop 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ===========================================
+   POLISH — Smooth Scroll Behavior
+   =========================================== */
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* ===========================================
+   POLISH — Mobile Touch Optimizations
+   =========================================== */
+
+/* Remove 300ms tap delay on mobile */
+a, button, [role="button"], input, select, textarea {
+  touch-action: manipulation;
+}
+
+/* Prevent pull-to-refresh on non-scrollable areas */
+body {
+  overscroll-behavior-y: contain;
+}
+
+/* ===========================================
+   POLISH — Story Ring Animation
+   =========================================== */
+
+@keyframes storyRingRotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.story-ring-animate {
+  animation: storyRingRotate 3s linear infinite;
+}
+
+/* ===========================================
+   POLISH — Search Input Focus
+   =========================================== */
+
+.search-input:focus {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="light"] .search-input:focus {
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.08);
+}
+
+/* ===========================================
+   POLISH — Tooltip
+   =========================================== */
+
+@keyframes tooltipEnter {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.tooltip-enter {
+  animation: tooltipEnter 150ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ===========================================
+   POLISH — Modal Backdrop
+   =========================================== */
+
+@keyframes backdropEnter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.backdrop-enter {
+  animation: backdropEnter 200ms ease;
+}
+
+/* ===========================================
+   POLISH — Skeleton Variants
+   =========================================== */
+
+.skeleton-round {
+  border-radius: var(--radius-full);
+}
+
+.skeleton-text {
+  height: 1em;
+  border-radius: var(--radius-xs);
+}
+
+.skeleton-title {
+  height: 1.25em;
+  border-radius: var(--radius-xs);
+  width: 60%;
+}
+
+/* ===========================================
+   POLISH — Horizontal Scroll Fade Edges
+   =========================================== */
+
+.scroll-fade-left {
+  mask-image: linear-gradient(to right, transparent, black 16px);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 16px);
+}
+
+.scroll-fade-right {
+  mask-image: linear-gradient(to left, transparent, black 16px);
+  -webkit-mask-image: linear-gradient(to left, transparent, black 16px);
+}
+
+.scroll-fade-both {
+  mask-image: linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent);
+}

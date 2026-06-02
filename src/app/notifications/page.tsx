@@ -72,25 +72,28 @@ export default function NotificationsPage() {
 
     if (!notifs || notifs.length === 0) return [];
 
-    const actorIds = [...new Set(notifs.map(n => n.actor_id))];
+    const actorIds = [...new Set(notifs.map((n: any) => n.actor_id))];
     const { data: profiles } = await supabase
       .from('profiles')
       .select('id, username, display_name, avatar_url')
       .in('id', actorIds);
 
-    const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+    const profileMap = new Map((profiles as any[])?.map((p: any) => [p.id, p]) || []);
 
-    return notifs.map(n => ({
-      id: n.id,
-      type: n.type as Notification['type'],
-      actor_id: n.actor_id,
-      actor_username: profileMap.get(n.actor_id)?.username || 'User',
-      actor_display_name: profileMap.get(n.actor_id)?.display_name || 'User',
-      actor_avatar_url: profileMap.get(n.actor_id)?.avatar_url || null,
-      post_id: n.post_id,
-      is_read: n.is_read,
-      created_at: n.created_at,
-    }));
+    return notifs.map((n: any) => {
+      const prof = profileMap.get(n.actor_id) as any;
+      return {
+        id: n.id,
+        type: n.type as Notification['type'],
+        actor_id: n.actor_id,
+        actor_username: prof?.username || 'User',
+        actor_display_name: prof?.display_name || 'User',
+        actor_avatar_url: prof?.avatar_url || null,
+        post_id: n.post_id,
+        is_read: n.is_read,
+        created_at: n.created_at,
+      };
+    });
   }, [supabase]);
 
   // Initial load

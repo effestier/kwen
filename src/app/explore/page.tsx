@@ -65,21 +65,33 @@ export default function ExplorePage() {
   // No client-side filtering needed — RPC handles it
 
   // Load explore posts — uses exclude_ids for cursor-based pagination
-  // Server-side category filtering via RPC p_category param
   const loadPosts = useCallback(async (excludeIds: string[], category: string) => {
     const { data: { user } } = await supabase.auth.getUser();
-    const rpcCategory = category === 'All' ? 'all' : category.toLowerCase();
     const { data: explorePosts, error: rpcError } = await supabase.rpc('get_explore_feed', {
       p_user_id: user?.id ?? '00000000-0000-0000-0000-000000000000',
       p_limit: 30,
       p_exclude_ids: excludeIds,
-      p_category: rpcCategory,
     });
     if (rpcError) {
       console.error('[EXPLORE] get_explore_feed RPC error:', rpcError.message, rpcError);
       return [];
     }
-    return (explorePosts || []) as ExplorePost[];
+    const posts = (explorePosts || []) as ExplorePost[];
+    // Client-side category filtering (DB RPC doesn't support p_category yet)
+    if (category !== 'All') {
+      const cat = category.toLowerCase();
+      return posts.filter(p => {
+        const hasImage = p.media?.some((m: any) => m.media_type === 'image');
+        const hasVideo = p.media?.some((m: any) => m.media_type === 'video');
+        const noMedia = !p.media || p.media.length === 0;
+        if (cat === 'photos') return hasImage && !hasVideo;
+        if (cat === 'videos') return hasVideo;
+        if (cat === 'reels') return hasVideo && p.media?.length === 1;
+        if (cat === 'text') return noMedia;
+        return true;
+      });
+    }
+    return posts;
   }, [supabase]);
 
   const updateSeenIds = useCallback((newPosts: ExplorePost[]) => {

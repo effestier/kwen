@@ -44,7 +44,7 @@ export default function SavedPage() {
       .from('saved_posts')
       .select('post_id, created_at')
       .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false }) as any;
 
     if (!saved || saved.length === 0) {
       setPosts([]);
@@ -52,7 +52,7 @@ export default function SavedPage() {
       return;
     }
 
-    const postIds = saved.map(s => s.post_id);
+    const postIds = (saved as any[]).map((s: any) => s.post_id);
 
     const { data: dbPosts } = await supabase
       .from('posts')
@@ -65,12 +65,12 @@ export default function SavedPage() {
     const orderedPosts = postIds.map(id => dbPosts.find((p: any) => p.id === id)).filter(Boolean) as any[];
 
     // Fetch user profiles for these posts
-    const userIds = [...new Set(orderedPosts.map(p => p.user_id))];
+    const userIds = [...new Set(orderedPosts.map((p: any) => p.user_id))];
     const { data: profiles } = await supabase
       .from('profiles')
       .select('id, username, display_name, avatar_url, is_verified')
       .in('id', userIds);
-    const profileMap = new Map(profiles?.map((pr: any) => [pr.id, pr]) || []);
+    const profileMap = new Map((profiles as any[])?.map((pr: any) => [pr.id, pr]) || []);
 
     const [likesRes, commentsRes, likedRes] = await Promise.all([
       supabase.from('post_likes').select('post_id').in('post_id', postIds),
@@ -79,16 +79,17 @@ export default function SavedPage() {
     ]);
 
     const likeCountMap = new Map<string, number>();
-    likesRes.data?.forEach(l => likeCountMap.set(l.post_id, (likeCountMap.get(l.post_id) || 0) + 1));
+    (likesRes.data as any[])?.forEach((l: any) => likeCountMap.set(l.post_id, (likeCountMap.get(l.post_id) || 0) + 1));
     const commentCounts = new Map<string, number>();
-    commentsRes.data?.forEach(c => commentCounts.set(c.post_id, (commentCounts.get(c.post_id) || 0) + 1));
-    const likedSet = new Set(likedRes.data?.map(l => l.post_id) || []);
+    (commentsRes.data as any[])?.forEach((c: any) => commentCounts.set(c.post_id, (commentCounts.get(c.post_id) || 0) + 1));
+    const likedSet = new Set((likedRes.data as any[])?.map((l: any) => l.post_id) || []);
 
     setPosts(orderedPosts.map((p: any) => {
       const media = (p.post_media || []).sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0));
+      const pr = profileMap.get(p.user_id) as any;
       return {
         id: p.id,
-        user: (() => { const pr = profileMap.get(p.user_id); return { id: p.user_id, username: pr?.username || '', displayName: pr?.display_name || '', avatar: pr?.avatar_url || '', isVerified: pr?.is_verified || false, bio: '', followers: 0, following: 0, posts: 0 }; })(),
+        user: { id: p.user_id, username: pr?.username || '', displayName: pr?.display_name || '', avatar: pr?.avatar_url || '', isVerified: pr?.is_verified || false, bio: '', followers: 0, following: 0, posts: 0 },
         content: p.content || '',
         images: media.map((m: any) => m.storage_path),
         mediaTypes: media.map((m: any) => m.media_type),

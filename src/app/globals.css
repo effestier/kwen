@@ -252,11 +252,14 @@ body {
   color: var(--text-primary);
 }
 
-/* Re-enable selection on editable elements */
-input, textarea, select, [contenteditable="true"] {
+/* Re-enable selection on editable elements and readable text */
+input, textarea, select, [contenteditable="true"],
+.selectable, .selectable * {
   -webkit-user-select: text;
   user-select: text;
   -webkit-touch-callout: default;
+}
+input, textarea, select, [contenteditable="true"] {
   font-size: 16px; /* Prevent iOS zoom on focus */
 }
 

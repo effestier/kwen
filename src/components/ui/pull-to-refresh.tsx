@@ -44,6 +44,9 @@ export function PullToRefresh({
       return;
     }
 
+    // Prevent native scroll while pulling
+    e.preventDefault();
+
     // Progressive resistance: linear up to threshold, then diminishing returns
     let distance: number;
     if (rawDiff < threshold) {
@@ -93,6 +96,7 @@ export function PullToRefresh({
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
+      style={{ touchAction: 'pan-x' }}
     >
       {/* Pull indicator container */}
       <div

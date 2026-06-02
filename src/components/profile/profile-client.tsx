@@ -486,7 +486,7 @@ export function ProfileClient({ username, currentUserProfile }: { username: stri
 
           {/* Bio */}
           {profile.bio && (
-            <p className="text-[14px] text-[var(--text-secondary)] text-center leading-snug whitespace-pre-line mt-2 max-w-[280px] mx-auto">{profile.bio}</p>
+            <p className="selectable text-[14px] text-[var(--text-secondary)] text-center leading-snug whitespace-pre-line mt-2 max-w-[280px] mx-auto">{profile.bio}</p>
           )}
 
           {/* Stats card */}

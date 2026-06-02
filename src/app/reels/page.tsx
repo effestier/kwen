@@ -182,7 +182,7 @@ export default function ReelsPage() {
           {reels.map((reel) => (
             <div
               key={reel.id}
-              className="h-[calc(100vh-60px)] lg:h-screen flex items-center justify-center relative snap-start"
+              className="h-[calc(100svh-60px)] lg:h-screen flex items-center justify-center relative snap-start"
             >
               {/* Video */}
               <div className="absolute inset-0 bg-black flex items-center justify-center">

@@ -329,7 +329,7 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete, feedIndex, isInfinit
         {post.content && (
           <div className="mb-2.5">
             <p className={cn(
-              'text-[15px] leading-relaxed text-[var(--text-secondary)] whitespace-pre-line',
+              'selectable text-[15px] leading-relaxed text-[var(--text-secondary)] whitespace-pre-line',
               !captionExpanded && captionNeedsTruncation && 'line-clamp-3'
             )}>
               {renderRichText(post.content)}

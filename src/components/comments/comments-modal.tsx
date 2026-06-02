@@ -47,7 +47,7 @@ function CommentItem({ comment, currentUserId, onReply, onDelete, onLike, isRepl
           </Link>
           <span className="text-xs text-[var(--text-muted)] flex-shrink-0">{formatTimeAgo(comment.created_at)}</span>
         </div>
-        <p className="text-sm text-[var(--text-secondary)] mt-0.5 whitespace-pre-wrap break-words">
+        <p className="selectable text-sm text-[var(--text-secondary)] mt-0.5 whitespace-pre-wrap break-words">
           {comment.content}
         </p>
         <div className="flex items-center gap-4 mt-1.5">

@@ -956,45 +956,27 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
             )}
           </div>
 
-          {/* Swipe up indicator */}
-          {!isOwner && !showReplyInput && (
-            <div className="absolute bottom-20 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-60">
-                <path d="m18 15-6-6-6 6" />
-              </svg>
-              <span className="text-white/60 text-xs">Swipe up to reply</span>
-            </div>
-          )}
         </div>
 
-        {/* Bottom action bar */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/60 to-transparent z-10">
+        {/* Bottom action bar — Instagram style */}
+        <div className="absolute bottom-0 left-0 right-0 z-10">
           {/* Music display */}
-          {/* H19: Use musicData state instead of mutating prop */}
           {musicData && (
-            <div className="flex items-center gap-3 mb-3 bg-white/10 rounded-full px-4 py-2">
+            <div className="mx-4 mb-2 flex items-center gap-3 bg-white/10 rounded-full px-4 py-2">
               <button
                 onClick={() => {
                   const audio = musicRef.current;
                   if (audio) {
-                    if (isMusicPlaying) {
-                      audio.pause();
-                    } else {
-                      audio.play().catch(() => {});
-                    }
-                    setIsMusicPlaying(!isMusicPlaying);
+                    if (isMusicPlaying) { audio.pause(); setIsMusicPlaying(false); }
+                    else { audio.play().catch(() => {}); setIsMusicPlaying(true); }
                   }
                 }}
                 className="w-8 h-8 rounded-full bg-[var(--accent-primary)] flex items-center justify-center"
               >
                 {isMusicPlaying ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="white">
-                    <rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" />
-                  </svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="white"><rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" /></svg>
                 ) : (
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="white">
-                    <path d="m5 3 14 9-14 9V3Z" />
-                  </svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="m5 3 14 9-14 9V3Z" /></svg>
                 )}
               </button>
               <div className="flex-1 min-w-0">
@@ -1002,169 +984,118 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
                 <p className="text-white/60 text-xs truncate">{musicData.artist}</p>
               </div>
               {musicData.cover_url && (
-                <img
-                  src={musicData.cover_url}
-                  alt={`${musicData.track_name} cover art`}
-                  className="w-8 h-8 rounded-full object-cover"
-                />
+                <img src={musicData.cover_url} alt="" className="w-8 h-8 rounded-full object-cover" />
               )}
             </div>
           )}
 
-          {/* Audio element for music playback */}
+          {/* Audio element */}
           {musicData?.preview_url && (
-            <audio
-              ref={musicRef}
-              src={musicData.preview_url}
-              preload="auto"
-              onEnded={() => setIsMusicPlaying(false)}
-            />
+            <audio ref={musicRef} src={musicData.preview_url} preload="auto" onEnded={() => setIsMusicPlaying(false)} />
           )}
 
-          {/* Reply input */}
-          {showReplyInput ? (
-            <div className="flex items-center gap-2 mb-2">
-              <input
-                type="text"
-                value={replyMessage}
-                onChange={(e) => setReplyMessage(e.target.value)}
-                placeholder="Send a message..."
-                className="flex-1 px-4 py-2 rounded-full bg-white/20 text-white placeholder:text-white/50 border border-white/20 focus:outline-none focus:border-white/40"
-                autoFocus
-                onKeyDown={(e) => e.key === 'Enter' && handleSendReply()}
-              />
-              <button
-                onClick={handleSendReply}
-                disabled={sendingReply || !replyMessage.trim()}
-                className="p-2 rounded-full bg-white/20 text-white hover:bg-white/30 disabled:opacity-50"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="m22 2-7 20-4-9-9-4Z" />
-                  <path d="M22 2 11 13" />
-                </svg>
-              </button>
-              <button
-                onClick={() => {
-                  setShowReplyInput(false);
-                  setReplyMessage('');
-                }}
-                className="p-2 rounded-full text-white/70 hover:text-white"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M18 6 6 18" /><path d="m6 6 12 12" />
-                </svg>
-              </button>
+          {/* Reply sent toast */}
+          {replySent && (
+            <div className="mx-4 mb-2 text-white/70 text-sm flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+              Sent
             </div>
-          ) : replySent ? (
-            <div className="text-white/70 text-sm mb-2 flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20 6 9 17l-5-5" />
-              </svg>
-              Message sent
-            </div>
-          ) : null}
+          )}
 
-          {/* Reaction bar */}
-          <div className="flex items-center justify-between">
-            {/* Quick reactions */}
-            <div className="flex items-center gap-1">
-              {QUICK_REACTIONS.map((emoji) => (
-                <button
-                  key={emoji}
-                  onClick={() => handleReaction(emoji)}
-                  className="w-10 h-10 flex items-center justify-center text-xl hover:bg-white/10 rounded-full transition-transform hover:scale-125"
-                >
-                  {emoji}
-                </button>
-              ))}
-              <button
-                onClick={() => setShowReactionPicker(!showReactionPicker)}
-                className="w-10 h-10 flex items-center justify-center text-white/70 hover:bg-white/10 rounded-full"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="10" />
-                  <path d="M8 14s1.5 2 4 2 4-2 4-2" />
-                  <line x1="9" x2="9.01" y1="9" y2="9" />
-                  <line x1="15" x2="15.01" y1="9" y2="9" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Reply, Share, and More buttons */}
-            {!showReplyInput && !replySent && (
+          {/* Main bar */}
+          <div className="px-3 pb-4 pt-2 bg-gradient-to-t from-black/60 to-transparent">
+            {!isOwner ? (
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setShowShareModal(true)}
-                  className="p-2 rounded-full bg-white/20 text-white hover:bg-white/30"
-                  title="Share story"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="m22 2-7 20-4-9-9-4Z" />
-                    <path d="M22 2 11 13" />
-                  </svg>
-                </button>
-                {!isOwner && (
-                <button
-                  onClick={() => setShowReplyInput(true)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/20 text-white hover:bg-white/30"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                  </svg>
-                  <span className="text-sm">Reply</span>
-                </button>
-                )}
-                {!isOwner && (
+                {/* Heart — tap sends ❤️, long-press opens picker */}
+                <div className="relative">
                   <button
-                    onClick={() => setShowMoreMenu(!showMoreMenu)}
-                    className="p-2 rounded-full bg-white/20 text-white hover:bg-white/30"
-                    title="More"
+                    className="w-10 h-10 flex items-center justify-center text-2xl active:scale-90 transition-transform"
+                    onClick={() => handleReaction('❤️')}
+                    onPointerDown={() => {
+                      const timer = setTimeout(() => setShowReactionPicker(true), 400);
+                      (window as any).__storyReactionTimer = timer;
+                    }}
+                    onPointerUp={() => {
+                      clearTimeout((window as any).__storyReactionTimer);
+                    }}
+                    onPointerLeave={() => {
+                      clearTimeout((window as any).__storyReactionTimer);
+                    }}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" />
-                    </svg>
+                    ❤️
+                  </button>
+                  {/* Reaction picker popover */}
+                  {showReactionPicker && (
+                    <div className="absolute bottom-12 left-1/2 -translate-x-1/2 bg-[#262626] rounded-full px-2 py-1.5 flex items-center gap-0.5 shadow-xl">
+                      {['❤️', '😂', '😮', '😢', '🔥', '👏'].map((emoji) => (
+                        <button
+                          key={emoji}
+                          onClick={() => { handleReaction(emoji); setShowReactionPicker(false); }}
+                          className="w-9 h-9 flex items-center justify-center text-xl hover:bg-white/10 rounded-full transition-transform hover:scale-125 active:scale-90"
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Input */}
+                {showReplyInput ? (
+                  <div className="flex-1 flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={replyMessage}
+                      onChange={(e) => setReplyMessage(e.target.value)}
+                      placeholder="Send message"
+                      className="flex-1 px-4 py-2 rounded-full bg-white/15 text-white text-sm placeholder:text-white/40 border border-white/10 focus:outline-none focus:border-white/30"
+                      autoFocus
+                      onKeyDown={(e) => e.key === 'Enter' && handleSendReply()}
+                    />
+                    {replyMessage.trim() && (
+                      <button
+                        onClick={handleSendReply}
+                        disabled={sendingReply}
+                        className="text-white font-semibold text-sm disabled:opacity-50"
+                      >
+                        Send
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowReplyInput(true)}
+                    className="flex-1 px-4 py-2 rounded-full bg-white/15 text-white/50 text-sm text-left border border-white/10"
+                  >
+                    Send message
                   </button>
                 )}
+
+                {/* Share */}
+                <button
+                  onClick={() => setShowShareModal(true)}
+                  className="p-2 text-white/80 active:text-white transition-colors"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" />
+                  </svg>
+                </button>
+              </div>
+            ) : (
+              /* Owner: just share */
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  onClick={() => setShowShareModal(true)}
+                  className="p-2 text-white/80 active:text-white transition-colors"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" />
+                  </svg>
+                </button>
               </div>
             )}
           </div>
-
-          {/* Reaction counts */}
-          {reactions.length > 0 && (
-            <div className="flex items-center gap-2 mt-2 text-white/80 text-sm">
-              {reactions.slice(0, 5).map((r) => (
-                <span key={r.emoji} className="flex items-center gap-1">
-                  <span>{r.emoji}</span>
-                  <span className="text-xs">{r.count}</span>
-                </span>
-              ))}
-            </div>
-          )}
         </div>
-
-        {/* Reaction picker modal */}
-        {showReactionPicker && (
-          <div className="absolute bottom-24 left-1/2 -translate-x-1/2 bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-2xl p-4 z-20">
-            <div className="grid grid-cols-6 gap-2">
-              {[
-                '❤️', '😍', '😊', '🥰', '😘', '🤩',
-                '😂', '🤣', '😄', '😅', '😆', '😁',
-                '😮', '😲', '😱', '🤯', '😵', '🥳',
-                '😢', '😭', '😔', '😪', '🥺', '😿',
-                '🔥', '💯', '👏', '🎉', '✨', '💪',
-                '👎', '👌', '💕', '❤️‍🔥', '💖', '💙'
-              ].map((emoji) => (
-                <button
-                  key={emoji}
-                  onClick={() => handleReaction(emoji)}
-                  className="w-10 h-10 flex items-center justify-center text-2xl hover:bg-[var(--bg-tertiary)] rounded-lg transition-transform hover:scale-125"
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Add to highlight modal */}
         {showHighlightModal && (

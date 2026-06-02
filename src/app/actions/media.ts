@@ -250,39 +250,24 @@ export async function createPostWithMedia(formData: FormData) {
       await supabase.from('post_media').insert(mediaRecords)
     }
 
-    // Extract and save mentions, send notifications
+    // Extract and save mentions — DB trigger creates notifications
     if (content) {
       const mentions = content.match(/@[\w.]+/g)
       if (mentions && mentions.length > 0) {
         const usernames = [...new Set(mentions.map(m => m.slice(1).toLowerCase()))]
-
-        // Look up mentioned users
         const { data: mentionedProfiles } = await supabase
           .from('profiles')
           .select('id, username')
           .in('username', usernames)
 
         if (mentionedProfiles && mentionedProfiles.length > 0) {
-          // Filter out self-mentions
           const otherMentions = mentionedProfiles.filter(p => p.id !== user.id)
-
           if (otherMentions.length > 0) {
-            // Insert into post_mentions table
             const mentionRecords = otherMentions.map(p => ({
               post_id: post.id,
               user_id: p.id,
             }))
             await supabase.from('post_mentions').insert(mentionRecords)
-
-            // Create notifications for mentioned users
-            const notifications = otherMentions.map(p => ({
-              user_id: p.id,
-              type: 'mention' as const,
-              actor_id: user.id,
-              post_id: post.id,
-              is_read: false,
-            }))
-            await supabase.from('notifications').insert(notifications)
           }
         }
       }

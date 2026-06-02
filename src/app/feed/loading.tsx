@@ -1,5 +1,5 @@
-import { PageLoader } from '@/components/ui/loader';
+import { PageSkeleton } from '@/components/design-system/skeleton';
 
 export default function FeedLoading() {
-  return <PageLoader />;
+  return <PageSkeleton />;
 }

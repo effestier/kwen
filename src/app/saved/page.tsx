@@ -4,8 +4,7 @@ import { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/main-layout';
 import { PostCard } from '@/components/post/post-card';
 import { createClient } from '@/lib/supabase/client';
-import { Skeleton } from '@/components/design-system/skeleton';
-import { PageLoader } from '@/components/ui/loader';
+import { GridSkeleton } from '@/components/design-system/skeleton';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 
 interface SavedPost {
@@ -124,7 +123,9 @@ export default function SavedPage() {
         </div>
 
         {loading ? (
-          <PageLoader />
+          <div className="p-0.5">
+            <GridSkeleton columns={3} rows={4} gap={0.5} />
+          </div>
         ) : posts.length > 0 ? (
           <div className="divide-y divide-[var(--border-subtle)]">
             {posts.map((post) => (

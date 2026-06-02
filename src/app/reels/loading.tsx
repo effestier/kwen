@@ -1,5 +1,5 @@
-import { PageLoader } from '@/components/ui/loader';
+import { ReelSkeleton } from '@/components/design-system/skeleton';
 
 export default function ReelsLoading() {
-  return <PageLoader />;
+  return <ReelSkeleton />;
 }

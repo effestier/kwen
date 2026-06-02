@@ -7,7 +7,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { createClient } from '@/lib/supabase/client';
 import { formatNumber } from '@/lib/utils';
 import { cn } from '@/lib/utils';
-import { PageLoader } from '@/components/ui/loader';
+import { ProfileSkeleton, GridSkeleton } from '@/components/design-system/skeleton';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import Link from 'next/link';
 import { toggleFollow } from '@/services/follows';
@@ -386,7 +386,10 @@ export function ProfileClient({ username, currentUserProfile }: { username: stri
   if (loading) {
     return (
       <MainLayout initialProfile={currentUserProfile}>
-        <PageLoader />
+        <div className="p-4 space-y-6">
+          <ProfileSkeleton />
+          <GridSkeleton columns={3} rows={3} gap={0.5} />
+        </div>
       </MainLayout>
     );
   }

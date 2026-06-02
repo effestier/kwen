@@ -52,4 +52,4 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.get_conversations_with_profiles() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_conversations_with_profiles(p_user_id uuid) TO authenticated;

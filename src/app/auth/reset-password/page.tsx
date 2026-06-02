@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { PageLoader, ButtonSpinner } from '@/components/ui/loader';
+import { ButtonSpinner } from '@/components/ui/loader';
+import { PageSkeleton } from '@/components/design-system/skeleton';
 import { sendPasswordReset, verifyRecoveryToken, setPassword } from '@/services/auth';
 import { BRAND } from '@/lib/brand/config';
 
@@ -18,7 +19,7 @@ export default function ResetPasswordPage() {
 function ResetPasswordFallback() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[var(--bg-primary)]">
-      <PageLoader />
+      <PageSkeleton />
     </div>
   );
 }
@@ -95,7 +96,7 @@ function SetNewPassword({ tokenHash }: { tokenHash: string }) {
   if (verifying) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[var(--bg-primary)]">
-        <PageLoader />
+        <PageSkeleton />
       </div>
     );
   }

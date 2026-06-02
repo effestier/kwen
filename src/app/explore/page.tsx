@@ -5,7 +5,8 @@ import { MainLayout } from '@/components/layout/main-layout';
 import { Avatar } from '@/components/ui/avatar';
 import { createClient } from '@/lib/supabase/client';
 import { formatNumber } from '@/lib/utils';
-import { PageLoader, PaginationLoader } from '@/components/ui/loader';
+import { PaginationLoader } from '@/components/ui/loader';
+import { GridSkeleton } from '@/components/design-system/skeleton';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { useScrollPreservation } from '@/lib/hooks/use-pull-to-refresh';
 import { TrendingTags } from '@/components/explore/trending-tags';
@@ -68,12 +69,16 @@ export default function ExplorePage() {
   const loadPosts = useCallback(async (excludeIds: string[], category: string) => {
     const { data: { user } } = await supabase.auth.getUser();
     const rpcCategory = category === 'All' ? 'all' : category.toLowerCase();
-    const { data: explorePosts } = await supabase.rpc('get_explore_feed', {
+    const { data: explorePosts, error: rpcError } = await supabase.rpc('get_explore_feed', {
       p_user_id: user?.id ?? '00000000-0000-0000-0000-000000000000',
       p_limit: 30,
       p_exclude_ids: excludeIds,
       p_category: rpcCategory,
     });
+    if (rpcError) {
+      console.error('[EXPLORE] get_explore_feed RPC error:', rpcError.message, rpcError);
+      return [];
+    }
     return (explorePosts || []) as ExplorePost[];
   }, [supabase]);
 
@@ -146,12 +151,18 @@ export default function ExplorePage() {
       const query = searchQuery.startsWith('@') ? searchQuery.slice(1) : searchQuery;
 
       if (searchMode === 'users') {
-        const { data } = await supabase.rpc('search_explore', {
+        const { data, error: searchError } = await supabase.rpc('search_explore', {
           p_user_id: user?.id ?? '00000000-0000-0000-0000-000000000000',
           p_query: query,
           p_type: 'users',
           p_limit: 10,
         });
+        if (searchError) {
+          console.error('[EXPLORE] search_explore users error:', searchError.message, searchError);
+          setSearchResults([]);
+          setSearching(false);
+          return;
+        }
         setSearchResults((data || []).map((r: any) => ({
           id: r.id,
           username: r.username,
@@ -161,12 +172,18 @@ export default function ExplorePage() {
           is_verified: r.is_verified || false,
         })));
       } else {
-        const { data } = await supabase.rpc('search_explore', {
+        const { data, error: searchError } = await supabase.rpc('search_explore', {
           p_user_id: user?.id ?? '00000000-0000-0000-0000-000000000000',
           p_query: query.startsWith('#') ? query.slice(1) : query,
           p_type: searchMode,
           p_limit: 20,
         });
+        if (searchError) {
+          console.error('[EXPLORE] search_explore', searchMode, 'error:', searchError.message, searchError);
+          setSearchResults([]);
+          setSearching(false);
+          return;
+        }
         if (searchMode === 'tags' && data) {
           // Tags return hashtag + post_count
           setSearchResults(data.map((r: any) => ({
@@ -222,7 +239,9 @@ export default function ExplorePage() {
   if (loading) {
     return (
       <MainLayout>
-        <PageLoader />
+        <div className="p-0.5">
+          <GridSkeleton columns={3} rows={6} gap={0.5} />
+        </div>
       </MainLayout>
     );
   }

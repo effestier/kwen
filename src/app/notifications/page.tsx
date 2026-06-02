@@ -7,8 +7,9 @@ import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import { formatTimeAgo } from '@/lib/utils';
 import { markAllNotificationsAsRead } from '@/services/notifications';
-import { PageLoader, PaginationLoader } from '@/components/ui/loader';
+import { PaginationLoader } from '@/components/ui/loader';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
+import { ListSkeleton } from '@/components/design-system/skeleton';
 import Link from 'next/link';
 
 interface Notification {
@@ -142,7 +143,6 @@ export default function NotificationsPage() {
         filter: `user_id=eq.${currentUserId.current}`,
       }, async (payload) => {
         const n = payload.new as { id: string; type: string; actor_id: string; post_id: string | null; is_read: boolean; created_at: string };
-        // Fetch actor profile
         const { data: profile } = await supabase
           .from('profiles')
           .select('id, username, display_name, avatar_url')
@@ -198,7 +198,9 @@ export default function NotificationsPage() {
         </div>
 
         {loading ? (
-          <PageLoader />
+          <div className="p-3">
+            <ListSkeleton items={8} />
+          </div>
         ) : notifications.length > 0 ? (
           <div role="feed" aria-label="Notifications" className="divide-y divide-[var(--border-subtle)]">
             {notifications.map((notif) => (

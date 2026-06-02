@@ -4,7 +4,6 @@ import './globals.css';
 import { Providers } from '@/components/providers';
 import { BRAND } from '@/lib/brand/config';
 import { AntiTamper } from '@/components/security/anti-tamper';
-import { PageTransition } from '@/components/ui/page-transition';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -173,9 +172,7 @@ export default function RootLayout({
         </a>
         <Providers>
           <AntiTamper />
-          <PageTransition>
-            {children}
-          </PageTransition>
+          {children}
         </Providers>
       </body>
     </html>

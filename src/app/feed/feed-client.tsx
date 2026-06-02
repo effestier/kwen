@@ -6,7 +6,8 @@ import { Stories } from '@/components/story/stories';
 import { PostCard } from '@/components/post/post-card';
 import { Avatar } from '@/components/ui/avatar';
 import { createClient } from '@/lib/supabase/client';
-import { PageLoader, PaginationLoader } from '@/components/ui/loader';
+import { PaginationLoader } from '@/components/ui/loader';
+import { PageSkeleton } from '@/components/design-system/skeleton';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { SuggestedUsers } from '@/components/explore/suggested-users';
 import { useScrollPreservation } from '@/lib/hooks/use-pull-to-refresh';
@@ -265,7 +266,7 @@ export function FeedClient({ initialProfile, initialFollowingIds }: FeedClientPr
   if (loading) {
     return (
       <MainLayout initialProfile={initialProfile}>
-        <PageLoader />
+        <PageSkeleton />
       </MainLayout>
     );
   }

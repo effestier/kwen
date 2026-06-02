@@ -1,5 +1,9 @@
-import { PageLoader } from '@/components/ui/loader';
+import { ListSkeleton } from '@/components/design-system/skeleton';
 
 export default function MessagesLoading() {
-  return <PageLoader />;
+  return (
+    <div className="p-3">
+      <ListSkeleton items={6} />
+    </div>
+  );
 }

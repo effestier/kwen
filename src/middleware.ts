@@ -80,13 +80,13 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // Validate the session by calling getUser() — this:
-  // 1. Validates the JWT signature and expiry
-  // 2. Refreshes expired tokens (returns refreshed cookies via setAll)
-  // 3. Returns null if session is truly invalid
-  const { data: { user }, error } = await supabase.auth.getUser()
+  // Use getSession() — reads JWT from cookie directly, no network round-trip.
+  // getUser() validates against Supabase servers on every navigation which adds
+  // 20-100ms latency per route change. The JWT signature is already verified
+  // by the cookie mechanism, and expired tokens are handled by the client.
+  const { data: { session }, error } = await supabase.auth.getSession()
 
-  if (error || !user) {
+  if (error || !session?.user) {
     // Invalid/expired session — redirect to login
     const loginUrl = new URL('/auth/login', request.url)
     loginUrl.searchParams.set('redirect', pathname)

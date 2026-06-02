@@ -98,7 +98,7 @@ export default function PrivacyPage() {
             <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-3">10. Contact</h2>
             <p>
               If you have questions about this privacy policy, contact us at{' '}
-              <a href={`mailto:${BRAND.social.supportEmail}`} className="text-[var(--accent-primary)] hover:underline">
+              <a href={`mailto:${BRAND.social.supportEmail}`} className="text-[var(--accent-primary)]">
                 {BRAND.social.supportEmail}
               </a>.
             </p>

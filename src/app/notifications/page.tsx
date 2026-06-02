@@ -189,7 +189,7 @@ export default function NotificationsPage() {
             {notifications.some(n => !n.is_read) && (
               <button
                 onClick={handleMarkAllRead}
-                className="text-sm text-[var(--accent-primary)] hover:underline"
+                className="text-sm text-[var(--accent-primary)]"
               >
                 Mark all read
               </button>

@@ -188,7 +188,7 @@ export function RegisterForm() {
             <button type="submit" disabled={loading || !email} className="w-full py-3 rounded-xl bg-[var(--accent-primary)] text-[var(--text-inverse)] text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50">{loading ? 'Sending...' : 'Continue'}</button>
           </form>
         </div>
-        <p className="text-center mt-6 text-sm text-[var(--text-muted)]">Already have an account?{' '}<Link href="/auth/login" className="text-[var(--accent-primary)] hover:underline">Sign in</Link></p>
+        <p className="text-center mt-6 text-sm text-[var(--text-muted)]">Already have an account?{' '}<Link href="/auth/login" className="text-[var(--accent-primary)]">Sign in</Link></p>
       </>
     );
   }
@@ -213,7 +213,7 @@ export function RegisterForm() {
         </form>
         <div className="mt-6 text-center">
           <p className="text-sm text-[var(--text-muted)]">
-            {resendCooldown > 0 ? (<>Resend code in {resendCooldown}s</>) : (<>Didn&apos;t receive code?{' '}<button onClick={() => { setStep('email'); setError(null); setOtpCode(''); }} className="text-[var(--accent-primary)] hover:underline">Resend</button></>)}
+            {resendCooldown > 0 ? (<>Resend code in {resendCooldown}s</>) : (<>Didn&apos;t receive code?{' '}<button onClick={() => { setStep('email'); setError(null); setOtpCode(''); }} className="text-[var(--accent-primary)]">Resend</button></>)}
           </p>
         </div>
       </div>,

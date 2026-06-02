@@ -229,7 +229,7 @@ export function PasswordLoginForm() {
             </div>
 
             <div className="text-right">
-              <Link href="/auth/reset-password" className="text-sm text-[var(--accent-primary)] hover:underline">
+              <Link href="/auth/reset-password" className="text-sm text-[var(--accent-primary)]">
                 Forgot password?
               </Link>
             </div>
@@ -247,7 +247,7 @@ export function PasswordLoginForm() {
           <div className="mt-4 text-center">
             <button
               onClick={() => { setSubStep('otp-email'); setError(null); setOtpCode(''); }}
-              className="text-sm text-[var(--accent-primary)] hover:underline"
+              className="text-sm text-[var(--accent-primary)]"
             >
               Sign in with code instead
             </button>
@@ -256,7 +256,7 @@ export function PasswordLoginForm() {
 
         <p className="text-center mt-6 text-sm text-[var(--text-muted)]">
           Don&apos;t have an account?{' '}
-          <Link href="/auth/register" className="text-[var(--accent-primary)] hover:underline">Sign up</Link>
+          <Link href="/auth/register" className="text-[var(--accent-primary)]">Sign up</Link>
         </p>
       </>
     );
@@ -303,7 +303,7 @@ export function PasswordLoginForm() {
         <div className="mt-4 text-center">
           <button
             onClick={() => { setSubStep('credentials'); setError(null);  }}
-            className="text-sm text-[var(--accent-primary)] hover:underline"
+            className="text-sm text-[var(--accent-primary)]"
           >
             Use password instead
           </button>
@@ -374,7 +374,7 @@ export function PasswordLoginForm() {
                 Didn&apos;t receive code?{' '}
                 <button
                   onClick={() => { setSubStep('otp-email'); setError(null); setOtpCode('');  }}
-                  className="text-[var(--accent-primary)] hover:underline"
+                  className="text-[var(--accent-primary)]"
                 >
                   Resend
                 </button>

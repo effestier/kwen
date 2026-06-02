@@ -338,7 +338,7 @@ export function MessageBubble({ message, showAvatar, showTail, onReact, onReply,
                         rel="noopener noreferrer"
                         onClick={(e) => e.stopPropagation()}
                         className={cn(
-                          'underline underline-offset-2 decoration-1',
+                          '',
                           message.isMine ? 'text-white/90 hover:text-white' : 'text-[var(--accent-primary)] hover:opacity-80'
                         )}
                       >

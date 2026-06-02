@@ -1513,12 +1513,12 @@ export default function MessagesPage() {
                 {loadError ? (
                   <button
                     onClick={() => { setLoadError(null); window.location.reload(); }}
-                    className="text-sm font-semibold text-[var(--accent-primary)] hover:underline"
+                    className="text-sm font-semibold text-[var(--accent-primary)]"
                   >
                     Retry
                   </button>
                 ) : (
-                  <Link href="/explore" className="text-sm font-semibold text-[var(--accent-primary)] hover:underline">Find people</Link>
+                  <Link href="/explore" className="text-sm font-semibold text-[var(--accent-primary)]">Find people</Link>
                 )}
               </div>
             )}
@@ -1659,8 +1659,8 @@ export default function MessagesPage() {
                               {msg.status === 'failed' && msg.isMine && (
                                 <div className="flex items-center gap-2 mt-1">
                                   <span className="text-[11px] text-[var(--destructive)]">Failed to send</span>
-                                  <button type="button" onClick={() => handleRetryMessage(msg.id)} className="text-[11px] text-[var(--accent-primary)] font-medium hover:underline">Retry</button>
-                                  <button type="button" onClick={() => handleDeleteFailedMessage(msg.id)} className="text-[11px] text-[var(--text-muted)] hover:underline">Delete</button>
+                                  <button type="button" onClick={() => handleRetryMessage(msg.id)} className="text-[11px] text-[var(--accent-primary)] font-medium">Retry</button>
+                                  <button type="button" onClick={() => handleDeleteFailedMessage(msg.id)} className="text-[11px] text-[var(--text-muted)]">Delete</button>
                                 </div>
                               )}
                               {msg.status === 'sending' && msg.isMine && (
@@ -1864,7 +1864,7 @@ export default function MessagesPage() {
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
               </svg>
               <p className="font-medium">Select a conversation</p>
-              <Link href="/explore" className="text-[var(--accent-primary)] text-sm hover:underline mt-2">Find new people</Link>
+              <Link href="/explore" className="text-[var(--accent-primary)] text-sm mt-2">Find new people</Link>
             </div>
           )}
         </div>

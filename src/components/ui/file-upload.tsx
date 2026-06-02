@@ -184,7 +184,7 @@ export function FileUpload({
             type="button"
             onClick={handleClick}
             disabled={uploading}
-            className="text-sm text-[var(--accent-primary)] hover:underline"
+            className="text-sm text-[var(--accent-primary)]"
           >
             Add more
           </button>

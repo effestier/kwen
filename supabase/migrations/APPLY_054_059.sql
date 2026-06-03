@@ -65,6 +65,7 @@ RETURNS TABLE (
   display_name text,
   username text,
   avatar_url text,
+  is_verified boolean,
   media jsonb
 ) AS $$
 DECLARE
@@ -82,7 +83,7 @@ BEGIN
     (SELECT count(*) FROM public.shared_posts sh WHERE sh.post_id = p.id)::int,
     EXISTS (SELECT 1 FROM public.post_likes pl WHERE pl.post_id = p.id AND pl.user_id = p_user_id),
     EXISTS (SELECT 1 FROM public.saved_posts sp WHERE sp.post_id = p.id AND sp.user_id = p_user_id),
-    pr.display_name, pr.username, pr.avatar_url,
+    pr.display_name, pr.username, pr.avatar_url, pr.is_verified,
     (SELECT jsonb_agg(jsonb_build_object('id', pm.id, 'storage_path', pm.storage_path, 'media_type', pm.media_type, 'sort_order', pm.sort_order) ORDER BY pm.sort_order)
      FROM public.post_media pm WHERE pm.post_id = p.id)
   FROM public.posts p
@@ -100,6 +101,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER STABLE SET search_path = public;
 
 GRANT EXECUTE ON FUNCTION public.get_explore_feed(uuid, int, uuid[]) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_explore_feed(uuid, int, uuid[]) TO anon;
 
 -- =============================================
 -- MIGRATION 057c: Fix search_explore RPC
@@ -174,6 +176,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER STABLE SET search_path = public;
 
 GRANT EXECUTE ON FUNCTION public.search_explore(uuid, text, text, int) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.search_explore(uuid, text, text, int) TO anon;
 
 -- =============================================
 -- MIGRATION 057d: Fix get_suggested_users and get_trending_hashtags
@@ -209,6 +212,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER STABLE SET search_path = public;
 
 GRANT EXECUTE ON FUNCTION public.get_suggested_users(uuid, int) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_suggested_users(uuid, int) TO anon;
 
 CREATE OR REPLACE FUNCTION public.get_trending_hashtags(p_limit int DEFAULT 10)
 RETURNS TABLE (hashtag text, post_count bigint) AS $$

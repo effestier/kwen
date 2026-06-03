@@ -604,6 +604,29 @@ export function MessageBubble({ message, showAvatar, showTail, onReact, onReply,
             role="dialog"
             aria-label="Message actions"
             className="fixed bottom-0 left-0 right-0 z-[9999] bg-[var(--bg-secondary)] rounded-t-2xl pb-[max(0.75rem,env(safe-area-inset-bottom))] animate-slide-in-from-bottom"
+            onTouchStart={(e) => {
+              const sheet = e.currentTarget;
+              const startY = e.touches[0].clientY;
+              const startTranslate = 0;
+              const onMove = (ev: TouchEvent) => {
+                const dy = ev.touches[0].clientY - startY;
+                if (dy > 0) {
+                  sheet.style.transform = `translateY(${dy}px)`;
+                }
+              };
+              const onEnd = (ev: TouchEvent) => {
+                const dy = ev.changedTouches[0].clientY - startY;
+                if (dy > 80) {
+                  setShowActionSheet(false);
+                } else {
+                  sheet.style.transform = '';
+                }
+                sheet.removeEventListener('touchmove', onMove);
+                sheet.removeEventListener('touchend', onEnd);
+              };
+              sheet.addEventListener('touchmove', onMove, { passive: true });
+              sheet.addEventListener('touchend', onEnd);
+            }}
           >
             <div className="flex justify-center pt-2 pb-1">
               <div className="w-9 h-1 bg-[var(--text-muted)]/20 rounded-full" />

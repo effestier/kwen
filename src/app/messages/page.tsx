@@ -15,6 +15,7 @@ import { compressForMessage, generateThumbnail, validateRawFile, verifyImageCont
 import { ListSkeleton, Skeleton } from '@/components/design-system/skeleton';
 import { blockUser } from '@/services/posts';
 import { VoiceRecorder } from '@/components/messages/voice-recorder';
+import { LightboxModal } from '@/components/messages/lightbox-modal';
 import { usePresence, formatLastSeen } from '@/hooks/use-presence';
 
 interface Message {
@@ -1934,6 +1935,13 @@ export default function MessagesPage() {
                               style={{ width: `${uploadProgress}%` }}
                             />
                           </div>
+                          <button
+                            type="button"
+                            onClick={() => { setUploadProgress(-1); setSending(false); clearImagePreview(); }}
+                            className="text-white/70 text-[10px] font-medium mt-1 hover:text-white active:text-white transition-colors"
+                          >
+                            Cancel
+                          </button>
                         </div>
                       )}
                     </div>

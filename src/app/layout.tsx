@@ -108,7 +108,7 @@ export default function RootLayout({
         {/* Hide all content immediately on native — prevents landing page flash */}
         <script src="/js/capacitor-splash.js" />
         {/* Inline script to apply theme before paint - prevents FOUC */}
-        <script src="/js/theme-init.js" defer />
+        <script src="/js/theme-init.js" />
         {/* Service worker cleanup */}
         <script src="/js/sw-cleanup.js" defer />
         <script

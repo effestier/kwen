@@ -117,6 +117,10 @@ export function MessageBubble({ message, showAvatar, showTail, onReact, onReply,
 
     longPressTimer.current = setTimeout(() => {
       longPressTriggered.current = true;
+      // Haptic feedback on long press
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        navigator.vibrate(25);
+      }
       setShowActionSheet(true);
     }, 500);
   }, []);
@@ -163,6 +167,10 @@ export function MessageBubble({ message, showAvatar, showTail, onReact, onReply,
     // Double-tap to react with heart (mobile)
     const now = Date.now();
     if (now - lastTapRef.current < 300) {
+      // Haptic feedback on double-tap react
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        navigator.vibrate([10, 30, 10]);
+      }
       onReact(message.id, '❤️');
       setShowHeart(true);
       setTimeout(() => setShowHeart(false), 800);
@@ -326,23 +334,26 @@ export function MessageBubble({ message, showAvatar, showTail, onReact, onReply,
             {message.content && message.content !== 'Photo' && message.message_type !== 'voice' && (
               <p className={cn(
                 'whitespace-pre-wrap break-words',
-                /^[\p{Emoji_Presentation}\p{Emoji}\u200d\ufe0f]{1,12}$/u.test(message.content) ? 'text-[2.5rem] leading-tight' : 'text-[15px] leading-[1.35]'
+                /^[\p{Emoji_Presentation}\p{Emoji}\u200d\ufe0f\p{Extended_Pictographic}]+$/u.test(message.content.trim()) && message.content.trim().length <= 20 ? 'text-[2.5rem] leading-tight' : 'text-[15px] leading-[1.35]'
               )}>
                 {message.content.split(/(https?:\/\/[^\s<>"{}|\\^`\[\]]+)/g).map((part, i) => {
                   if (/^https?:\/\//.test(part)) {
+                    // Strip trailing punctuation that's likely not part of the URL
+                    const cleanUrl = part.replace(/[.,;:!?)]+$/, '');
+                    const domain = cleanUrl.replace(/^https?:\/\//, '').split('/')[0];
                     return (
                       <a
                         key={i}
-                        href={part}
+                        href={cleanUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={(e) => e.stopPropagation()}
                         className={cn(
-                          '',
+                          'underline-offset-2 hover:underline',
                           message.isMine ? 'text-white/90 hover:text-white' : 'text-[var(--accent-primary)] hover:opacity-80'
                         )}
                       >
-                        {part}
+                        {domain}
                       </a>
                     );
                   }
@@ -367,22 +378,33 @@ export function MessageBubble({ message, showAvatar, showTail, onReact, onReply,
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
                   className={cn(
-                    'block mt-1.5 rounded-lg overflow-hidden border transition-colors',
+                    'block mt-1.5 rounded-lg overflow-hidden border transition-colors-fast',
                     message.isMine
                       ? 'bg-white/10 border-white/20 hover:bg-white/15'
                       : 'bg-[var(--bg-tertiary)] border-[var(--border-subtle)] hover:border-[var(--text-muted)]/30'
                   )}
                 >
-                  <div className="px-2.5 py-1.5 flex items-center gap-1.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={message.isMine ? 'rgba(255,255,255,0.5)' : 'var(--text-muted)'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-                    </svg>
-                    <span className={cn(
-                      'text-xs font-medium truncate',
-                      message.isMine ? 'text-white/70' : 'text-[var(--text-muted)]'
+                  <div className="flex items-center gap-2.5 px-2.5 py-2">
+                    <div className={cn(
+                      'w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0 text-sm',
+                      message.isMine ? 'bg-white/15' : 'bg-[var(--bg-secondary)]'
                     )}>
-                      {domain}
-                    </span>
+                      🔗
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={cn(
+                        'text-xs font-medium truncate',
+                        message.isMine ? 'text-white/90' : 'text-[var(--text-primary)]'
+                      )}>
+                        {domain}
+                      </p>
+                      <p className={cn(
+                        'text-[11px] truncate mt-0.5',
+                        message.isMine ? 'text-white/50' : 'text-[var(--text-muted)]'
+                      )}>
+                        {url.length > 60 ? url.slice(0, 60) + '…' : url}
+                      </p>
+                    </div>
                   </div>
                 </a>
               );
@@ -401,13 +423,27 @@ export function MessageBubble({ message, showAvatar, showTail, onReact, onReply,
             'flex items-center gap-1 mt-0.5',
             message.isMine ? 'justify-start' : 'justify-end'
           )}>
-            <span className="text-[11px] text-[var(--text-muted)] opacity-0 group-hover/msg:opacity-100 transition-opacity duration-150 select-none">
+            <span className={cn(
+              "text-[11px] text-[var(--text-muted)] transition-opacity duration-150 select-none",
+              showTail ? "opacity-100" : "opacity-0 group-hover/msg:opacity-100"
+            )}>
               {formatTime(message.createdAt)}
             </span>
             {message.isMine && (
-              <span className="opacity-0 group-hover/msg:opacity-100 transition-opacity duration-150 select-none">
-                {message.seen_at ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <span className={cn(
+                "transition-opacity duration-150 select-none",
+                showTail ? "opacity-100" : "opacity-0 group-hover/msg:opacity-100"
+              )}>
+                {message.status === 'sending' ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="animate-spin">
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                  </svg>
+                ) : message.status === 'failed' ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--destructive)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" /><path d="m15 9-6 6" /><path d="m9 9 6 6" />
+                  </svg>
+                ) : message.seen_at ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M18 6 7 17l-5-5" /><path d="m22 10-9.5 9.5L10 17" />
                   </svg>
                 ) : message.delivered_at ? (

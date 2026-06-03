@@ -114,6 +114,8 @@ export default function MessagesPage() {
   const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' } | null>(null);
   const [isRecordingVoice, setIsRecordingVoice] = useState(false);
   const [showScrollDown, setShowScrollDown] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const unreadCountRef = useRef(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Map<string, string>>(new Map()); // conversationId -> matched message snippet
   const [searchingMessages, setSearchingMessages] = useState(false);
@@ -167,6 +169,15 @@ export default function MessagesPage() {
   useEffect(() => { currentUserIdRef.current = currentUserId; }, [currentUserId]);
   useEffect(() => { currentUserProfileRef.current = currentUserProfile; }, [currentUserProfile]);
   useEffect(() => { selectedIdRef.current = selectedId; }, [selectedId]);
+
+  // Auto-focus textarea when opening a conversation (mobile only)
+  useEffect(() => {
+    if (showMobileChat && messageInputRef.current) {
+      // Small delay to let the mobile chat view transition complete
+      const timer = setTimeout(() => messageInputRef.current?.focus(), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [showMobileChat, selectedId]);
 
   // User + conversations loaded together (merged to save one auth roundtrip)
 
@@ -710,6 +721,9 @@ export default function MessagesPage() {
       if (messageChannelRef.current) { supabase.removeChannel(messageChannelRef.current); messageChannelRef.current = null; }
       if (typingChannelRef.current) { supabase.removeChannel(typingChannelRef.current); typingChannelRef.current = null; }
       if (reactionsChannelRef.current) { supabase.removeChannel(reactionsChannelRef.current); reactionsChannelRef.current = null; }
+      // Clean up typing timeout
+      if (typingTimeoutRef.current) { clearTimeout(typingTimeoutRef.current); typingTimeoutRef.current = null; }
+      if (typingDebounceRef.current) { clearTimeout(typingDebounceRef.current); typingDebounceRef.current = null; }
     };
   }, [selectedId, currentUserId, currentUserProfile, deduplicateMessages]);
 
@@ -731,6 +745,14 @@ export default function MessagesPage() {
   useEffect(() => {
     if (isNearBottomRef.current) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      // Count new messages that arrived while scrolled up (only from others)
+      const newMessages = messages.slice(-1); // just the latest
+      const hasNewFromOthers = newMessages.some(m => !m.isMine);
+      if (hasNewFromOthers) {
+        unreadCountRef.current += 1;
+        setUnreadCount(unreadCountRef.current);
+      }
     }
   }, [messages.length]);
 
@@ -1147,6 +1169,11 @@ export default function MessagesPage() {
 
     if ((!newMessage.trim() && !imageFile) || !sid || sending || !uid || !profile) return;
 
+    // Haptic feedback on send
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      navigator.vibrate(15);
+    }
+
     setSending(true);
     let media: MediaMetadata | undefined;
 
@@ -1233,6 +1260,10 @@ export default function MessagesPage() {
     // Reset textarea height after clearing
     if (messageInputRef.current) {
       messageInputRef.current.style.height = 'auto';
+    }
+    // Haptic feedback on send (mobile)
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      navigator.vibrate(10);
     }
 
     const result = await sendMessage(sid, displayContent, media, replyTo?.id);
@@ -1436,16 +1467,29 @@ export default function MessagesPage() {
                   <div className="w-6 h-6 border-2 border-[var(--text-muted)] border-t-transparent rounded-full animate-spin" />
                 </div>
               </div>
-            ) : conversations.length > 0 ? (
-              conversations
+            ) : conversations.length > 0 ? (() => {
+              const filtered = conversations
                 .filter(conv => {
                   if (!conv.has_messages) return false; // hide empty conversations from sidebar
                   if (!searchQuery.trim()) return true;
                   const q = searchQuery.toLowerCase();
                   if (conv.other_user?.display_name?.toLowerCase().includes(q) || conv.other_user?.username?.toLowerCase().includes(q)) return true;
                   return searchResults.has(conv.id);
-                })
-                .map((conv) => {
+                });
+              if (filtered.length === 0 && searchQuery.trim()) {
+                return (
+                  <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+                    <div className="w-14 h-14 rounded-full bg-[var(--bg-tertiary)] mb-3 flex items-center justify-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+                      </svg>
+                    </div>
+                    <p className="font-semibold text-[var(--text-primary)] text-[15px]">No results for "{searchQuery}"</p>
+                    <p className="text-sm text-[var(--text-muted)] mt-0.5">Try a different search term</p>
+                  </div>
+                );
+              }
+              return filtered.map((conv) => {
                 const isUnread = conv.unread_count > 0;
                 const isSelected = selectedId === conv.id;
                 return (
@@ -1507,7 +1551,7 @@ export default function MessagesPage() {
                     </div>
                   </button>
                 );
-              })
+              })())
             ) : (
               <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
                 <div className="w-14 h-14 rounded-full bg-[var(--bg-tertiary)] mb-3 flex items-center justify-center">
@@ -1589,10 +1633,13 @@ export default function MessagesPage() {
                     {selectedConversation.other_user?.display_name || 'User'}
                   </Link>
                   {typingUsers.size > 0 ? (
-                    <div className="flex items-center gap-1 mt-0.5">
-                      <div className="typing-dot" />
-                      <div className="typing-dot" />
-                      <div className="typing-dot" />
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <div className="flex items-center gap-0.5">
+                        <div className="typing-dot" />
+                        <div className="typing-dot" />
+                        <div className="typing-dot" />
+                      </div>
+                      <span className="text-xs text-[var(--accent-primary)] font-medium">typing…</span>
                     </div>
                   ) : (
                     <p className="text-xs text-[var(--text-muted)] mt-0.5">
@@ -1615,7 +1662,13 @@ export default function MessagesPage() {
                   }
                   // Show scroll-to-bottom button when scrolled up
                   const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+                  const isNearBottom = distFromBottom < 150;
                   setShowScrollDown(distFromBottom > 200);
+                  // Reset unread count when near bottom
+                  if (isNearBottom) {
+                    unreadCountRef.current = 0;
+                    setUnreadCount(0);
+                  }
                 }}
               >
                 {loadingMessages ? (
@@ -1651,6 +1704,12 @@ export default function MessagesPage() {
                       const newestOutgoingId = myMsgs.length > 0 ? myMsgs[myMsgs.length - 1].id : null;
                       const latestSeenId = [...myMsgs].reverse().find(m => m.seen_at)?.id || null;
 
+                      // Find the first unread message index for the unread separator
+                      const lastReadMsgId = selectedConversation.last_read_message_id;
+                      const firstUnreadIdx = lastReadMsgId
+                        ? messages.findIndex(m => !m.isMine && m.id === lastReadMsgId)
+                        : -1;
+
                       return messages.map((msg, i) => {
                       const prevMsg = i > 0 ? messages[i - 1] : null;
                       const isConsecutive = prevMsg && prevMsg.senderId === msg.senderId;
@@ -1659,27 +1718,64 @@ export default function MessagesPage() {
                       const showDateSeparator = !prevMsg ||
                         new Date(msg.createdAt).toDateString() !== new Date(prevMsg.createdAt).toDateString();
 
-                      // Failed/sending messages use legacy inline rendering
+                      // Show unread separator before the first unread incoming message after the last read
+                      const showUnreadSeparator = firstUnreadIdx >= 0 && i === firstUnreadIdx + 1 && !msg.isMine;
+
+                      // Failed/sending messages — render with MessageBubble for full interaction support
                       if (msg.status === 'failed' || msg.status === 'sending') {
                         return (
-                          <div key={msg.id} className={cn('flex w-full mt-2', msg.isMine ? 'justify-end' : 'justify-start')}>
-                            <div className={cn('max-w-[78%] md:max-w-[min(65%,520px)]')}>
-                              <div className={cn('text-sm rounded-2xl px-3.5 py-2', msg.isMine ? 'bg-[var(--accent-primary)] text-[var(--text-inverse)] rounded-br-md' : 'bg-[var(--bg-secondary)] text-[var(--text-primary)] rounded-bl-md', msg.status === 'failed' && 'opacity-70')}>
-                                {msg.content && msg.content !== 'Photo' && <p className="whitespace-pre-wrap text-sm">{msg.content}</p>}
+                          <div key={msg.id}>
+                            {showDateSeparator && (
+                              <div className="flex items-center justify-center my-4">
+                                <span className="text-[11px] text-[var(--text-muted)] bg-[var(--bg-secondary)] px-3 py-1 rounded-full">
+                                  {new Date(msg.createdAt).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                                </span>
                               </div>
-                              {msg.status === 'failed' && msg.isMine && (
-                                <div className="flex items-center gap-2 mt-1">
-                                  <span className="text-[11px] text-[var(--destructive)]">Failed to send</span>
-                                  <button type="button" onClick={() => handleRetryMessage(msg.id)} className="text-[11px] text-[var(--accent-primary)] font-medium">Retry</button>
-                                  <button type="button" onClick={() => handleDeleteFailedMessage(msg.id)} className="text-[11px] text-[var(--text-muted)]">Delete</button>
+                            )}
+                            {showUnreadSeparator && (
+                              <div className="flex items-center gap-3 my-4 px-4">
+                                <div className="flex-1 h-px bg-[var(--destructive)]/40" />
+                                <span className="text-[11px] text-[var(--destructive)] font-medium">New messages</span>
+                                <div className="flex-1 h-px bg-[var(--destructive)]/40" />
+                              </div>
+                            )}
+                            <div className={cn('flex w-full mt-2', msg.isMine ? 'justify-end' : 'justify-start')}>
+                              <div className={cn('max-w-[78%] md:max-w-[min(65%,520px)]')}>
+                                <div className={cn(
+                                  'text-sm rounded-2xl px-3.5 py-2',
+                                  msg.isMine ? 'bg-[var(--accent-primary)] text-[var(--text-inverse)] rounded-br-md' : 'bg-[var(--bg-secondary)] text-[var(--text-primary)] rounded-bl-md',
+                                  msg.status === 'failed' && 'opacity-60'
+                                )}>
+                                  {msg.content && msg.content !== 'Photo' && <p className="whitespace-pre-wrap text-sm">{msg.content}</p>}
+                                  {msg.media_url && (
+                                    <div className="mt-1">
+                                      <img src={msg.media_url} alt="" className="rounded-lg max-w-full max-h-[300px] object-contain" />
+                                    </div>
+                                  )}
                                 </div>
-                              )}
-                              {msg.status === 'sending' && msg.isMine && (
-                                <div className="flex items-center gap-1 mt-1">
-                                  <div className="animate-spin w-3 h-3 border border-[var(--text-muted)] border-t-transparent rounded-full" />
-                                  <span className="text-[10px] text-[var(--text-muted)]">Sending...</span>
-                                </div>
-                              )}
+                                {msg.status === 'failed' && msg.isMine && (
+                                  <div className="flex items-center gap-3 mt-1 px-1">
+                                    <div className="flex items-center gap-1.5">
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--destructive)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <circle cx="12" cy="12" r="10" /><path d="m15 9-6 6" /><path d="m9 9 6 6" />
+                                      </svg>
+                                      <span className="text-[11px] text-[var(--destructive)] font-medium">Failed</span>
+                                    </div>
+                                    <button type="button" onClick={() => handleRetryMessage(msg.id)} className="text-[11px] text-[var(--accent-primary)] font-semibold active:opacity-60 transition-opacity">
+                                      Retry
+                                    </button>
+                                    <button type="button" onClick={() => handleDeleteFailedMessage(msg.id)} className="text-[11px] text-[var(--text-muted)] active:opacity-60 transition-opacity">
+                                      Delete
+                                    </button>
+                                  </div>
+                                )}
+                                {msg.status === 'sending' && msg.isMine && (
+                                  <div className="flex items-center gap-1.5 mt-1 px-1">
+                                    <div className="animate-spin w-3 h-3 border-2 border-[var(--text-muted)] border-t-transparent rounded-full" />
+                                    <span className="text-[10px] text-[var(--text-muted)]">Sending...</span>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
                         );
@@ -1692,6 +1788,13 @@ export default function MessagesPage() {
                               <span className="text-[11px] text-[var(--text-muted)] bg-[var(--bg-secondary)] px-3 py-1 rounded-full">
                                 {formatDateSeparator(msg.createdAt)}
                               </span>
+                            </div>
+                          )}
+                          {showUnreadSeparator && (
+                            <div className="flex items-center gap-3 my-4 px-4">
+                              <div className="flex-1 h-px bg-[var(--destructive)]/40" />
+                              <span className="text-[11px] text-[var(--destructive)] font-medium">New messages</span>
+                              <div className="flex-1 h-px bg-[var(--destructive)]/40" />
                             </div>
                           )}
                           <div className={cn('px-0', isConsecutive && !showDateSeparator ? 'mt-[3px]' : 'mt-3')}>
@@ -1745,17 +1848,48 @@ export default function MessagesPage() {
                 <div ref={messagesEndRef} />
               </div>
 
+              {/* Typing indicator bubble in chat area */}
+              {typingUsers.size > 0 && (
+                <div className="flex justify-start px-4 py-1 animate-fadeIn">
+                  <div className="flex items-end gap-2 max-w-[78%] md:max-w-[min(65%,520px)]">
+                    <Avatar
+                      src={selectedConversation.other_user?.avatar_url || null}
+                      name={selectedConversation.other_user?.display_name || 'User'}
+                      size="sm"
+                    />
+                    <div className="bg-[var(--bg-secondary)] rounded-2xl rounded-bl-md px-4 py-2.5">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-[var(--text-muted)]">
+                          {selectedConversation.other_user?.display_name || 'Someone'} is typing
+                        </span>
+                        <div className="flex items-center gap-0.5 ml-1">
+                          <div className="typing-dot" />
+                          <div className="typing-dot" />
+                          <div className="typing-dot" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Scroll to bottom button */}
               {showScrollDown && (
                 <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-10">
                   <button
-                    onClick={() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--bg-secondary)] border border-[var(--border-subtle)] shadow-lg text-[var(--text-muted)] text-xs font-medium hover:bg-[var(--bg-tertiary)] transition-colors"
+                    onClick={() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); setUnreadCount(0); unreadCountRef.current = 0; }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--bg-secondary)] border border-[var(--border-subtle)] shadow-lg text-[var(--text-muted)] text-xs font-medium hover:bg-[var(--bg-tertiary)] active:scale-95 transition-all"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="m6 9 6 6 6-6" />
                     </svg>
-                    New messages
+                    {unreadCount > 0 ? (
+                      <span className="bg-[var(--accent-primary)] text-[var(--text-inverse)] text-[10px] font-bold min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1">
+                        {unreadCount}
+                      </span>
+                    ) : (
+                      <span>New messages</span>
+                    )}
                   </button>
                 </div>
               )}
@@ -1778,22 +1912,25 @@ export default function MessagesPage() {
                 {/* Image preview */}
                 {imagePreview && (
                   <div className="px-3 pt-3 pb-0">
-                    <div className="relative inline-block">
+                    <div className="relative inline-block group">
                       <img src={imagePreview} alt="Preview" className="max-h-[120px] rounded-lg object-cover" />
-                      <button
-                        type="button"
-                        onClick={clearImagePreview}
-                        aria-label="Remove image"
-                        className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-[var(--bg-tertiary)] border border-[var(--border-subtle)] text-[var(--text-muted)] flex items-center justify-center text-xs hover:text-[var(--text-primary)]"
-                      >
-                        &times;
-                      </button>
+                      {uploadProgress < 0 && (
+                        <button
+                          type="button"
+                          onClick={clearImagePreview}
+                          aria-label="Remove image"
+                          className="absolute -top-2.5 -right-2.5 w-8 h-8 rounded-full bg-[var(--bg-tertiary)] border border-[var(--border-subtle)] text-[var(--text-muted)] flex items-center justify-center text-sm font-medium hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] active:scale-90 transition-all shadow-sm"
+                        >
+                          ✕
+                        </button>
+                      )}
                       {uploadProgress >= 0 && (
-                        <div className="absolute inset-0 bg-black/50 rounded-lg flex flex-col items-center justify-center gap-1">
-                          <span className="text-white text-xs font-medium">{uploadProgress}%</span>
-                          <div className="w-3/4 h-1 bg-white/30 rounded-full overflow-hidden">
+                        <div className="absolute inset-0 bg-black/60 rounded-lg flex flex-col items-center justify-center gap-2 backdrop-blur-[2px]">
+                          <div className="w-10 h-10 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                          <span className="text-white text-xs font-semibold tabular-nums">{uploadProgress}%</span>
+                          <div className="w-24 h-1.5 bg-white/20 rounded-full overflow-hidden">
                             <div
-                              className="h-full bg-white rounded-full transition-all duration-200"
+                              className="h-full bg-[var(--accent-primary)] rounded-full transition-all duration-300 ease-out"
                               style={{ width: `${uploadProgress}%` }}
                             />
                           </div>
@@ -1824,7 +1961,7 @@ export default function MessagesPage() {
                       onClick={() => fileInputRef.current?.click()}
                       disabled={sending || uploadProgress >= 0 || !currentUserProfile}
                       aria-label="Attach image"
-                      className="p-2 rounded-full text-[var(--text-muted)] active:text-[var(--text-primary)] active:bg-[var(--bg-secondary)] transition-colors-fast disabled:opacity-30 flex-shrink-0"
+                      className="p-2.5 min-w-[44px] min-h-[44px] rounded-full text-[var(--text-muted)] active:text-[var(--text-primary)] active:bg-[var(--bg-secondary)] transition-colors-fast disabled:opacity-30 flex-shrink-0 flex items-center justify-center"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                         <rect width="18" height="18" x="3" y="3" rx="2" ry="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
@@ -1838,18 +1975,17 @@ export default function MessagesPage() {
                       onChange={(e) => { setNewMessage(e.target.value); handleTyping(); handleInputResize(e.target); }}
                       onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(e); } }}
                       placeholder="Message..."
-                      aria-label="Type a message"
                       disabled={!currentUserProfile}
                       rows={1}
-                      className="flex-1 resize-none overflow-y-auto px-4 py-2 rounded-2xl bg-[var(--bg-tertiary)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none disabled:opacity-50 text-[16px] leading-[1.35] max-h-[120px]"
-                      style={{ height: 'auto', minHeight: '40px' }}
+                      className="flex-1 resize-none overflow-y-auto px-4 py-2.5 rounded-2xl bg-[var(--bg-tertiary)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none disabled:opacity-50 text-[16px] leading-[1.35] max-h-[120px]"
+                      style={{ height: 'auto', minHeight: '44px' }}
                     />
                     {newMessage.trim() || imageFile ? (
                       <button
                         type="submit"
                         disabled={sending || !currentUserProfile}
                         aria-label="Send message"
-                        className="p-2 rounded-full bg-[var(--accent-primary)] text-[var(--text-inverse)] disabled:opacity-30 active:scale-90 transition-all flex-shrink-0"
+                        className="p-2.5 min-w-[44px] min-h-[44px] rounded-full bg-[var(--accent-primary)] text-[var(--text-inverse)] disabled:opacity-30 active:scale-90 transition-all flex-shrink-0 flex items-center justify-center"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                           <path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" />
@@ -1861,7 +1997,7 @@ export default function MessagesPage() {
                         onClick={() => setIsRecordingVoice(true)}
                         disabled={sending || !currentUserProfile}
                         aria-label="Record voice message"
-                        className="p-2.5 rounded-full text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] transition-colors-fast disabled:opacity-30 flex-shrink-0"
+                        className="p-2.5 min-w-[44px] min-h-[44px] rounded-full text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] transition-colors-fast disabled:opacity-30 flex-shrink-0 flex items-center justify-center"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                           <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" x2="12" y1="19" y2="22" />
@@ -1884,43 +2020,18 @@ export default function MessagesPage() {
         </div>
       </div>
 
-      {/* Image lightbox — H13: refreshes expired signed URLs */}
+      {/* Image lightbox — pinch-to-zoom, swipe dismiss, URL refresh */}
       {enlargedImage && (
-        <div
-          role="dialog"
-          aria-label="Image preview"
-          className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4"
-          onClick={() => setEnlargedImage(null)}
-          onKeyDown={(e) => e.key === 'Escape' && setEnlargedImage(null)}
-          tabIndex={0}
-          ref={(el) => { if (el) el.focus(); }}
-        >
-          <button
-            onClick={() => setEnlargedImage(null)}
-            aria-label="Close image"
-            className="absolute top-4 right-4 p-2 text-white/70 hover:text-white transition-colors"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 6 6 18" /><path d="m6 6 12 12" />
-            </svg>
-          </button>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={enlargedImage.url}
-            alt="Full size image"
-            className="max-w-full max-h-[90vh] object-contain rounded-lg"
-            onClick={(e) => e.stopPropagation()}
-            onError={async (e) => {
-              // H13: If image fails to load (expired URL), try refreshing via media_path
-              if (enlargedImage.mediaPath) {
-                const fresh = await getOrRefreshSignedUrl(enlargedImage.mediaPath);
-                if (fresh) {
-                  setEnlargedImage({ url: fresh, mediaPath: enlargedImage.mediaPath });
-                }
-              }
-            }}
-          />
-        </div>
+        <LightboxModal
+          url={enlargedImage.url}
+          mediaPath={enlargedImage.mediaPath}
+          onClose={() => setEnlargedImage(null)}
+          onRefreshUrl={async (path) => {
+            const fresh = await getOrRefreshSignedUrl(path);
+            if (fresh) setEnlargedImage({ url: fresh, mediaPath: path });
+            return fresh;
+          }}
+        />
       )}
       {/* Delete conversation confirmation */}
       {deleteConvId && (

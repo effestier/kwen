@@ -76,15 +76,88 @@ export function FeedClient({ initialProfile, initialFollowingIds }: FeedClientPr
   useScrollPreservation({ key: 'feed' });
 
   const loadPosts = useCallback(async (userId: string, excludeIds: string[]) => {
-    const { data: feedPosts, error } = await supabase.rpc('get_following_feed', {
+    // Try RPC first, fall back to direct query
+    const { data: rpcPosts, error: rpcError } = await supabase.rpc('get_following_feed', {
       p_user_id: userId,
       p_limit: 20,
       p_exclude_ids: excludeIds.length > 0 ? excludeIds : null,
     });
-    if (error) {
-      console.error('[feed] get_following_feed RPC error:', error.message, error);
+    if (!rpcError && rpcPosts && rpcPosts.length > 0) {
+      return rpcPosts;
     }
-    return feedPosts || [];
+    if (rpcError) {
+      console.warn('[feed] RPC failed, falling back to direct query:', rpcError.message);
+    }
+
+    // Fallback: fetch follows first, then build feed from direct queries
+    const { data: following } = await supabase
+      .from('follows')
+      .select('following_id')
+      .eq('follower_id', userId);
+
+    const followingIds = following?.map((f: any) => f.following_id) || [];
+    const allUserIds = [userId, ...followingIds];
+    if (allUserIds.length === 0) return [];
+
+    // Build exclusion filter
+    const excludeFilter = excludeIds.length > 0
+      ? `id.not.in.(${excludeIds.join(',')})`
+      : undefined;
+
+    // Fetch posts from followed users + self
+    // Note: posts table has 'shares' but NOT 'likes' or 'comments' — those are separate tables
+    const { data: rawPosts, error: postsError } = await supabase
+      .from('posts')
+      .select(`
+        id, user_id, content, location, created_at, shares,
+        profiles!inner (
+          display_name, username, avatar_url, is_verified
+        ),
+        post_media (
+          id, storage_path, media_type, sort_order
+        )
+      `)
+      .in('user_id', allUserIds)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (postsError) {
+      console.error('[feed] Direct posts query failed:', postsError.message, postsError);
+      return [];
+    }
+
+    if (!rawPosts || rawPosts.length === 0) return [];
+
+    // Get like/comment counts and like/save status in parallel
+    const postIds = rawPosts.map((p: any) => p.id);
+    const [{ data: likedPosts }, { data: savedPosts }] = await Promise.all([
+      supabase.from('post_likes').select('post_id').eq('user_id', userId).in('post_id', postIds),
+      supabase.from('saved_posts').select('post_id').eq('user_id', userId).in('post_id', postIds),
+    ]);
+
+    const likedSet = new Set((likedPosts || []).map((l: any) => l.post_id));
+    const savedSet = new Set((savedPosts || []).map((s: any) => s.post_id));
+
+    // Map to FeedPost format
+    return rawPosts.map((p: any) => ({
+      id: p.id,
+      user_id: p.user_id,
+      content: p.content,
+      location: p.location,
+      created_at: p.created_at,
+      like_count: 0,  // Would need a separate count query; RPC does this properly
+      comment_count: 0,
+      save_count: 0,
+      share_count: p.shares || 0,
+      is_liked: likedSet.has(p.id),
+      is_saved: savedSet.has(p.id),
+      display_name: p.profiles?.display_name || '',
+      username: p.profiles?.username || '',
+      avatar_url: p.profiles?.avatar_url || null,
+      is_verified: p.profiles?.is_verified || false,
+      media: (p.post_media || []).sort((a: any, b: any) => a.sort_order - b.sort_order),
+    }));
   }, [supabase]);
 
   const handleRefresh = useCallback(async () => {

@@ -4,10 +4,11 @@ import { useState, useCallback, useRef } from 'react'
 import Cropper from 'react-easy-crop'
 import { hapticLight, hapticMedium } from '@/lib/haptics'
 
-export type CropRatio = 'original' | '1:1' | '4:5' | '16:9'
+export type CropRatio = '4:5'
 
-/** Aspect ratio value used for Instagram-style feed */
+/** Only ratio allowed — 4:5 for all posts */
 export const DEFAULT_RATIO: CropRatio = '4:5'
+export const FIXED_ASPECT = 4 / 5
 
 interface CropState {
   crop: { x: number; y: number }
@@ -26,10 +27,7 @@ interface ImageCropperProps {
 }
 
 const RATIOS: { label: string; value: CropRatio; aspect?: number }[] = [
-  { label: '1:1', value: '1:1', aspect: 1 },
-  { label: '4:5', value: '4:5', aspect: 4 / 5 },
-  { label: '16:9', value: '16:9', aspect: 16 / 9 },
-  { label: 'Original', value: 'original' },
+  { label: '4:5', value: '4:5', aspect: FIXED_ASPECT },
 ]
 
 async function getCroppedImg(
@@ -96,7 +94,7 @@ export function ImageCropper({ src, ratio, onRatioChange, onCrop, onSkip, imageI
   const [processing, setProcessing] = useState(false)
   const lastTapRef = useRef(0)
 
-  const aspect = RATIOS.find(r => r.value === ratio)?.aspect
+  const aspect = FIXED_ASPECT // Always 4:5 — no other ratios allowed
 
   const onCropChange = useCallback((crop: { x: number; y: number }) => {
     setCropState(prev => ({ ...prev, crop }))

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useCallback, useEffect } from 'react';
+import { useRef, useState, useCallback } from 'react';
 import { VideoPlayer } from './video-player';
 
 interface MediaItem {
@@ -16,70 +16,17 @@ interface MediaCarouselProps {
   className?: string;
 }
 
-/** Max portrait ratio allowed (Instagram's tallest). Taller images get center-cropped. */
-const MAX_PORTRAIT_RATIO = 4 / 5;
-
-/** Max height in pixels so tall images don't dominate the feed */
-const MAX_HEIGHT_PX = 600;
+/** All posts forced to exactly 4:5 ratio */
+const FIXED_RATIO = 4 / 5;
 
 function AdaptiveImage({ src, onClick }: { src: string; onClick?: () => void }) {
-  const [ratio, setRatio] = useState<number | null>(null);
-  const [loaded, setLoaded] = useState(false);
-
-  const handleLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
-    const img = e.currentTarget;
-    if (img.naturalWidth && img.naturalHeight) {
-      setRatio(img.naturalWidth / img.naturalHeight);
-    }
-    setLoaded(true);
-  }, []);
-
-  // Before we know the ratio, show a placeholder
-  if (ratio === null) {
-    return (
-      <div className="w-full relative" style={{ aspectRatio: '1/1', maxHeight: MAX_HEIGHT_PX }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={src}
-          alt=""
-          className={`w-full h-full object-cover img-fade ${loaded ? 'loaded' : ''}`}
-          loading="lazy"
-          decoding="async"
-          draggable={false}
-          onLoad={handleLoad}
-          onClick={onClick}
-        />
-      </div>
-    );
-  }
-
-  // Portrait image taller than 4:5 → cap at 4:5
-  if (ratio < MAX_PORTRAIT_RATIO) {
-    return (
-      <div className="w-full relative" style={{ aspectRatio: `${MAX_PORTRAIT_RATIO}`, maxHeight: MAX_HEIGHT_PX }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={src}
-          alt=""
-          className="w-full h-full object-cover img-fade loaded"
-          loading="lazy"
-          decoding="async"
-          draggable={false}
-          onClick={onClick}
-        />
-      </div>
-    );
-  }
-
-  // Square, landscape, or mild portrait → show at natural ratio, just cap height
   return (
-    <div className="w-full relative" style={{ maxHeight: MAX_HEIGHT_PX }}>
+    <div className="w-full relative" style={{ aspectRatio: `${FIXED_RATIO}` }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={src}
         alt=""
-        className="w-full block img-fade loaded"
-        style={{ maxHeight: MAX_HEIGHT_PX, objectFit: 'contain' }}
+        className="w-full h-full object-cover img-fade loaded"
         loading="lazy"
         decoding="async"
         draggable={false}
@@ -149,7 +96,7 @@ export function MediaCarousel({ media, onDoubleTap, className }: MediaCarouselPr
           <div
             key={item.id}
             className="flex-shrink-0 w-full relative"
-            style={{ scrollSnapAlign: 'start', maxHeight: MAX_HEIGHT_PX }}
+            style={{ scrollSnapAlign: 'start' }}
             onClick={handleTap}
           >
             {item.media_type === 'video' ? (

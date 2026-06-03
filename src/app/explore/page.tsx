@@ -476,7 +476,7 @@ export default function ExplorePage() {
                   <Link
                     key={post.id}
                     href={`/post/${post.id}`}
-                    className="relative group block overflow-hidden bg-[var(--bg-tertiary)] aspect-square"
+                    className="relative group block overflow-hidden bg-[var(--bg-tertiary)] aspect-[4/5]"
                   >
                     {post.media && post.media.length > 0 ? (
                       hasVideo ? (

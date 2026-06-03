@@ -175,14 +175,13 @@ export default function MessagesPage() {
   useEffect(() => { currentUserProfileRef.current = currentUserProfile; }, [currentUserProfile]);
   useEffect(() => { selectedIdRef.current = selectedId; }, [selectedId]);
 
-  // Auto-focus textarea when opening a conversation (mobile only)
+  // Auto-focus textarea when opening a conversation
   useEffect(() => {
-    if (showMobileChat && messageInputRef.current) {
-      // Small delay to let the mobile chat view transition complete
-      const timer = setTimeout(() => messageInputRef.current?.focus(), 300);
+    if (selectedId && messageInputRef.current) {
+      const timer = setTimeout(() => messageInputRef.current?.focus(), showMobileChat ? 300 : 100);
       return () => clearTimeout(timer);
     }
-  }, [showMobileChat, selectedId]);
+  }, [selectedId]);
 
   // User + conversations loaded together (merged to save one auth roundtrip)
 
@@ -1266,6 +1265,10 @@ export default function MessagesPage() {
     if (messageInputRef.current) {
       messageInputRef.current.style.height = 'auto';
     }
+    // Haptic feedback on send
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      navigator.vibrate(15);
+    }
 
     const result = await sendMessage(sid, displayContent, media, replyTo?.id);
     setReplyTo(null);
@@ -1472,92 +1475,104 @@ export default function MessagesPage() {
                   <div className="w-6 h-6 border-2 border-[var(--text-muted)] border-t-transparent rounded-full animate-spin" />
                 </div>
               </div>
-            ) : conversations.length > 0 ? (() => {
-              const filteredConvs = conversations
-                .filter(conv => {
-                  if (!conv.has_messages) return false;
-                  if (!searchQuery.trim()) return true;
-                  const q = searchQuery.toLowerCase();
-                  if (conv.other_user?.display_name?.toLowerCase().includes(q) || conv.other_user?.username?.toLowerCase().includes(q)) return true;
-                  return searchResults.has(conv.id);
-                });
-              if (filteredConvs.length === 0 && searchQuery.trim()) {
-                return (
-                  <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-                    <div className="w-14 h-14 rounded-full bg-[var(--bg-tertiary)] mb-3 flex items-center justify-center">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
-                      </svg>
-                    </div>
-                    <p className="font-semibold text-[var(--text-primary)] text-[15px]">No results for "{searchQuery}"</p>
-                    <p className="text-sm text-[var(--text-muted)] mt-0.5">Try a different search term</p>
-                  </div>
-                );
-              }
-              return filteredConvs.map((conv) => {
-                const isUnread = conv.unread_count > 0;
-                const isSelected = selectedId === conv.id;
-                return (
-                  <button
-                    key={conv.id}
-                    role="listitem"
-                    aria-current={isSelected ? 'true' : undefined}
-                    onClick={() => handleSelectConversation(conv)}
-                    onContextMenu={(e) => { e.preventDefault(); setDeleteConvId(conv.id); }}
-                    onTouchStart={(e) => {
-                      const touch = e.touches[0];
-                      (e.currentTarget as HTMLButtonElement & { _lt?: ReturnType<typeof setTimeout> })._lt = setTimeout(() => {
-                        setDeleteConvId(conv.id);
-                      }, 500);
-                    }}
-                    onTouchEnd={(e) => { clearTimeout((e.currentTarget as HTMLButtonElement & { _lt?: ReturnType<typeof setTimeout> })._lt); }}
-                    onTouchCancel={(e) => { clearTimeout((e.currentTarget as HTMLButtonElement & { _lt?: ReturnType<typeof setTimeout> })._lt); }}
-                    className={cn(
-                      'w-full flex items-center gap-3 px-4 py-2.5 transition-colors-fast text-left',
-                      isSelected ? 'bg-[var(--bg-tertiary)]' : 'hover:bg-[var(--bg-secondary)]'
-                    )}
-                  >
-                    <div className="relative flex-shrink-0">
-                      <Avatar
-                        src={conv.other_user?.avatar_url || null}
-                        name={conv.other_user?.display_name || 'User'}
-                        size="lg"
-                        showOnline={isOnline(conv.other_user?.id || '')}
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className={cn(
-                          'text-[15px] truncate',
-                          isUnread ? 'font-bold text-[var(--text-primary)]' : 'font-normal text-[var(--text-primary)]'
-                        )}>
-                          {conv.other_user?.display_name || 'User'}
-                        </p>
-                        <span className={cn(
-                          'text-xs flex-shrink-0',
-                          isUnread ? 'text-[var(--text-primary)] font-semibold' : 'text-[var(--text-muted)]'
-                        )}>
-                          {formatTime(conv.updated_at)}
-                        </span>
+            ) : conversations.length > 0 ? (
+              (() => {
+                const filteredConvs = conversations
+                  .filter(conv => {
+                    if (!conv.has_messages) return false;
+                    if (!searchQuery.trim()) return true;
+                    const q = searchQuery.toLowerCase();
+                    if (conv.other_user?.display_name?.toLowerCase().includes(q) || conv.other_user?.username?.toLowerCase().includes(q)) return true;
+                    return searchResults.has(conv.id);
+                  });
+                if (filteredConvs.length === 0 && searchQuery.trim()) {
+                  return (
+                    <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+                      <div className="w-14 h-14 rounded-full bg-[var(--bg-tertiary)] mb-3 flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+                        </svg>
                       </div>
-                      <div className="flex items-center justify-between gap-2 mt-0.5">
-                        <p className={cn(
-                          'text-[13px] truncate leading-tight',
-                          isUnread ? 'text-[var(--text-primary)] font-semibold' : 'text-[var(--text-muted)]'
-                        )}>
-                          {searchResults.has(conv.id) ? searchResults.get(conv.id) : conv.last_message}
-                        </p>
-                        {isUnread && (
-                          <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[var(--accent-red)] text-white text-[10px] font-bold flex items-center justify-center">
-                            {conv.unread_count > 99 ? '99+' : conv.unread_count}
+                      <p className="font-semibold text-[var(--text-primary)] text-[15px]">No results for "{searchQuery}"</p>
+                      <p className="text-sm text-[var(--text-muted)] mt-0.5">Try a different search term</p>
+                    </div>
+                  );
+                }
+                return filteredConvs.map((conv) => {
+                  const isUnread = conv.unread_count > 0;
+                  const isSelected = selectedId === conv.id;
+                  return (
+                    <button
+                      key={conv.id}
+                      role="listitem"
+                      aria-current={isSelected ? 'true' : undefined}
+                      onClick={() => handleSelectConversation(conv)}
+                      onContextMenu={(e) => { e.preventDefault(); setDeleteConvId(conv.id); }}
+                      onTouchStart={(e) => {
+                        const touch = e.touches[0];
+                        (e.currentTarget as HTMLButtonElement & { _lt?: ReturnType<typeof setTimeout> })._lt = setTimeout(() => {
+                          setDeleteConvId(conv.id);
+                        }, 500);
+                      }}
+                      onTouchEnd={(e) => { clearTimeout((e.currentTarget as HTMLButtonElement & { _lt?: ReturnType<typeof setTimeout> })._lt); }}
+                      onTouchCancel={(e) => { clearTimeout((e.currentTarget as HTMLButtonElement & { _lt?: ReturnType<typeof setTimeout> })._lt); }}
+                      className={cn(
+                        'w-full flex items-center gap-3 px-4 py-2.5 transition-colors-fast text-left',
+                        isSelected ? 'bg-[var(--bg-tertiary)]' : 'hover:bg-[var(--bg-secondary)]'
+                      )}
+                    >
+                      <div className="relative flex-shrink-0">
+                        <Avatar
+                          src={conv.other_user?.avatar_url || null}
+                          name={conv.other_user?.display_name || 'User'}
+                          size="lg"
+                          showOnline={isOnline(conv.other_user?.id || '')}
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className={cn(
+                            'text-[15px] truncate',
+                            isUnread ? 'font-bold text-[var(--text-primary)]' : 'font-normal text-[var(--text-primary)]'
+                          )}>
+                            {conv.other_user?.display_name || 'User'}
+                          </p>
+                          <span className={cn(
+                            'text-xs flex-shrink-0',
+                            isUnread ? 'text-[var(--text-primary)] font-semibold' : 'text-[var(--text-muted)]'
+                          )}>
+                            {formatTime(conv.updated_at)}
                           </span>
-                        )}
+                        </div>
+                        <div className="flex items-center justify-between gap-2 mt-0.5">
+                          {typingUsers.has(conv.other_user?.id || '') ? (
+                            <div className="flex items-center gap-1.5">
+                              <div className="flex items-center gap-0.5">
+                                <div className="typing-dot" />
+                                <div className="typing-dot" />
+                                <div className="typing-dot" />
+                              </div>
+                              <span className="text-[13px] text-[var(--accent-primary)] font-medium">typing…</span>
+                            </div>
+                          ) : (
+                          <p className={cn(
+                            'text-[13px] truncate leading-tight',
+                            isUnread ? 'text-[var(--text-primary)] font-semibold' : 'text-[var(--text-muted)]'
+                          )}>
+                            {searchResults.has(conv.id) ? searchResults.get(conv.id) : conv.last_message}
+                          </p>
+                          )}
+                          {isUnread && (
+                            <span className="flex-shrink-0 min-w-[22px] h-[22px] px-1 rounded-full bg-[var(--accent-primary)] text-white text-[11px] font-bold flex items-center justify-center">
+                              {conv.unread_count > 99 ? '99+' : conv.unread_count}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </button>
-                );
-              });
-            })()
+                    </button>
+                  );
+                });
+              })()
             ) : (
               <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
                 <div className="w-14 h-14 rounded-full bg-[var(--bg-tertiary)] mb-3 flex items-center justify-center">
@@ -1760,18 +1775,26 @@ export default function MessagesPage() {
                                   )}
                                 </div>
                                 {msg.status === 'failed' && msg.isMine && (
-                                  <div className="flex items-center gap-3 mt-1 px-1">
+                                  <div className="flex items-center gap-2 mt-1.5 px-1">
                                     <div className="flex items-center gap-1.5">
                                       <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--destructive)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                         <circle cx="12" cy="12" r="10" /><path d="m15 9-6 6" /><path d="m9 9 6 6" />
                                       </svg>
-                                      <span className="text-[11px] text-[var(--destructive)] font-medium">Failed</span>
+                                      <span className="text-[11px] text-[var(--destructive)] font-medium">Failed to send</span>
                                     </div>
-                                    <button type="button" onClick={() => handleRetryMessage(msg.id)} className="text-[11px] text-[var(--accent-primary)] font-semibold active:opacity-60 transition-opacity">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRetryMessage(msg.id)}
+                                      className="text-[11px] text-[var(--accent-primary)] font-semibold active:opacity-60 transition-opacity px-2 py-0.5 rounded-md bg-[var(--accent-primary)]/10 hover:bg-[var(--accent-primary)]/20"
+                                    >
                                       Retry
                                     </button>
-                                    <button type="button" onClick={() => handleDeleteFailedMessage(msg.id)} className="text-[11px] text-[var(--text-muted)] active:opacity-60 transition-opacity">
-                                      Delete
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteFailedMessage(msg.id)}
+                                      className="text-[11px] text-[var(--text-muted)] active:opacity-60 transition-opacity px-2 py-0.5 rounded-md hover:bg-[var(--bg-tertiary)]"
+                                    >
+                                      Dismiss
                                     </button>
                                   </div>
                                 )}
@@ -2082,6 +2105,7 @@ export default function MessagesPage() {
       {blockUserId && (
         <div
           role="dialog"
+          aria-modal="true"
           aria-label="Block user"
           className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center"
           onClick={() => setBlockUserId(null)}

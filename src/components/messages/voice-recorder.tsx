@@ -319,6 +319,12 @@ export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
     );
   }
 
+  const [isLocked, setIsLocked] = useState(false);
+
+  const handleLockToggle = useCallback(() => {
+    setIsLocked(prev => !prev);
+  }, []);
+
   return (
     <div className="flex items-center gap-3 px-3 py-2.5 bg-[var(--bg-secondary)] touch-none select-none">
       {/* Left: send button */}
@@ -377,6 +383,37 @@ export function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) {
           )}
         </button>
       </div>
+
+      {/* Lock / Cancel area */}
+      {isLocked ? (
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className="text-[10px] text-[var(--text-muted)] font-medium uppercase tracking-wider">Locked</span>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setIsLocked(false); }}
+            aria-label="Unlock recording"
+            className="w-9 h-9 rounded-full bg-[var(--accent-red)]/15 flex items-center justify-center active:scale-90 transition-transform"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-red)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 9.9-1" />
+            </svg>
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); handleLockToggle(); }}
+          onTouchEnd={(e) => { e.stopPropagation(); e.preventDefault(); handleLockToggle(); }}
+          aria-label="Lock recording"
+          className="w-9 h-9 rounded-full bg-[var(--bg-tertiary)] flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+        </button>
+      )}
 
       {/* Right: cancel button */}
       <button

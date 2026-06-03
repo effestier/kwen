@@ -170,7 +170,7 @@ export function VoiceMessage({ mediaUrl, duration, isMine, onRefreshUrl }: Voice
         <button
           onClick={cycleSpeed}
           className={cn(
-            'text-[9px] font-medium px-1.5 py-0.5 rounded',
+            'text-[10px] font-semibold px-2 py-1 rounded-md min-w-[32px] text-center active:scale-90 transition-transform',
             isMine ? 'bg-white/20 text-white/70' : 'bg-[var(--bg-tertiary)] text-[var(--text-muted)]'
           )}
         >
@@ -183,7 +183,7 @@ export function VoiceMessage({ mediaUrl, duration, isMine, onRefreshUrl }: Voice
         <button
           onClick={togglePlay}
           className={cn(
-            'w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0',
+            'w-10 h-10 min-w-[40px] min-h-[40px] rounded-full flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform',
             isMine ? 'bg-white/20' : 'bg-[var(--bg-tertiary)]'
           )}
           aria-label={isPlaying ? 'Pause voice message' : 'Play voice message'}
@@ -200,7 +200,7 @@ export function VoiceMessage({ mediaUrl, duration, isMine, onRefreshUrl }: Voice
         </button>
 
         <div
-          className="flex-1 flex items-center gap-0.5 h-5 cursor-pointer"
+          className="flex-1 flex items-center gap-[1px] h-8 cursor-pointer"
           onClick={handleWaveformClick}
           role="slider"
           aria-label="Seek voice message"
@@ -211,17 +211,20 @@ export function VoiceMessage({ mediaUrl, duration, isMine, onRefreshUrl }: Voice
           {Array.from({ length: bars }).map((_, i) => {
             const pct = (i / bars) * 100;
             const isActive = pct <= progress;
-            const height = 4 + Math.sin(i * 0.5) * 8 + Math.cos(i * 1.2) * 4;
+            // Deterministic pseudo-random height based on index for a natural waveform
+            const seed = (i * 2654435761) >>> 0;
+            const raw = ((seed % 100) / 100);
+            const height = 4 + raw * 20;
             return (
               <div
                 key={i}
                 className={cn(
-                  'flex-1 rounded-full transition-colors',
+                  'flex-1 rounded-full transition-colors duration-100',
                   isActive
                     ? (isMine ? 'bg-white' : 'bg-[var(--text-primary)]')
                     : (isMine ? 'bg-white/30' : 'bg-[var(--text-muted)]/30')
                 )}
-                style={{ height: `${Math.max(3, height)}px` }}
+                style={{ height: `${Math.max(4, height)}px` }}
               />
             );
           })}

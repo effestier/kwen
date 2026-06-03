@@ -430,11 +430,12 @@ input, textarea, select, [contenteditable="true"] {
 
 /* Typing indicator dots */
 .typing-dot {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: var(--text-muted);
   animation: typingBounce 1.4s infinite;
+  opacity: 0.5;
 }
 .typing-dot:nth-child(2) { animation-delay: 0.2s; }
 .typing-dot:nth-child(3) { animation-delay: 0.4s; }
@@ -497,6 +498,25 @@ input, textarea, select, [contenteditable="true"] {
 @keyframes likeParticle4 { to { transform: translate(-20px, -8px) scale(0); opacity: 0; } }
 @keyframes likeParticle5 { to { transform: translate(8px, -30px) scale(0); opacity: 0; } }
 @keyframes likeParticle6 { to { transform: translate(-10px, -20px) scale(0); opacity: 0; } }
+
+/* Message entrance animation */
+@keyframes msgIn {
+  0% { opacity: 0; transform: translateY(8px) scale(0.97); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+.animate-msg-in {
+  animation: msgIn 200ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Message sending pop */
+@keyframes msgSend {
+  0% { transform: scale(0.95); }
+  50% { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}
+.animate-msg-send {
+  animation: msgSend 250ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
 
 /* Skeleton loading */
 .skeleton {

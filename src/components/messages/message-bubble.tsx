@@ -71,6 +71,23 @@ function isImageUrl(url: string): boolean {
   return /\.(jpg|jpeg|png|gif|webp|avif)(\?|$)/i.test(url);
 }
 
+// Robust emoji-only detection: handles flags (regional indicators), skin tones,
+// ZWJ sequences (👨‍👩‍👧‍👦), variation selectors, and keycaps (1️⃣).
+function isEmojiOnly(text: string): boolean {
+  // Strip whitespace and common invisible chars
+  const trimmed = text.trim();
+  if (trimmed.length === 0 || trimmed.length > 30) return false;
+
+  // Match full grapheme clusters: skin-tone ZWJ sequences, regional-indicator flags,
+  // keycap sequences, and individual emoji with variation selectors.
+  // This UAX #29–compliant pattern matches each "emoji unit" as one token.
+  // UAX #29–compliant: matches flag pairs, emoji+modifiers, ZWJ chains (👨‍👩‍👧‍👦), keycaps
+  const EMOJI_CLUSTER = /\p{RI}\p{RI}|\p{Emoji}(\p{EMod}|\x{FE0F}\x{20E3}?)?(?:\x{200D}\p{Emoji}(\p{EMod}|\x{FE0F}\x{20E3}?)?)*/gu;
+
+  const replaced = trimmed.replace(EMOJI_CLUSTER, '');
+  return replaced.trim().length === 0;
+}
+
 export function MessageBubble({ message, showAvatar, showTail, onReact, onReply, onDelete, onCopy, onReport, onBlock, onSaveMedia, onImageClick, onRefreshUrl, onForward }: MessageBubbleProps) {
   const [showPicker, setShowPicker] = useState(false);
   const [showActionSheet, setShowActionSheet] = useState(false);
@@ -334,7 +351,7 @@ export function MessageBubble({ message, showAvatar, showTail, onReact, onReply,
             {message.content && message.content !== 'Photo' && message.message_type !== 'voice' && (
               <p className={cn(
                 'whitespace-pre-wrap break-words',
-                /^[\p{Emoji_Presentation}\p{Emoji}\u200d\ufe0f\p{Extended_Pictographic}]+$/u.test(message.content.trim()) && message.content.trim().length <= 20 ? 'text-[2.5rem] leading-tight' : 'text-[15px] leading-[1.35]'
+                isEmojiOnly(message.content) ? 'text-[2.5rem] leading-tight' : 'text-[15px] leading-[1.35]'
               )}>
                 {message.content.split(/(https?:\/\/[^\s<>"{}|\\^`\[\]]+)/g).map((part, i) => {
                   if (/^https?:\/\//.test(part)) {
@@ -423,17 +440,29 @@ export function MessageBubble({ message, showAvatar, showTail, onReact, onReply,
             'flex items-center gap-1 mt-0.5',
             message.isMine ? 'justify-start' : 'justify-end'
           )}>
-            <span className={cn(
-              "text-[11px] text-[var(--text-muted)] transition-opacity duration-150 select-none",
-              showTail ? "opacity-100" : "opacity-0 group-hover/msg:opacity-100"
-            )}>
+            <span
+              className={cn(
+                "text-[11px] text-[var(--text-muted)] transition-opacity duration-150 select-none",
+                showTail ? "opacity-100" : "opacity-0"
+              )}
+              title={new Date(message.createdAt).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+            >
               {formatTime(message.createdAt)}
             </span>
             {message.isMine && (
-              <span className={cn(
-                "transition-opacity duration-150 select-none",
-                showTail ? "opacity-100" : "opacity-0 group-hover/msg:opacity-100"
-              )}>
+              <span
+                className={cn(
+                  "transition-opacity duration-150 select-none",
+                  showTail ? "opacity-100" : "opacity-0"
+                )}
+                title={
+                  message.status === 'sending' ? 'Sending…' :
+                  message.status === 'failed' ? 'Failed to send' :
+                  message.seen_at ? `Seen ${formatTime(message.seen_at)}` :
+                  message.delivered_at ? `Delivered ${formatTime(message.delivered_at)}` :
+                  'Sent'
+                }
+              >
                 {message.status === 'sending' ? (
                   <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="animate-spin">
                     <path d="M21 12a9 9 0 1 1-6.219-8.56" />

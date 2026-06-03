@@ -76,7 +76,9 @@ export default function ExplorePage() {
       console.error('[EXPLORE] get_explore_feed RPC error:', rpcError.message, rpcError);
       return [];
     }
+    console.log('[EXPLORE] RPC returned', explorePosts?.length, 'rows, first:', explorePosts?.[0]);
     const posts = (explorePosts || []) as ExplorePost[];
+    console.log('[EXPLORE] Mapped posts:', posts.length, 'first media:', posts[0]?.media);
     // Client-side category filtering (DB RPC doesn't support p_category yet)
     if (category !== 'All') {
       const cat = category.toLowerCase();
@@ -114,6 +116,7 @@ export default function ExplorePage() {
     async function init() {
       setLoading(true);
       const initialPosts = await loadPosts([], activeCategory);
+      console.log('[EXPLORE] INIT: setting posts to', initialPosts.length, 'items');
       setPosts(initialPosts);
       setSeenIds(initialPosts.map(p => p.id));
       if (initialPosts.length < 30) setHasMore(false);
@@ -121,7 +124,8 @@ export default function ExplorePage() {
       setLoading(false);
     }
     init();
-  }, [loadPosts, activeCategory]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCategory]);
 
   // Infinite scroll
   useEffect(() => {
@@ -461,6 +465,12 @@ export default function ExplorePage() {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* DEBUG: Remove after fix */}
+        <div className="max-w-5xl mx-auto px-4 py-2 bg-yellow-100 text-black text-xs">
+          posts.length={posts.length} | loading={String(loading)} | hasMore={String(hasMore)} | seenIds={seenIds.length}
+          {posts.length > 0 && <span> | first post id={posts[0]?.id} media={JSON.stringify(posts[0]?.media)}</span>}
         </div>
 
         {/* Posts grid */}

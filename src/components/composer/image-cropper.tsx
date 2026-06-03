@@ -237,6 +237,7 @@ export function ImageCropper({ src, ratio, onRatioChange, onCrop, onSkip, imageI
       </div>
 
       {/* Ratio fixed at 4:5 — no other options allowed */}
+      <div className="flex items-center justify-center py-2 bg-[var(--bg-secondary)]">
         {cropState.zoom > 1.1 && (
           <button
             onClick={handleReset}

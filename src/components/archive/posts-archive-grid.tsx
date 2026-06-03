@@ -80,7 +80,7 @@ export function PostsArchiveGrid({ onPostClick }: PostsArchiveGridProps) {
     return (
       <div className="grid grid-cols-3 gap-0.5 p-0.5">
         {Array.from({ length: 9 }).map((_, i) => (
-          <Skeleton key={i} className="aspect-square" />
+          <Skeleton key={i} className="aspect-[4/5]" />
         ))}
       </div>
     )
@@ -106,7 +106,7 @@ export function PostsArchiveGrid({ onPostClick }: PostsArchiveGridProps) {
         <button
           key={post.id}
           onClick={() => onPostClick(post)}
-          className="relative aspect-square bg-[var(--bg-secondary)] overflow-hidden group"
+          className="relative aspect-[4/5] bg-[var(--bg-secondary)] overflow-hidden group"
         >
           {post.thumbnailUrl ? (
             /* eslint-disable-next-line @next/next/no-img-element */

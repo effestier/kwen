@@ -236,28 +236,7 @@ export function ImageCropper({ src, ratio, onRatioChange, onCrop, onSkip, imageI
         </button>
       </div>
 
-      {/* Ratio buttons — Instagram style */}
-      <div className="flex items-center justify-center gap-1.5 py-2.5 px-4 bg-[var(--bg-secondary)]">
-        {RATIOS.map((r) => {
-          const isDefault = r.value === '4:5'
-          const isActive = ratio === r.value
-          return (
-            <button
-              key={r.value}
-              onClick={() => handleRatioChange(r.value)}
-              className={`relative px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
-                isActive
-                  ? 'bg-white text-black shadow-sm'
-                  : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'
-              }`}
-            >
-              {r.label}
-              {isDefault && (
-                <span className="absolute -top-1 -right-1.5 w-2 h-2 rounded-full bg-[var(--accent-primary)]" />
-              )}
-            </button>
-          )
-        })}
+      {/* Ratio fixed at 4:5 — no other options allowed */}
         {cropState.zoom > 1.1 && (
           <button
             onClick={handleReset}

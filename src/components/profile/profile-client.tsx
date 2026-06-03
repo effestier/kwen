@@ -660,7 +660,7 @@ export function ProfileClient({ username, currentUserProfile }: { username: stri
                     <button
                       key={post.id}
                       onClick={() => setSelectedOwnerPost(post)}
-                      className="aspect-square bg-[var(--bg-secondary)] relative group block focus:outline-none cursor-pointer"
+                      className="aspect-[4/5] bg-[var(--bg-secondary)] relative group block focus:outline-none cursor-pointer"
                     >
                       {post.images?.[0] ? (
                         <img src={post.images[0]} alt={`Post by ${profile.display_name}`} className="w-full h-full object-cover" />
@@ -676,7 +676,7 @@ export function ProfileClient({ username, currentUserProfile }: { username: stri
                       </div>
                     </button>
                   ) : (
-                    <Link key={post.id} href={`/post/${post.id}`} className="aspect-square bg-[var(--bg-secondary)] relative group block focus:outline-none cursor-pointer">
+                    <Link key={post.id} href={`/post/${post.id}`} className="aspect-[4/5] bg-[var(--bg-secondary)] relative group block focus:outline-none cursor-pointer">
                       {post.images?.[0] ? (
                         <img src={post.images[0]} alt={`Post by ${profile.display_name}`} className="w-full h-full object-cover" />
                       ) : (
@@ -716,7 +716,7 @@ export function ProfileClient({ username, currentUserProfile }: { username: stri
                 return (
                   <div className="grid grid-cols-3 gap-[2px] mt-1">
                     {Array.from({ length: 6 }).map((_, i) => (
-                      <div key={i} className="aspect-square bg-[var(--bg-secondary)] animate-pulse" />
+                      <div key={i} className="aspect-[4/5] bg-[var(--bg-secondary)] animate-pulse" />
                     ))}
                   </div>
                 );
@@ -739,7 +739,7 @@ export function ProfileClient({ username, currentUserProfile }: { username: stri
                     <button
                       key={post.id}
                       onClick={() => setSelectedOwnerPost(post)}
-                      className="aspect-square bg-[var(--bg-secondary)] relative group block focus:outline-none cursor-pointer"
+                      className="aspect-[4/5] bg-[var(--bg-secondary)] relative group block focus:outline-none cursor-pointer"
                     >
                       {post.images?.[0] ? (
                         <img src={post.images[0]} alt="" className="w-full h-full object-cover" />

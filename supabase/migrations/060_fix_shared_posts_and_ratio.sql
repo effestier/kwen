@@ -60,6 +60,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER STABLE SET search_path = public;
 
 GRANT EXECUTE ON FUNCTION public.get_explore_feed(uuid, int, uuid[]) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_explore_feed(uuid, int, uuid[]) TO anon;
 
 -- 3. Fix search_explore — same shared_posts fix
 DROP FUNCTION IF EXISTS public.search_explore(uuid, text, text, int);
@@ -130,6 +131,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER STABLE SET search_path = public;
 
 GRANT EXECUTE ON FUNCTION public.search_explore(uuid, text, text, int) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.search_explore(uuid, text, text, int) TO anon;
 
 -- 4. Fix get_trending_posts — same shared_posts fix
 DROP FUNCTION IF EXISTS public.get_trending_posts(int);
@@ -163,6 +165,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER STABLE SET search_path = public;
 
 GRANT EXECUTE ON FUNCTION public.get_trending_posts(int) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_trending_posts(int) TO anon;
 
 -- 5. Fix get_trending_hashtags — same shared_posts fix
 DROP FUNCTION IF EXISTS public.get_trending_hashtags(int);
@@ -190,3 +193,4 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER STABLE SET search_path = public;
 
 GRANT EXECUTE ON FUNCTION public.get_trending_hashtags(int) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_trending_hashtags(int) TO anon;

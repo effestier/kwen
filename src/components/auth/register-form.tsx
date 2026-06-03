@@ -126,9 +126,10 @@ export function RegisterForm() {
       if (pwResult.error) { setError(pwResult.error); return; }
       const profileResult = await completeProfile(username, displayName);
       if (profileResult.error) { setError(profileResult.error); return; }
-      // M25: Respect redirect param from URL
+      // M25: Respect redirect param from URL — only allow safe internal paths
       const redirect = searchParams.get('redirect');
-      router.push(redirect && redirect.startsWith('/') ? redirect : '/feed');
+      const safeRedirect = redirect && redirect.startsWith('/') && !redirect.startsWith('//') && !redirect.startsWith('/\\') ? redirect : '/feed';
+      router.push(safeRedirect);
       router.refresh();
     } catch {
       setError('Could not connect. Check your internet and try again.');

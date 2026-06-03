@@ -74,89 +74,50 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const jsonLdOrganization = JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: BRAND.name,
+    url: BRAND.social.website,
+    logo: `${BRAND.social.website}/web-app-manifest-512x512.png`,
+    description: BRAND.tagline,
+    sameAs: [BRAND.social.website],
+    contactPoint: {
+      '@type': 'ContactPoint',
+      email: BRAND.social.supportEmail,
+      contactType: 'customer service',
+    },
+  });
+
+  const jsonLdWebSite = JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: BRAND.name,
+    url: BRAND.social.website,
+    description: BRAND.tagline,
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: `${BRAND.social.website}/explore?q={search_term_string}`,
+      'query-input': 'required name=search_term_string',
+    },
+  });
+
   return (
     <html lang="en" suppressHydrationWarning className={inter.variable}>
       <head>
         {/* Hide all content immediately on native — prevents landing page flash */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                try {
-                  if (window.Capacitor) {
-                    var s = document.createElement('style');
-                    s.textContent = 'body { opacity: 0 !important; pointer-events: none !important; }';
-                    document.documentElement.appendChild(s);
-                    window.__capacitorStyle = s;
-                  }
-                } catch(e) {}
-              })();
-            `,
-          }}
-        />
+        <script src="/js/capacitor-splash.js" />
         {/* Inline script to apply theme before paint - prevents FOUC */}
+        <script src="/js/theme-init.js" defer />
+        {/* Service worker cleanup */}
+        <script src="/js/sw-cleanup.js" defer />
         <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                try {
-                  var stored = localStorage.getItem('app_theme');
-                  var theme = (stored === 'light' || stored === 'dark' || stored === 'system') ? stored : 'system';
-                  var isDark;
-                  if (theme === 'system') {
-                    isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                  } else {
-                    isDark = theme === 'dark';
-                  }
-                  var resolved = isDark ? 'dark' : 'light';
-                  document.documentElement.setAttribute('data-theme', resolved);
-                  document.documentElement.classList.add(resolved);
-                  document.documentElement.classList.remove(isDark ? 'light' : 'dark');
-                } catch(e) {}
-              })();
-            `,
-          }}
-        />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(function(r){r.forEach(function(s){s.unregister()})});if('caches' in window){caches.keys().then(function(k){k.forEach(function(n){caches.delete(n)})})}}`,
-          }}
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: jsonLdOrganization }}
         />
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              '@context': 'https://schema.org',
-              '@type': 'Organization',
-              name: BRAND.name,
-              url: BRAND.social.website,
-              logo: `${BRAND.social.website}/web-app-manifest-512x512.png`,
-              description: BRAND.tagline,
-              sameAs: [BRAND.social.website],
-              contactPoint: {
-                '@type': 'ContactPoint',
-                email: BRAND.social.supportEmail,
-                contactType: 'customer service',
-              },
-            }),
-          }}
-        />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              '@context': 'https://schema.org',
-              '@type': 'WebSite',
-              name: BRAND.name,
-              url: BRAND.social.website,
-              description: BRAND.tagline,
-              potentialAction: {
-                '@type': 'SearchAction',
-                target: `${BRAND.social.website}/explore?q={search_term_string}`,
-                'query-input': 'required name=search_term_string',
-              },
-            }),
-          }}
+          dangerouslySetInnerHTML={{ __html: jsonLdWebSite }}
         />
       </head>
       <body className="antialiased">

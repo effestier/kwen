@@ -136,7 +136,7 @@ export function FileUpload({
             previews.length === 1 ? 'grid-cols-1' : 'grid-cols-2 md:grid-cols-3'
           )}>
             {previews.map((preview, index) => (
-              <div key={index} className="relative aspect-square rounded-lg overflow-hidden bg-[var(--bg-secondary)]">
+              <div key={index} className="relative aspect-[4/5] rounded-lg overflow-hidden bg-[var(--bg-secondary)]">
                 {fileTypes[index]?.startsWith('video') ? (
                   <video
                     src={preview}

@@ -349,7 +349,7 @@ export function PostDetailClient({ postId }: { postId: string }) {
           <div className="lg:flex-1 lg:flex lg:items-center lg:justify-center bg-black/5 relative">
             {post.images.length > 0 ? (
               <div className="relative">
-                <div className="aspect-square lg:aspect-auto lg:max-h-[calc(100vh-56px)] lg:w-full">
+                <div className="aspect-[4/5] lg:aspect-auto lg:max-h-[calc(100vh-56px)] lg:w-full">
                   {post.mediaType[activeImage] === 'video' ? (
                     <video
                       src={post.images[activeImage]}
@@ -413,7 +413,7 @@ export function PostDetailClient({ postId }: { postId: string }) {
                 )}
               </div>
             ) : (
-              <div className="aspect-square lg:aspect-auto lg:min-h-[400px] flex items-center justify-center p-4">
+              <div className="aspect-[4/5] lg:aspect-auto lg:min-h-[400px] flex items-center justify-center p-4">
                 <p className="text-[var(--text-secondary)] text-lg whitespace-pre-wrap text-center max-w-md">
                   {post.content}
                 </p>

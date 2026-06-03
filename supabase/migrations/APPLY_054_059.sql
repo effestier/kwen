@@ -5,13 +5,33 @@
 -- =============================================
 
 -- =============================================
+-- STEP 0: Diagnostics — uncomment to check current state
+-- =============================================
+-- SELECT 'get_following_feed exists' AS check_item,
+--   EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'get_following_feed') AS result;
+-- SELECT 'is_private column exists' AS check_item,
+--   EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'is_private') AS result;
+-- SELECT 'posts table exists' AS check_item,
+--   EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'posts') AS result;
+-- SELECT 'profiles table exists' AS check_item,
+--   EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'profiles') AS result;
+-- SELECT 'follows table exists' AS check_item,
+--   EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'follows') AS result;
+-- SELECT 'blocks table exists' AS check_item,
+--   EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'blocks') AS result;
+-- SELECT 'mutes table exists' AS check_item,
+--   EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'mutes') AS result;
+
+-- =============================================
 -- MIGRATION 054 (cascade only): get_following_feed SET search_path
--- (The RLS policy fixes from 054_fix_all_rls_policies.sql and
---  054_fix_rls_cascade.sql were already applied. We only need
---  the ALTER FUNCTION that was missed.)
 -- =============================================
 
-ALTER FUNCTION public.get_following_feed(uuid, int, uuid[]) SET search_path = public;
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'get_following_feed') THEN
+    ALTER FUNCTION public.get_following_feed(uuid, int, uuid[]) SET search_path = public;
+  END IF;
+END $$;
 
 -- =============================================
 -- MIGRATION 057a: Add is_private column to profiles
@@ -261,3 +281,12 @@ CREATE TRIGGER on_post_mention_notification
 -- =============================================
 
 GRANT EXECUTE ON FUNCTION public.get_following_feed(uuid, int, uuid[]) TO authenticated;
+
+-- =============================================
+-- STEP LAST: Verify the fix
+-- Uncomment to test the feed function directly:
+-- SELECT * FROM public.get_following_feed(
+--   'YOUR_USER_ID_HERE'::uuid,  -- replace with your actual user id
+--   20,
+--   ARRAY[]::uuid[]
+-- );

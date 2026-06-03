@@ -76,11 +76,14 @@ export function FeedClient({ initialProfile, initialFollowingIds }: FeedClientPr
   useScrollPreservation({ key: 'feed' });
 
   const loadPosts = useCallback(async (userId: string, excludeIds: string[]) => {
-    const { data: feedPosts } = await supabase.rpc('get_following_feed', {
+    const { data: feedPosts, error } = await supabase.rpc('get_following_feed', {
       p_user_id: userId,
       p_limit: 20,
       p_exclude_ids: excludeIds.length > 0 ? excludeIds : null,
     });
+    if (error) {
+      console.error('[feed] get_following_feed RPC error:', error.message, error);
+    }
     return feedPosts || [];
   }, [supabase]);
 

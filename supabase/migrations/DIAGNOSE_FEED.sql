@@ -36,7 +36,9 @@ SELECT 'shared_posts', EXISTS (SELECT 1 FROM information_schema.tables WHERE tab
 UNION ALL
 SELECT 'blocks', EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'blocks')
 UNION ALL
-SELECT 'mutes', EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'mutes');
+SELECT 'mutes', EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'mutes')
+UNION ALL
+SELECT 'post_hides', EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'post_hides');
 
 -- 4. Do required columns on posts exist?
 SELECT column_name, data_type
@@ -50,6 +52,6 @@ SELECT visibility, count(*) FROM public.posts GROUP BY visibility;
 -- 6. Count follows
 SELECT count(*) AS total_follows FROM public.follows;
 
--- 7. Try calling get_following_feed directly (replace YOUR_USER_ID)
+-- 7. Try calling get_following_feed directly (replace YOUR_USER_ID with your actual UUID)
 -- If this returns 0 rows or errors, that's the problem
 -- SELECT * FROM public.get_following_feed('YOUR_USER_ID'::uuid, 5, ARRAY[]::uuid[]);

@@ -1,18 +1,37 @@
 -- =============================================
--- FIX FEED — Nuclear option to fix get_following_feed
+-- FIX FEED — Complete rebuild of get_following_feed
 -- Run this ENTIRE script in Supabase SQL Editor
+-- Safe to run multiple times (idempotent)
 -- =============================================
 
--- Step 1: Drop ALL signatures of get_following_feed
+-- Step 1: Create post_hides table if it doesn't exist
+CREATE TABLE IF NOT EXISTS public.post_hides (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  post_id uuid NOT NULL REFERENCES public.posts(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at timestamptz DEFAULT now(),
+  UNIQUE(post_id, user_id)
+);
+
+-- RLS on post_hides
+ALTER TABLE public.post_hides ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "post_hides_select" ON public.post_hides;
+CREATE POLICY "post_hides_select" ON public.post_hides FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "post_hides_insert" ON public.post_hides FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "post_hides_insert" ON public.post_hides FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "post_hides_delete" ON public.post_hides FOR DELETE USING (auth.uid() = user_id);
+CREATE POLICY "post_hides_delete" ON public.post_hides FOR DELETE USING (auth.uid() = user_id);
+
+-- Step 2: Make sure is_private column exists on profiles
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_private boolean NOT NULL DEFAULT false;
+
+-- Step 3: Drop ALL old signatures of get_following_feed
 DROP FUNCTION IF EXISTS public.get_following_feed(uuid, int, int);
 DROP FUNCTION IF EXISTS public.get_following_feed(uuid, int, uuid[]);
 DROP FUNCTION IF EXISTS public.get_following_feed(uuid, int);
 
--- Step 2: Make sure is_private column exists on profiles (needed for some feed queries)
-ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_private boolean NOT NULL DEFAULT false;
-
--- Step 3: Recreate get_following_feed from scratch
--- This version handles NULL columns gracefully with COALESCE
+-- Step 4: Recreate get_following_feed from scratch
+-- Returns columns matching the FeedPost interface in feed-client.tsx
 CREATE OR REPLACE FUNCTION public.get_following_feed(
   p_user_id uuid,
   p_limit int DEFAULT 20,
@@ -26,14 +45,14 @@ RETURNS TABLE (
   created_at timestamptz,
   like_count int,
   comment_count int,
+  save_count int,
   share_count int,
   is_liked boolean,
   is_saved boolean,
-  is_hidden boolean,
-  is_blocked boolean,
   display_name text,
   username text,
   avatar_url text,
+  is_verified boolean,
   media jsonb
 ) AS $$
 DECLARE
@@ -51,16 +70,16 @@ BEGIN
     p.content,
     p.location,
     p.created_at,
-    (SELECT count(*) FROM public.post_likes pl WHERE pl.post_id = p.id)::int AS like_count,
-    (SELECT count(*) FROM public.comments c WHERE c.post_id = p.id AND c.deleted_at IS NULL)::int AS comment_count,
-    COALESCE(p.shares, 0)::int AS share_count,
-    EXISTS (SELECT 1 FROM public.post_likes pl WHERE pl.post_id = p.id AND pl.user_id = p_user_id) AS is_liked,
-    EXISTS (SELECT 1 FROM public.saved_posts sp WHERE sp.post_id = p.id AND sp.user_id = p_user_id) AS is_saved,
-    EXISTS (SELECT 1 FROM public.post_hides ph WHERE ph.post_id = p.id AND ph.user_id = p_user_id) AS is_hidden,
-    EXISTS (SELECT 1 FROM public.blocks b WHERE b.blocker_id = p_user_id AND b.blocked_id = p.user_id) AS is_blocked,
+    (SELECT count(*) FROM public.post_likes pl WHERE pl.post_id = p.id)::int,
+    (SELECT count(*) FROM public.comments cm WHERE cm.post_id = p.id AND cm.deleted_at IS NULL)::int,
+    (SELECT count(*) FROM public.saved_posts sp WHERE sp.post_id = p.id)::int,
+    COALESCE(p.shares, 0)::int,
+    EXISTS (SELECT 1 FROM public.post_likes pl WHERE pl.post_id = p.id AND pl.user_id = p_user_id),
+    EXISTS (SELECT 1 FROM public.saved_posts sp WHERE sp.post_id = p.id AND sp.user_id = p_user_id),
     pr.display_name,
     pr.username,
     pr.avatar_url,
+    COALESCE(pr.is_verified, false),
     (
       SELECT jsonb_agg(
         jsonb_build_object(
@@ -71,10 +90,11 @@ BEGIN
         ) ORDER BY pm.sort_order
       )
       FROM public.post_media pm WHERE pm.post_id = p.id
-    ) AS media
+    )
   FROM public.posts p
   INNER JOIN public.profiles pr ON pr.id = p.user_id
   WHERE p.deleted_at IS NULL
+    AND p.archived_at IS NULL
     -- Only show posts from people the user follows OR the user's own posts
     AND (
       p.user_id = p_user_id
@@ -103,8 +123,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER STABLE SET search_path = public;
 
--- Step 4: Grant execute to authenticated users
+-- Step 5: Grant execute to authenticated users
 GRANT EXECUTE ON FUNCTION public.get_following_feed(uuid, int, uuid[]) TO authenticated;
 
--- Step 5: Verify
-SELECT 'get_following_feed recreated and granted' AS status;
+-- Step 6: Verify
+SELECT 'get_following_feed rebuilt and granted' AS status;

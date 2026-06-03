@@ -39,6 +39,11 @@ interface Profile {
   avatar_url: string | null;
   bio: string | null;
   is_verified: boolean;
+  user_id?: string;
+  like_count?: number;
+  comment_count?: number;
+  media?: Array<{ id: string; storage_path: string; media_type: string; sort_order: number }> | null;
+  result_type?: string;
 }
 
 export default function ExplorePage() {
@@ -56,6 +61,7 @@ export default function ExplorePage() {
   const searchRef = useRef<HTMLDivElement>(null);
   const mobileSearchRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const loadingMoreRef = useRef(false);
   const supabaseRef = useRef(createClient());
   const supabase = supabaseRef.current;
 
@@ -81,8 +87,8 @@ export default function ExplorePage() {
     if (category !== 'All') {
       const cat = category.toLowerCase();
       return posts.filter(p => {
-        const hasImage = p.media?.some((m: any) => m.media_type === 'image');
-        const hasVideo = p.media?.some((m: any) => m.media_type === 'video');
+        const hasImage = p.media?.some(m => m.media_type === 'image');
+        const hasVideo = p.media?.some(m => m.media_type === 'video');
         const noMedia = !p.media || p.media.length === 0;
         if (cat === 'photos') return hasImage && !hasVideo;
         if (cat === 'videos') return hasVideo;
@@ -132,23 +138,28 @@ export default function ExplorePage() {
     if (!sentinel) return;
 
     const observer = new IntersectionObserver(async (entries) => {
-      if (entries[0].isIntersecting && !loadingMore) {
+      if (entries[0].isIntersecting && !loadingMoreRef.current) {
+        loadingMoreRef.current = true;
         setLoadingMore(true);
-        const morePosts = await loadPosts(seenIds, activeCategory);
-        setPosts(prev => {
-          const existingIds = new Set(prev.map(p => p.id));
-          const newPosts = morePosts.filter(p => !existingIds.has(p.id));
-          return [...prev, ...newPosts];
-        });
-        updateSeenIds(morePosts);
-        if (morePosts.length < 30) setHasMore(false);
-        setLoadingMore(false);
+        try {
+          const morePosts = await loadPosts(seenIds, activeCategory);
+          setPosts(prev => {
+            const existingIds = new Set(prev.map(p => p.id));
+            const newPosts = morePosts.filter(p => !existingIds.has(p.id));
+            return [...prev, ...newPosts];
+          });
+          updateSeenIds(morePosts);
+          if (morePosts.length < 30) setHasMore(false);
+        } finally {
+          loadingMoreRef.current = false;
+          setLoadingMore(false);
+        }
       }
     }, { rootMargin: '400px' });
 
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [seenIds, hasMore, loading, loadingMore, loadPosts, updateSeenIds, activeCategory]);
+  }, [seenIds, hasMore, loading, loadPosts, updateSeenIds, activeCategory]);
 
   // Search
   useEffect(() => {
@@ -172,18 +183,18 @@ export default function ExplorePage() {
           p_limit: 10,
         });
         if (searchError) {
-          console.error('[EXPLORE] search_explore users error:', searchError.message, searchError);
+          console.error('[EXPLORE] search_explore users error:', searchError.message);
           setSearchResults([]);
           setSearching(false);
           return;
         }
-        setSearchResults((data || []).map((r: any) => ({
-          id: r.id,
-          username: r.username,
-          display_name: r.display_name || r.username,
-          avatar_url: r.avatar_url,
-          bio: null,
-          is_verified: r.is_verified || false,
+        setSearchResults(((data || []) as Array<Record<string, unknown>>).map((r) => ({
+          id: String(r.id),
+          username: String(r.username),
+          display_name: String(r.display_name || r.username),
+          avatar_url: (r.avatar_url as string | null) ?? null,
+          bio: null as string | null,
+          is_verified: Boolean(r.is_verified),
         })));
       } else {
         const { data, error: searchError } = await supabase.rpc('search_explore', {
@@ -193,35 +204,33 @@ export default function ExplorePage() {
           p_limit: 20,
         });
         if (searchError) {
-          console.error('[EXPLORE] search_explore', searchMode, 'error:', searchError.message, searchError);
+          console.error('[EXPLORE] search_explore', searchMode, 'error:', searchError.message);
           setSearchResults([]);
           setSearching(false);
           return;
         }
         if (searchMode === 'tags' && data) {
-          // Tags return hashtag + post_count
-          setSearchResults(data.map((r: any) => ({
-            id: r.hashtag || r.id,
-            username: r.hashtag,
+          setSearchResults((data as Array<Record<string, unknown>>).map((r) => ({
+            id: String(r.hashtag || r.id),
+            username: String(r.hashtag),
             display_name: `#${r.hashtag}`,
             avatar_url: null,
             bio: `${formatNumber(Number(r.post_count || 0))} posts`,
             is_verified: false,
           })));
         } else if (searchMode === 'posts' && data) {
-          // Posts return post content with user info
-          setSearchResults(data.map((r: any) => ({
-            id: r.id,
-            user_id: r.user_id,
-            username: r.username,
-            display_name: r.display_name || r.username,
-            avatar_url: r.avatar_url,
-            bio: r.content ? (r.content.length > 80 ? r.content.slice(0, 80) + '...' : r.content) : null,
-            is_verified: r.is_verified || false,
-            like_count: r.like_count || 0,
-            comment_count: r.comment_count || 0,
-            media: r.media || null,
-            result_type: r.result_type || 'post',
+          setSearchResults((data as Array<Record<string, unknown>>).map((r) => ({
+            id: String(r.id),
+            user_id: String(r.user_id),
+            username: String(r.username),
+            display_name: String(r.display_name || r.username),
+            avatar_url: (r.avatar_url as string | null) ?? null,
+            bio: r.content ? (String(r.content).length > 80 ? String(r.content).slice(0, 80) + '...' : String(r.content)) : null,
+            is_verified: Boolean(r.is_verified),
+            like_count: Number(r.like_count) || 0,
+            comment_count: Number(r.comment_count) || 0,
+            media: (r.media as ExplorePost['media']) || null,
+            result_type: String(r.result_type || 'post'),
           })));
         } else {
           setSearchResults([]);
@@ -463,12 +472,6 @@ export default function ExplorePage() {
               </button>
             ))}
           </div>
-        </div>
-
-        {/* DEBUG: Remove after fix */}
-        <div className="max-w-5xl mx-auto px-4 py-2 bg-yellow-100 text-black text-xs">
-          posts.length={posts.length} | loading={String(loading)} | hasMore={String(hasMore)} | seenIds={seenIds.length}
-          {posts.length > 0 && <span> | first post id={posts[0]?.id} media={JSON.stringify(posts[0]?.media)}</span>}
         </div>
 
         {/* Posts grid */}

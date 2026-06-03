@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { Avatar } from '@/components/ui/avatar';
@@ -172,7 +173,11 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
       <div className="flex gap-3.5 overflow-x-auto scrollbar-hide -mx-4 px-4 py-0.5">
         {/* My Story button - only show if logged in */}
         {currentUser && (
-          <button
+          <motion.button
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+            whileTap={{ scale: 0.92 }}
             onClick={handleMyStoryClick}
             disabled={isUploading}
             className="flex flex-col items-center gap-1 flex-shrink-0"
@@ -182,7 +187,7 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
                 className={cn(
                   'w-14 h-14 rounded-full p-0.5',
                   hasUnviewedMyStory
-                    ? 'bg-gradient-to-br from-blue-500 via-blue-300 to-white'
+                    ? 'bg-gradient-to-br from-[#a78bfa] via-[#7c3aed] to-[#6366f1]'
                     : myStories.length > 0
                       ? 'bg-[var(--border-subtle)]'
                       : 'bg-[var(--border-subtle)]'
@@ -198,7 +203,7 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
                 </div>
               </div>
               {/* Add icon — always visible so user can add more stories */}
-              <div className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-[var(--accent-primary)] flex items-center justify-center border-2 border-[var(--bg-primary)]">
+              <div className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-[#7c3aed] flex items-center justify-center border-2 border-[var(--bg-primary)] shadow-[0_0_8px_rgba(124,58,237,0.4)]">
                 <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M5 12h14" /><path d="M12 5v14" />
                 </svg>
@@ -207,7 +212,7 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
             <span className="text-[11px] text-[var(--text-muted)] max-w-[62px] truncate text-center">
               {myStories.length > 0 ? 'My story' : 'Add story'}
             </span>
-          </button>
+          </motion.button>
         )}
 
         {/* Other users' stories (grouped) */}
@@ -217,8 +222,12 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
             const idx = groupedUsers.indexOf(user);
             const allViewed = user.stories.every(s => s.hasViewed);
             return (
-              <button
+              <motion.button
                 key={user.userId}
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.25, delay: idx * 0.04, ease: [0.22, 1, 0.36, 1] }}
+                whileTap={{ scale: 0.92 }}
                 onClick={() => handleUserClick(idx)}
                 className="flex flex-col items-center gap-1 flex-shrink-0"
               >
@@ -227,7 +236,7 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
                     'w-[62px] h-[62px] rounded-full p-[2.5px]',
                     allViewed
                       ? 'bg-[var(--border-subtle)]'
-                      : 'bg-gradient-to-br from-blue-500 via-blue-300 to-white'
+                      : 'bg-gradient-to-br from-[#a78bfa] via-[#7c3aed] to-[#6366f1]'
                   )}
                 >
                   <div className="w-full h-full rounded-full p-[2px] bg-[var(--bg-primary)] overflow-hidden">
@@ -242,7 +251,7 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
                 <span className="text-[11px] text-[var(--text-muted)] max-w-[62px] truncate text-center">
                   {user.displayName.split(' ')[0]}
                 </span>
-              </button>
+              </motion.button>
             );
           })}
       </div>

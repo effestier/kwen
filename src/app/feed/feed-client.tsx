@@ -372,8 +372,8 @@ export function FeedClient({ initialProfile, initialFollowingIds }: FeedClientPr
 
         {/* Desktop Header */}
         <div className="hidden lg:block sticky top-0 z-20 bg-[var(--bg-primary)]/80 backdrop-blur-xl border-b border-[var(--border-subtle)]">
-          <div className="feed-container py-3">
-            <h1 className="text-xl font-bold text-[var(--text-primary)]">Home</h1>
+          <div className="max-w-2xl mx-auto">
+            <h1 className="heading-page">Home</h1>
           </div>
         </div>
 

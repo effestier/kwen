@@ -1400,8 +1400,8 @@ export default function MessagesPage() {
           "w-full md:w-80 border-r border-[var(--border-subtle)] flex flex-col bg-[var(--bg-primary)]",
           showMobileChat && 'hidden md:flex'
         )}>
-          <div className="px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2.5">
-            <h1 className="text-xl font-bold text-[var(--text-primary)] mb-2">Messages</h1>
+          <div className="px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
+            <h1 className="heading-page">Messages</h1>
             <div className="relative">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
                 <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />

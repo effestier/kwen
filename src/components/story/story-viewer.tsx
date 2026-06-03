@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 import { Avatar } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/design-system/skeleton';
@@ -854,11 +855,13 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
         )}
 
         {/* Story content */}
-        <div
-          className={`absolute inset-0 flex items-center justify-center transition-transform duration-150 ${
-            transitionDirection === 'left' ? '-translate-x-full' :
-            transitionDirection === 'right' ? 'translate-x-full' : ''
-          }`}
+        <motion.div
+          className="absolute inset-0 flex items-center justify-center"
+          key={currentStory.id}
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}

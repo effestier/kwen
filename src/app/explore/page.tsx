@@ -275,8 +275,8 @@ export default function ExplorePage() {
       <div className="min-h-screen">
 
         {/* Mobile Header */}
-        <div className="lg:hidden sticky top-12 z-20 bg-[var(--bg-primary)]/90 backdrop-blur-xl border-b border-[var(--border-subtle)] px-4 pt-2.5 pb-2.5">
-          <h1 className="text-xl font-bold text-[var(--text-primary)] mb-3">Explore</h1>
+        <div className="lg:hidden sticky top-12 z-20 bg-[var(--bg-primary)]/90 backdrop-blur-xl border-b border-[var(--border-subtle)]">
+          <h1 className="heading-page">Explore</h1>
 
           {/* Search bar */}
           <div ref={mobileSearchRef} className="relative">
@@ -371,9 +371,9 @@ export default function ExplorePage() {
         </div>
 
         {/* Desktop Header */}
-        <div className="hidden lg:block sticky top-0 z-20 bg-[var(--bg-primary)]/80 backdrop-blur-xl border-b border-[var(--border-subtle)] px-4 py-3">
-          <div className="max-w-5xl mx-auto flex items-center gap-4">
-            <h1 className="text-xl font-bold text-[var(--text-primary)]">Explore</h1>
+        <div className="hidden lg:block sticky top-0 z-20 bg-[var(--bg-primary)]/80 backdrop-blur-xl border-b border-[var(--border-subtle)]">
+          <div className="max-w-5xl mx-auto flex items-center gap-4 px-4 py-3">
+            <h1 className="heading-page">Explore</h1>
             <div ref={searchRef} className="flex-1 max-w-md relative">
               <div className="relative">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]">

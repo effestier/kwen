@@ -1,13 +1,14 @@
 -- =============================================
--- FEED DIAGNOSTIC SCRIPT
+-- FEED DIAGNOSTIC SCRIPT (Supabase-compatible)
 -- Run each section in Supabase SQL Editor and report the output
 -- =============================================
 
 -- 1. Does get_following_feed exist? What signature?
 SELECT
   p.proname AS function_name,
-  pg_get_function_identity_arguments(p.proname) AS arguments,
-  pg_get_function_result(p.oid) AS returns
+  pg_get_function_result(p.oid) AS returns,
+  proargnames AS arg_names,
+  proargtypes::regtype[] AS arg_types
 FROM pg_proc p
 JOIN pg_namespace n ON n.oid = p.pronamespace
 WHERE p.proname = 'get_following_feed' AND n.nspname = 'public';

@@ -54,6 +54,20 @@ export default function CreatePage() {
   const supabase = createClient()
   const router = useRouter()
   const autoSaveTimer = useRef<NodeJS.Timeout | null>(null)
+  const contentRef = useRef(content)
+  const mediaItemsRef = useRef(mediaItems)
+  const locationRef = useRef(location)
+  const visibilityRef = useRef(visibility)
+  const draftIdRef = useRef(draftId)
+  const userRef = useRef(user)
+
+  // Keep refs in sync
+  useEffect(() => { contentRef.current = content }, [content])
+  useEffect(() => { mediaItemsRef.current = mediaItems }, [mediaItems])
+  useEffect(() => { locationRef.current = location }, [location])
+  useEffect(() => { visibilityRef.current = visibility }, [visibility])
+  useEffect(() => { draftIdRef.current = draftId }, [draftId])
+  useEffect(() => { userRef.current = user }, [user])
 
   useEffect(() => {
     async function loadUser() {
@@ -81,7 +95,7 @@ export default function CreatePage() {
 
   // Auto-save draft every 30s
   useEffect(() => {
-    if (step !== 'details' || (!content.trim() && mediaItems.length === 0)) return
+    if (step !== 'details' || (!contentRef.current.trim() && mediaItemsRef.current.length === 0)) return
 
     autoSaveTimer.current = setInterval(() => {
       saveDraft()
@@ -90,17 +104,18 @@ export default function CreatePage() {
     return () => {
       if (autoSaveTimer.current) clearInterval(autoSaveTimer.current)
     }
-  }, [step, content, mediaItems])
+  }, [step])
 
   const saveDraft = async () => {
-    if (!user) return
-    const mediaData = mediaItems.map(m => ({ url: m.url, type: m.type }))
-    const draftData = { content, media: mediaData, location, visibility }
+    const currentUser = userRef.current
+    if (!currentUser) return
+    const mediaData = mediaItemsRef.current.map(m => ({ url: m.url, type: m.type }))
+    const draftData = { content: contentRef.current, media: mediaData, location: locationRef.current, visibility: visibilityRef.current }
 
-    if (draftId) {
-      await supabase.from('post_drafts').update({ ...draftData, updated_at: new Date().toISOString() }).eq('id', draftId)
+    if (draftIdRef.current) {
+      await supabase.from('post_drafts').update({ ...draftData, updated_at: new Date().toISOString() }).eq('id', draftIdRef.current)
     } else {
-      const { data } = await supabase.from('post_drafts').insert({ user_id: user.id, ...draftData }).select('id').single()
+      const { data } = await supabase.from('post_drafts').insert({ user_id: currentUser.id, ...draftData }).select('id').single()
       if (data) setDraftId(data.id)
     }
   }

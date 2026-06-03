@@ -51,7 +51,6 @@ const securityHeaders = [
       "connect-src 'self' https://unpkg.com https://*.supabase.co https://*.supabase.in https://*.supabase.com wss://*.supabase.co wss://*.supabase.in wss://*.supabase.com https://challenges.cloudflare.com",
       "frame-src https://challenges.cloudflare.com",
       "worker-src 'self' blob:",
-      "frame-src 'none'",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
@@ -62,6 +61,7 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  reactStrictMode: true,
   ...(isCapacitorBuild ? { output: 'export', trailingSlash: true } : {}),
   images: {
     ...(isCapacitorBuild ? { unoptimized: true } : {}),
@@ -74,6 +74,9 @@ const nextConfig: NextConfig = {
     ],
   },
   ...(isCapacitorBuild ? {} : {
+    compiler: {
+      removeConsole: process.env.NODE_ENV === 'production' ? { exclude: ['error', 'warn'] } : false,
+    },
     serverExternalPackages: ['@supabase/supabase-js'],
     async headers() {
       return [

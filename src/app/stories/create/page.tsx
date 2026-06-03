@@ -144,23 +144,36 @@ export default function CreateStoryPage() {
       const video = document.createElement('video');
       video.preload = 'metadata';
       video.src = previewUrl;
+
+      const cleanup = () => {
+        video.onloadedmetadata = null;
+        video.onerror = null;
+        video.removeAttribute('src');
+        video.load();
+      };
+
       video.onloadedmetadata = () => {
-        if (video.duration > MAX_VIDEO_STORY_DURATION) {
-          showToast(`Video must be ${MAX_VIDEO_STORY_DURATION}s or shorter. Yours is ${Math.round(video.duration)}s.`, 5);
-          URL.revokeObjectURL(previewUrl);
-          return;
+        try {
+          if (video.duration > MAX_VIDEO_STORY_DURATION) {
+            showToast(`Video must be ${MAX_VIDEO_STORY_DURATION}s or shorter. Yours is ${Math.round(video.duration)}s.`, 5);
+            URL.revokeObjectURL(previewUrl);
+            return;
+          }
+          setVideoDuration(video.duration);
+          setMediaFile(file);
+          setMedia({ url: previewUrl, type: 'video' });
+          setOverlays([]);
+          setDrawingData(null);
+          setFilters({ brightness: 100, contrast: 100, saturation: 100, blur: 0, grayscale: false, warmth: 0 });
+          setSelectedMusic(null);
+        } finally {
+          cleanup();
         }
-        setVideoDuration(video.duration);
-        setMediaFile(file);
-        setMedia({ url: previewUrl, type: 'video' });
-        setOverlays([]);
-        setDrawingData(null);
-        setFilters({ brightness: 100, contrast: 100, saturation: 100, blur: 0, grayscale: false, warmth: 0 });
-        setSelectedMusic(null);
       };
       video.onerror = () => {
         showToast('Could not read video file', 5);
         URL.revokeObjectURL(previewUrl);
+        cleanup();
       };
       return;
     }

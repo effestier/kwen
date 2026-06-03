@@ -76,9 +76,7 @@ export default function ExplorePage() {
       console.error('[EXPLORE] get_explore_feed RPC error:', rpcError.message, rpcError);
       return [];
     }
-    console.log('[EXPLORE] RPC returned', explorePosts?.length, 'rows, first:', explorePosts?.[0]);
     const posts = (explorePosts || []) as ExplorePost[];
-    console.log('[EXPLORE] Mapped posts:', posts.length, 'first media:', posts[0]?.media);
     // Client-side category filtering (DB RPC doesn't support p_category yet)
     if (category !== 'All') {
       const cat = category.toLowerCase();
@@ -116,7 +114,7 @@ export default function ExplorePage() {
     async function init() {
       setLoading(true);
       const initialPosts = await loadPosts([], activeCategory);
-      console.log('[EXPLORE] INIT: setting posts to', initialPosts.length, 'items');
+      // Initial posts loaded: initialPosts.length
       setPosts(initialPosts);
       setSeenIds(initialPosts.map(p => p.id));
       if (initialPosts.length < 30) setHasMore(false);

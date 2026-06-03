@@ -59,8 +59,13 @@ export function useAuth() {
       async (_event, session) => {
         initialHandled = true
         if (session?.user) {
-          const profile = await fetchProfile(session.user.id)
-          setState({ user: session.user, loading: false, profile })
+          try {
+            const profile = await fetchProfile(session.user.id)
+            setState({ user: session.user, loading: false, profile })
+          } catch {
+            // Profile fetch failed — still set user so app doesn't hang
+            setState({ user: session.user, loading: false, profile: null })
+          }
         } else {
           setState({ user: null, loading: false, profile: null })
         }
@@ -70,11 +75,15 @@ export function useAuth() {
     // Fallback: if onAuthStateChange doesn't fire within 3s
     const fallbackTimer = setTimeout(async () => {
       if (initialHandled) return
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const profile = await fetchProfile(user.id)
-        setState({ user, loading: false, profile })
-      } else {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const profile = await fetchProfile(user.id)
+          setState({ user, loading: false, profile })
+        } else {
+          setState(prev => ({ ...prev, loading: false }))
+        }
+      } catch {
         setState(prev => ({ ...prev, loading: false }))
       }
     }, 3000)

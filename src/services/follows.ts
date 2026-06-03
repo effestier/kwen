@@ -31,7 +31,14 @@ export async function toggleFollow(userId: string) {
         .from('follows')
         .insert({ follower_id: user.id, following_id: userId });
 
-      if (followError) return { error: 'Failed to follow user' };
+      // Handle race condition: if another request already inserted, treat as success
+      if (followError) {
+        if (followError.code === '23505') {
+          // Unique constraint violation — already following, treat as success
+          return { success: true };
+        }
+        return { error: 'Failed to follow user' };
+      }
 
       await supabase
         .from('notifications')

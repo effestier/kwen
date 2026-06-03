@@ -4,10 +4,10 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 // Simple in-memory cache for Supabase queries.
 // Cache entries are keyed by the query signature and live for 30 seconds.
 // This prevents re-fetching the same data when navigating between pages.
-const queryCache = new Map<string, { data: any; expiry: number }>()
+const queryCache = new Map<string, { data: unknown; expiry: number }>()
 const CACHE_TTL = 30_000 // 30 seconds
 
-function getCacheKey(query: string, params?: Record<string, any>): string {
+function getCacheKey(query: string, params?: Record<string, unknown>): string {
   return params ? `${query}:${JSON.stringify(params)}` : query
 }
 
@@ -50,9 +50,9 @@ export function createClient(): SupabaseClient {
  */
 export async function cachedQuery<T>(
   key: string,
-  fn: () => Promise<{ data: T | null; error: any }>,
+  fn: () => Promise<{ data: T | null; error: { message: string } | null }>,
   cacheTTL = CACHE_TTL
-): Promise<{ data: T | null; error: any }> {
+): Promise<{ data: T | null; error: { message: string } | null }> {
   const cached = getCached<T>(key)
   if (cached !== null) {
     return { data: cached, error: null }

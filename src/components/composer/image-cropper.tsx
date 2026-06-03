@@ -6,6 +6,9 @@ import { hapticLight, hapticMedium } from '@/lib/haptics'
 
 export type CropRatio = 'original' | '1:1' | '4:5' | '16:9'
 
+/** Aspect ratio value used for Instagram-style feed */
+export const DEFAULT_RATIO: CropRatio = '4:5'
+
 interface CropState {
   crop: { x: number; y: number }
   zoom: number
@@ -23,10 +26,10 @@ interface ImageCropperProps {
 }
 
 const RATIOS: { label: string; value: CropRatio; aspect?: number }[] = [
-  { label: 'Original', value: 'original' },
   { label: '1:1', value: '1:1', aspect: 1 },
   { label: '4:5', value: '4:5', aspect: 4 / 5 },
   { label: '16:9', value: '16:9', aspect: 16 / 9 },
+  { label: 'Original', value: 'original' },
 ]
 
 async function getCroppedImg(
@@ -235,25 +238,32 @@ export function ImageCropper({ src, ratio, onRatioChange, onCrop, onSkip, imageI
         </button>
       </div>
 
-      {/* Ratio buttons */}
-      <div className="flex items-center justify-center gap-2 py-2.5 px-4 bg-[var(--bg-secondary)]">
-        {RATIOS.map((r) => (
-          <button
-            key={r.value}
-            onClick={() => handleRatioChange(r.value)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
-              ratio === r.value
-                ? 'bg-white text-black scale-105'
-                : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-            }`}
-          >
-            {r.label}
-          </button>
-        ))}
+      {/* Ratio buttons — Instagram style */}
+      <div className="flex items-center justify-center gap-1.5 py-2.5 px-4 bg-[var(--bg-secondary)]">
+        {RATIOS.map((r) => {
+          const isDefault = r.value === '4:5'
+          const isActive = ratio === r.value
+          return (
+            <button
+              key={r.value}
+              onClick={() => handleRatioChange(r.value)}
+              className={`relative px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
+                isActive
+                  ? 'bg-white text-black shadow-sm'
+                  : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'
+              }`}
+            >
+              {r.label}
+              {isDefault && (
+                <span className="absolute -top-1 -right-1.5 w-2 h-2 rounded-full bg-[var(--accent-primary)]" />
+              )}
+            </button>
+          )
+        })}
         {cropState.zoom > 1.1 && (
           <button
             onClick={handleReset}
-            className="px-3 py-1.5 rounded-full text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+            className="px-2.5 py-1.5 rounded-full text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
           >
             Reset
           </button>

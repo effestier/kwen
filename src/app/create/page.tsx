@@ -5,7 +5,7 @@ import { MainLayout } from '@/components/layout/main-layout'
 import { Avatar } from '@/components/ui/avatar'
 import { MediaPicker, type MediaItem } from '@/components/composer/media-picker'
 import { MediaPreview } from '@/components/composer/media-preview'
-import { ImageCropper, type CropRatio } from '@/components/composer/image-cropper'
+import { ImageCropper, type CropRatio, DEFAULT_RATIO } from '@/components/composer/image-cropper'
 import { CaptionEditor } from '@/components/composer/caption-editor'
 import { AudienceSelector } from '@/components/composer/audience-selector'
 import { createClient } from '@/lib/supabase/client'
@@ -49,7 +49,7 @@ export default function CreatePage() {
   const [draftId, setDraftId] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [cropIndex, setCropIndex] = useState(0)
-  const [cropRatio, setCropRatio] = useState<CropRatio>('original')
+  const [cropRatio, setCropRatio] = useState<CropRatio>(DEFAULT_RATIO)
 
   const supabase = createClient()
   const router = useRouter()
@@ -276,7 +276,7 @@ export default function CreatePage() {
                   const hasImages = items.some(m => m.type === 'image')
                   if (hasImages) {
                     setCropIndex(0)
-                    setCropRatio('original')
+                    setCropRatio(DEFAULT_RATIO)
                     setStep('crop')
                   } else {
                     setStep('preview')
@@ -317,7 +317,7 @@ export default function CreatePage() {
                     const nextIndex = cropIndex + 1
                     if (nextIndex < imageItems.length) {
                       setCropIndex(nextIndex)
-                      setCropRatio('original')
+                      setCropRatio(DEFAULT_RATIO)
                     } else {
                       setStep('preview')
                     }
@@ -326,7 +326,7 @@ export default function CreatePage() {
                     const nextIndex = cropIndex + 1
                     if (nextIndex < imageItems.length) {
                       setCropIndex(nextIndex)
-                      setCropRatio('original')
+                      setCropRatio(DEFAULT_RATIO)
                     } else {
                       setStep('preview')
                     }
@@ -341,7 +341,7 @@ export default function CreatePage() {
                         key={item.id}
                         onClick={() => {
                           setCropIndex(idx)
-                          setCropRatio('original')
+                          setCropRatio(DEFAULT_RATIO)
                         }}
                         className={`relative flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden border-2 transition-all ${
                           idx === cropIndex
@@ -493,7 +493,7 @@ export default function CreatePage() {
                 const hasImages = mediaItems.some(m => m.type === 'image')
                 if (hasImages) {
                   setCropIndex(0)
-                  setCropRatio('original')
+                  setCropRatio(DEFAULT_RATIO)
                   setStep('crop')
                 } else {
                   setStep('preview')

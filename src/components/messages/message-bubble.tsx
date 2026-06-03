@@ -518,6 +518,7 @@ export function MessageBubble({ message, showAvatar, showTail, onReact, onReply,
             <div className="fixed inset-0 z-[9998] bg-black/50 backdrop-blur-sm animate-fadeIn" onClick={() => setShowMenu(false)} aria-hidden="true" />
             <div
               role="dialog"
+              aria-modal="true"
               aria-label="Message actions"
               className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[9999] w-[min(320px,calc(100vw-2rem))] bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-2xl shadow-2xl overflow-hidden animate-scaleIn"
             >
@@ -602,6 +603,7 @@ export function MessageBubble({ message, showAvatar, showTail, onReact, onReply,
           />
           <div
             role="dialog"
+            aria-modal="true"
             aria-label="Message actions"
             className="fixed bottom-0 left-0 right-0 z-[9999] bg-[var(--bg-secondary)] rounded-t-2xl pb-[max(0.75rem,env(safe-area-inset-bottom))] animate-slide-in-from-bottom"
             onTouchStart={(e) => {

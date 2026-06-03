@@ -77,9 +77,13 @@ interface Conversation {
   } | null;
   last_message: string | null;
   last_message_raw?: string;
+  last_message_is_mine?: boolean;
+  last_message_delivered?: boolean;
+  last_message_seen?: boolean;
   unread_count: number;
   updated_at: string;
   has_messages?: boolean;
+  last_read_message_id?: string | null;
 }
 
 interface UserProfile {
@@ -1262,10 +1266,6 @@ export default function MessagesPage() {
     if (messageInputRef.current) {
       messageInputRef.current.style.height = 'auto';
     }
-    // Haptic feedback on send (mobile)
-    if (typeof navigator !== 'undefined' && navigator.vibrate) {
-      navigator.vibrate(10);
-    }
 
     const result = await sendMessage(sid, displayContent, media, replyTo?.id);
     setReplyTo(null);
@@ -1300,6 +1300,10 @@ export default function MessagesPage() {
       setFailedMessages(prev => new Map(prev).set(tempId, { content: displayContent, media, file: imageFile ?? undefined, replyToMessageId: replyTo?.id }));
     }
     setSending(false);
+    // Re-focus input after sending (desktop only — mobile keyboard would flicker)
+    if (typeof window !== 'undefined' && window.innerWidth >= 768) {
+      setTimeout(() => messageInputRef.current?.focus(), 50);
+    }
   };
 
   const handleVoiceSend = useCallback(async (blob: Blob, duration: number) => {
@@ -1469,15 +1473,15 @@ export default function MessagesPage() {
                 </div>
               </div>
             ) : conversations.length > 0 ? (() => {
-              const filtered = conversations
+              const filteredConvs = conversations
                 .filter(conv => {
-                  if (!conv.has_messages) return false; // hide empty conversations from sidebar
+                  if (!conv.has_messages) return false;
                   if (!searchQuery.trim()) return true;
                   const q = searchQuery.toLowerCase();
                   if (conv.other_user?.display_name?.toLowerCase().includes(q) || conv.other_user?.username?.toLowerCase().includes(q)) return true;
                   return searchResults.has(conv.id);
                 });
-              if (filtered.length === 0 && searchQuery.trim()) {
+              if (filteredConvs.length === 0 && searchQuery.trim()) {
                 return (
                   <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
                     <div className="w-14 h-14 rounded-full bg-[var(--bg-tertiary)] mb-3 flex items-center justify-center">
@@ -1490,7 +1494,7 @@ export default function MessagesPage() {
                   </div>
                 );
               }
-              return filtered.map((conv) => {
+              return filteredConvs.map((conv) => {
                 const isUnread = conv.unread_count > 0;
                 const isSelected = selectedId === conv.id;
                 return (
@@ -1552,7 +1556,8 @@ export default function MessagesPage() {
                     </div>
                   </button>
                 );
-              })())
+              });
+            })()
             ) : (
               <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
                 <div className="w-14 h-14 rounded-full bg-[var(--bg-tertiary)] mb-3 flex items-center justify-center">
@@ -1617,9 +1622,9 @@ export default function MessagesPage() {
                 <button
                   onClick={() => setShowMobileChat(false)}
                   aria-label="Back to conversations"
-                  className="md:hidden p-1.5 -ml-1 hover:bg-[var(--bg-secondary)] rounded-full transition-colors-fast"
+                  className="md:hidden p-2 -ml-2 min-w-[44px] min-h-[44px] hover:bg-[var(--bg-secondary)] active:bg-[var(--bg-tertiary)] rounded-full transition-colors-fast flex items-center justify-center"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="m15 18-6-6 6-6" />
                   </svg>
                 </button>
@@ -2045,6 +2050,7 @@ export default function MessagesPage() {
       {deleteConvId && (
         <div
           role="dialog"
+          aria-modal="true"
           aria-label="Delete conversation"
           className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center"
           onClick={() => setDeleteConvId(null)}
@@ -2108,6 +2114,7 @@ export default function MessagesPage() {
       {forwardMessage && (
         <div
           role="dialog"
+          aria-modal="true"
           aria-label="Forward message"
           className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-end md:items-center justify-center"
           onClick={() => { setForwardMessage(null); setForwardSearch(''); }}

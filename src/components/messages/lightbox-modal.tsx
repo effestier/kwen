@@ -15,6 +15,7 @@ export function LightboxModal({ url, mediaPath, onClose, onRefreshUrl }: Lightbo
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [imgError, setImgError] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(false);
   const lastTouchRef = useRef<{ x: number; y: number; dist?: number } | null>(null);
   const dragStartRef = useRef<{ x: number; y: number; offsetX: number; offsetY: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -25,6 +26,7 @@ export function LightboxModal({ url, mediaPath, onClose, onRefreshUrl }: Lightbo
     setScale(1);
     setOffset({ x: 0, y: 0 });
     setImgError(false);
+    setImgLoaded(false);
   }, [url]);
 
   // Close on Escape
@@ -171,21 +173,46 @@ export function LightboxModal({ url, mediaPath, onClose, onRefreshUrl }: Lightbo
       onTouchEnd={handleTouchEnd}
       onWheel={handleWheel}
     >
-      {/* Close button */}
-      <button
-        onClick={onClose}
-        aria-label="Close image"
-        className="absolute top-3 right-3 z-10 p-2.5 min-w-[44px] min-h-[44px] rounded-full bg-black/40 text-white/80 hover:text-white active:scale-90 transition-all flex items-center justify-center backdrop-blur-sm"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M18 6 6 18" /><path d="m6 6 12 12" />
-        </svg>
-      </button>
+      {/* Top bar: close + actions */}
+      <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            const a = document.createElement('a');
+            a.href = url;
+            a.target = '_blank';
+            a.download = 'image';
+            a.click();
+          }}
+          aria-label="Open in new tab"
+          className="p-2.5 min-w-[44px] min-h-[44px] rounded-full bg-black/40 text-white/80 hover:text-white active:scale-90 transition-all flex items-center justify-center backdrop-blur-sm"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 3h6v6" /><path d="M10 14 21 3" /><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+          </svg>
+        </button>
+        <button
+          onClick={onClose}
+          aria-label="Close image"
+          className="p-2.5 min-w-[44px] min-h-[44px] rounded-full bg-black/40 text-white/80 hover:text-white active:scale-90 transition-all flex items-center justify-center backdrop-blur-sm"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+          </svg>
+        </button>
+      </div>
 
       {/* Zoom indicator */}
       {scale > 1 && (
         <div className="absolute top-3 left-3 z-10 px-2.5 py-1 rounded-full bg-black/40 text-white/80 text-xs font-medium backdrop-blur-sm">
           {Math.round(scale * 100)}%
+        </div>
+      )}
+
+      {/* Loading spinner */}
+      {!imgLoaded && !imgError && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="w-10 h-10 rounded-full border-2 border-white/20 border-t-white/80 animate-spin" />
         </div>
       )}
 
@@ -195,6 +222,7 @@ export function LightboxModal({ url, mediaPath, onClose, onRefreshUrl }: Lightbo
         ref={imgRef}
         src={url}
         alt="Full size image"
+        onLoad={() => setImgLoaded(true)}
         className={cn(
           "max-w-[95vw] max-h-[90vh] object-contain select-none",
           isDragging ? "cursor-grabbing" : scale > 1 ? "cursor-grab" : "cursor-default"

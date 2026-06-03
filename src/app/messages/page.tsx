@@ -123,6 +123,13 @@ export default function MessagesPage() {
   const [blockUserId, setBlockUserId] = useState<string | null>(null);
   const hasOpenedFromProfile = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const messageInputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-expand textarea as user types, with max-height cap
+  const handleInputResize = useCallback((el: HTMLTextAreaElement) => {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+  }, []);
 
   // Read ?open= param synchronously (avoids useSearchParams Suspense requirement)
   const openConvId = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('open') : null;
@@ -1223,6 +1230,10 @@ export default function MessagesPage() {
     setMessages(prev => deduplicateMessages([...prev, tempMessage]));
     clearImagePreview();
     setNewMessage('');
+    // Reset textarea height after clearing
+    if (messageInputRef.current) {
+      messageInputRef.current.style.height = 'auto';
+    }
 
     const result = await sendMessage(sid, displayContent, media, replyTo?.id);
     setReplyTo(null);
@@ -1799,7 +1810,7 @@ export default function MessagesPage() {
                     onCancel={() => setIsRecordingVoice(false)}
                   />
                 ) : (
-                  <div className="px-3 py-2 flex items-center gap-1.5">
+                  <div className="px-3 py-2 flex items-end gap-1.5">
                     <input
                       ref={fileInputRef}
                       type="file"
@@ -1813,29 +1824,32 @@ export default function MessagesPage() {
                       onClick={() => fileInputRef.current?.click()}
                       disabled={sending || uploadProgress >= 0 || !currentUserProfile}
                       aria-label="Attach image"
-                      className="p-2 rounded-full text-[var(--text-muted)] active:text-[var(--text-primary)] active:bg-[var(--bg-secondary)] transition-colors-fast disabled:opacity-30"
+                      className="p-2 rounded-full text-[var(--text-muted)] active:text-[var(--text-primary)] active:bg-[var(--bg-secondary)] transition-colors-fast disabled:opacity-30 flex-shrink-0"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                         <rect width="18" height="18" x="3" y="3" rx="2" ry="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
                       </svg>
                     </button>
                     <label htmlFor="message-input" className="sr-only">Type a message</label>
-                    <input
+                    <textarea
+                      ref={messageInputRef}
                       id="message-input"
-                      type="text"
                       value={newMessage}
-                      onChange={(e) => { setNewMessage(e.target.value); handleTyping(); }}
+                      onChange={(e) => { setNewMessage(e.target.value); handleTyping(); handleInputResize(e.target); }}
+                      onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(e); } }}
                       placeholder="Message..."
                       aria-label="Type a message"
                       disabled={!currentUserProfile}
-                      className="flex-1 px-4 py-2 rounded-full bg-[var(--bg-tertiary)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none disabled:opacity-50 text-[16px]"
+                      rows={1}
+                      className="flex-1 resize-none overflow-y-auto px-4 py-2 rounded-2xl bg-[var(--bg-tertiary)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none disabled:opacity-50 text-[16px] leading-[1.35] max-h-[120px]"
+                      style={{ height: 'auto', minHeight: '40px' }}
                     />
                     {newMessage.trim() || imageFile ? (
                       <button
                         type="submit"
                         disabled={sending || !currentUserProfile}
                         aria-label="Send message"
-                        className="p-2 rounded-full bg-[var(--accent-primary)] text-[var(--text-inverse)] disabled:opacity-30 active:scale-90 transition-all"
+                        className="p-2 rounded-full bg-[var(--accent-primary)] text-[var(--text-inverse)] disabled:opacity-30 active:scale-90 transition-all flex-shrink-0"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                           <path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" />
@@ -1847,7 +1861,7 @@ export default function MessagesPage() {
                         onClick={() => setIsRecordingVoice(true)}
                         disabled={sending || !currentUserProfile}
                         aria-label="Record voice message"
-                        className="p-2.5 rounded-full text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] transition-colors-fast disabled:opacity-30"
+                        className="p-2.5 rounded-full text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] transition-colors-fast disabled:opacity-30 flex-shrink-0"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                           <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" x2="12" y1="19" y2="22" />

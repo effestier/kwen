@@ -638,7 +638,7 @@ export default function MessagesPage() {
           const typing = new Set<string>();
           Object.values(state).forEach((users: unknown) => {
             (users as Array<{ user_id: string; display_name: string }>).forEach((u) => {
-              if (u.user_id !== currentUserIdRef.current) typing.add(u.display_name || 'User');
+              if (u.user_id !== currentUserIdRef.current) typing.add(u.user_id);
             });
           });
           setTypingUsers(typing);
@@ -922,7 +922,7 @@ export default function MessagesPage() {
       };
 
       const signedMedia = await getOrRefreshSignedUrl(voicePath);
-      const result = await sendMessage(sid, '', media, undefined, undefined, failedData.duration);
+      const result = await sendMessage(sid, failedData.content, media, failedData.replyToMessageId, undefined, failedData.duration);
       if (result.success && result.message) {
         setFailedMessages(prev => { const next = new Map(prev); next.delete(tempId); return next; });
         setMessages(prev => prev.map(m => m.id === tempId ? {

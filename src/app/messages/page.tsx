@@ -2168,7 +2168,7 @@ export default function MessagesPage() {
               {/* Message preview */}
               <div className="px-3 py-2 rounded-xl bg-[var(--bg-tertiary)] mb-3">
                 <p className="text-xs text-[var(--text-muted)] mb-0.5">{forwardMessage.sender?.display_name || 'User'}</p>
-                <p className="text-sm text-[var(--text-primary)] line-clamp-2">{forwardMessage.content || (forwardMessage.message_type === 'image' ? '📷 Photo' : forwardMessage.message_type === 'voice' ? '🎤 Voice message' : 'Media')}</p>
+                <p className="text-sm text-[var(--text-primary)] line-clamp-2 break-all">{forwardMessage.content || (forwardMessage.message_type === 'image' ? '📷 Photo' : forwardMessage.message_type === 'voice' ? '🎤 Voice message' : 'Media')}</p>
               </div>
               {/* Search */}
               <div className="relative">

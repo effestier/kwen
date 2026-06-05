@@ -957,9 +957,9 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
             {countdown && !poll && !question && (
               <CountdownDisplay countdown={countdown} />
             )}
-          </motion.div>
+          </div>
 
-        </div>
+        </motion.div>
 
         {/* Bottom action bar — Instagram style */}
         <div className="absolute bottom-0 left-0 right-0 z-10">

@@ -14,7 +14,7 @@ export function ReplyPreview({ senderName, content, messageType, mediaUrl, onCan
       <div className="w-0.5 h-8 bg-[var(--accent-primary)] rounded-full flex-shrink-0" />
       <div className="flex-1 min-w-0">
         <p className="text-xs font-semibold text-[var(--accent-primary)]">{senderName}</p>
-        <p className="text-[13px] text-[var(--text-muted)] truncate leading-tight">
+        <p className="text-[13px] text-[var(--text-muted)] break-all leading-tight">
           {messageType === 'image' ? '📷 Photo' : content}
         </p>
       </div>

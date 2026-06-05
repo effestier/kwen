@@ -82,7 +82,7 @@ function isEmojiOnly(text: string): boolean {
   // keycap sequences, and individual emoji with variation selectors.
   // This UAX #29–compliant pattern matches each "emoji unit" as one token.
   // UAX #29–compliant: matches flag pairs, emoji+modifiers, ZWJ chains (👨‍👩‍👧‍👦), keycaps
-  const EMOJI_CLUSTER = /\p{RI}\p{RI}|\p{Emoji}(\p{EMod}|\x{FE0F}\x{20E3}?)?(?:\x{200D}\p{Emoji}(\p{EMod}|\x{FE0F}\x{20E3}?)?)*/gu;
+  const EMOJI_CLUSTER = /\p{RI}\p{RI}|\p{Emoji}(\p{EMod}|\u{FE0F}\u{20E3}?)?(?:\u{200D}\p{Emoji}(\p{EMod}|\u{FE0F}\u{20E3}?)?)*/gu;
 
   const replaced = trimmed.replace(EMOJI_CLUSTER, '');
   return replaced.trim().length === 0;

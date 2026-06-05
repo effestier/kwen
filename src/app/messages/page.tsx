@@ -10,7 +10,6 @@ import Link from 'next/link';
 import { getMessages, getOlderMessages, sendMessage, markConversationAsRead, markMessagesAsDelivered, markMessagesAsSeen, getSignedUrl, addReaction, deleteMessage, reportMessage } from '@/services/messages';
 import type { MediaMetadata } from '@/services/messages';
 import { MessageBubble, type MessageBubbleData } from '@/components/messages/message-bubble';
-import { ReplyPreview } from '@/components/messages/reply-preview';
 import { compressForMessage, generateThumbnail, validateRawFile, verifyImageContent } from '@/lib/image-compress';
 import { ListSkeleton, Skeleton } from '@/components/design-system/skeleton';
 import { blockUser } from '@/services/posts';
@@ -1930,17 +1929,7 @@ export default function MessagesPage() {
               {/* Message Input */}
               <form onSubmit={handleSend} className="border-t border-[var(--border-subtle)] shrink-0 min-w-0 bg-[var(--bg-primary)] pb-[env(safe-area-inset-bottom,0px)]">
                 {/* Reply preview */}
-                {replyTo && (
-                  <div className="px-3 pt-2 min-w-0">
-                    <ReplyPreview
-                      senderName={replyTo.sender?.display_name || 'Unknown'}
-                      content={replyTo.content}
-                      messageType={replyTo.message_type}
-                      mediaUrl={replyTo.thumbnail_url || replyTo.media_url}
-                      onCancel={() => setReplyTo(null)}
-                    />
-                  </div>
-                )}
+                {/* Removed to hide reply previews for individual messages as requested */}
 
                 {/* Image preview */}
                 {imagePreview && (

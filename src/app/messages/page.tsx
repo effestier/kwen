@@ -133,9 +133,15 @@ export default function MessagesPage() {
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-expand textarea as user types, with max-height cap
+  const TEXTAREA_MAX_HEIGHT = 180;
   const handleInputResize = useCallback((el: HTMLTextAreaElement) => {
     el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+    const newHeight = Math.min(el.scrollHeight, TEXTAREA_MAX_HEIGHT);
+    el.style.height = newHeight + 'px';
+    // Only enable internal scroll when content exceeds max-height
+    el.style.overflowY = el.scrollHeight > TEXTAREA_MAX_HEIGHT ? 'auto' : 'hidden';
+    // Prevent layout shift by keeping scrollbar gutter stable
+    el.style.scrollbarGutter = 'stable';
   }, []);
 
   // Read ?open= param synchronously (avoids useSearchParams Suspense requirement)
@@ -1444,7 +1450,7 @@ export default function MessagesPage() {
 
       {/* H41: Use svh (small viewport) to prevent keyboard resize scroll jumps on mobile */}
       {/* Mobile: nav (64px) + safe-area-inset-bottom + header spacing. Desktop: just header spacing */}
-      <div className="flex h-[calc(100svh-4rem-env(safe-area-inset-bottom,0px))] lg:h-[calc(100vh-57px)]">
+      <div className="flex overflow-x-hidden h-[calc(100svh-4rem-env(safe-area-inset-bottom,0px))] lg:h-[calc(100vh-57px)]">
         {/* Conversations List */}
         <div className={cn(
           "w-full md:w-80 border-r border-[var(--border-subtle)] flex flex-col bg-[var(--bg-primary)]",
@@ -1674,7 +1680,7 @@ export default function MessagesPage() {
               </div>
 
               {/* Messages */}
-              <div role="log" aria-label="Messages" aria-live="polite" ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto px-3 md:px-4 py-3"
+              <div role="log" aria-label="Messages" aria-live="polite" ref={scrollContainerRef} className="flex-1 min-h-0 min-w-0 overflow-x-hidden overflow-y-auto px-3 md:px-4 py-3"
                 onScroll={(e) => {
                   const el = e.currentTarget;
                   // Load older messages when near top
@@ -1761,13 +1767,13 @@ export default function MessagesPage() {
                               </div>
                             )}
                             <div className={cn('flex w-full mt-2', msg.isMine ? 'justify-end' : 'justify-start')}>
-                              <div className={cn('max-w-[78%] md:max-w-[min(65%,520px)] min-w-0')}>
+                              <div className={cn('max-w-[80%] md:max-w-[min(65%,480px)] min-w-0')}>
                                 <div className={cn(
                                   'text-sm rounded-2xl px-3.5 py-2 min-w-0',
                                   msg.isMine ? 'bg-[var(--accent-primary)] text-[var(--text-inverse)] rounded-br-md' : 'bg-[var(--bg-secondary)] text-[var(--text-primary)] rounded-bl-md',
                                   msg.status === 'failed' && 'opacity-60'
                                 )}>
-                                  {msg.content && msg.content !== 'Photo' && <p className="whitespace-pre-wrap break-all text-sm">{msg.content}</p>}
+                                  {msg.content && msg.content !== 'Photo' && <p className="message-text text-sm">{msg.content}</p>}
                                   {msg.media_url && (
                                     <div className="mt-1">
                                       <img src={msg.media_url} alt="" className="rounded-lg max-w-full max-h-[300px] object-contain" />
@@ -1880,18 +1886,18 @@ export default function MessagesPage() {
               {/* Typing indicator bubble in chat area */}
               {typingUsers.size > 0 && (
                 <div className="flex justify-start px-4 py-1 animate-fadeIn">
-                  <div className="flex items-end gap-2 max-w-[78%] md:max-w-[min(65%,520px)]">
+                  <div className="flex items-end gap-2 max-w-[78%] md:max-w-[min(62%,480px)] min-w-0">
                     <Avatar
                       src={selectedConversation.other_user?.avatar_url || null}
                       name={selectedConversation.other_user?.display_name || 'User'}
                       size="sm"
                     />
-                    <div className="bg-[var(--bg-secondary)] rounded-2xl rounded-bl-md px-4 py-2.5">
+                    <div className="bg-[var(--bg-secondary)] rounded-2xl rounded-bl-md px-4 py-2.5 min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[11px] text-[var(--text-muted)]">
+                        <span className="text-[11px] text-[var(--text-muted)] truncate">
                           {selectedConversation.other_user?.display_name || 'Someone'} is typing
                         </span>
-                        <div className="flex items-center gap-0.5 ml-1">
+                        <div className="flex items-center gap-0.5 ml-1 flex-shrink-0">
                           <div className="typing-dot" />
                           <div className="typing-dot" />
                           <div className="typing-dot" />
@@ -1924,7 +1930,7 @@ export default function MessagesPage() {
               )}
 
               {/* Message Input */}
-              <form onSubmit={handleSend} className="border-t border-[var(--border-subtle)] shrink-0 bg-[var(--bg-primary)]">
+              <form onSubmit={handleSend} className="border-t border-[var(--border-subtle)] shrink-0 bg-[var(--bg-primary)] pb-[env(safe-area-inset-bottom,0px)]">
                 {/* Reply preview */}
                 {replyTo && (
                   <div className="px-3 pt-2">
@@ -1983,7 +1989,7 @@ export default function MessagesPage() {
                     onCancel={() => setIsRecordingVoice(false)}
                   />
                 ) : (
-                  <div className="px-3 py-2 flex items-end gap-1.5">
+                  <div className="chat-input-safe px-3 py-2 flex items-end gap-1.5">
                     <input
                       ref={fileInputRef}
                       type="file"
@@ -2013,8 +2019,8 @@ export default function MessagesPage() {
                       placeholder="Message..."
                       disabled={!currentUserProfile}
                       rows={1}
-                      className="flex-1 resize-none overflow-y-auto px-4 py-2.5 rounded-2xl bg-[var(--bg-tertiary)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none disabled:opacity-50 text-[16px] leading-[1.35] max-h-[120px]"
-                      style={{ height: 'auto', minHeight: '44px' }}
+                      className="chat-textarea flex-1 resize-none overflow-hidden px-4 py-2.5 rounded-2xl bg-[var(--bg-tertiary)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none disabled:opacity-50 text-[16px] leading-[1.35]"
+                      style={{ height: 'auto', minHeight: '44px', scrollbarGutter: 'stable' }}
                     />
                     {newMessage.trim() || imageFile ? (
                       <button

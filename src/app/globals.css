@@ -215,6 +215,7 @@
 
 html {
   color-scheme: dark;
+  overflow-x: hidden;
 }
 
 a {
@@ -231,6 +232,7 @@ body {
   -webkit-tap-highlight-color: transparent;
   line-height: 1.5;
   min-height: 100svh;
+  overflow-x: hidden;
   /* Safe area handled by individual sticky headers and bottom nav */
 }
 
@@ -1241,4 +1243,210 @@ a, button, [role="button"], input, select, textarea {
 .scroll-fade-both {
   mask-image: linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent);
   -webkit-mask-image: linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent);
+}
+
+/* ===========================================
+   MESSAGE TEXT WRAPPING — Production-grade
+   Handles: long words, URLs, API keys, hashes,
+   code snippets, emoji sequences, mixed RTL/LTR
+   =========================================== */
+
+/*
+  GLOBAL MESSAGE OVERFLOW PROTECTION
+  Every element that carries message text MUST have
+  min-width: 0 in its flex container chain and proper
+  word-breaking. These utility classes enforce it.
+*/
+
+/* Applied to the scrollable messages list */
+.messages-container {
+  overflow-x: hidden;
+  overflow-y: auto;
+  min-width: 0;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Applied to each message row (justify-start / justify-end wrapper) */
+.message-row {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Applied to the bubble's outer width cap (max-w-[78%]) */
+.bubble-width-cap {
+  min-width: 0;
+  max-width: 78%;
+}
+
+@media (min-width: 768px) {
+  .bubble-width-cap {
+    max-width: min(65%, 520px);
+  }
+}
+
+/* Applied to the bubble's visible colored box */
+.bubble-box {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Core message text — the <p> tag inside every bubble */
+.message-text {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  -webkit-hyphens: auto;
+  hyphens: auto;
+  unicode-bidi: plaintext;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Fallback for older browsers */
+@supports not (overflow-wrap: anywhere) {
+  .message-text {
+    word-break: break-all;
+  }
+}
+
+/* URL / link inside message bubble */
+.message-link {
+  display: inline;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  unicode-bidi: isolate;
+  max-width: 100%;
+  vertical-align: bottom;
+}
+
+/* Code block inside message bubble */
+.message-code-block {
+  display: block;
+  overflow-x: auto;
+  word-break: normal;
+  white-space: pre;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+  tab-size: 2;
+}
+
+/* Inline code / hash / API key snippet */
+.message-inline-code {
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  unicode-bidi: isolate;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.85em;
+}
+
+/* Emoji-only messages */
+.message-emoji-only {
+  font-size: 2.5rem;
+  line-height: 1.1;
+  word-break: break-word;
+}
+
+/* Reply-to preview text */
+.reply-preview-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Reply preview name — truncate with ellipsis */
+.reply-preview-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Typing indicator bubble */
+.typing-bubble {
+  min-width: 0;
+}
+
+/* Ensure no horizontal scroll ever appears on body from messages */
+body {
+  overflow-x: hidden;
+}
+
+/* ===========================================
+   TEXTAREA — Auto-expand input
+   =========================================== */
+
+.chat-textarea {
+  min-height: 44px;
+  max-height: 180px;
+  overflow-y: auto;
+  resize: none;
+  scrollbar-width: thin;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+@supports (field-sizing: content) {
+  .chat-textarea {
+    field-sizing: content;
+    max-height: 180px;
+  }
+}
+
+/* ===========================================
+   ADDITIONAL PRODUCTION POLISH
+   =========================================== */
+
+/* Prevent iOS auto-zoom on textarea focus */
+@supports (-webkit-touch-callout: none) {
+  .chat-textarea {
+    font-size: 16px;
+  }
+}
+
+/* html-level scroll prevention (body alone isn't enough on some browsers) */
+html {
+  overflow-x: hidden;
+}
+
+/* RTL text support in message bubbles */
+.message-text[dir="rtl"],
+.message-text:dir(rtl) {
+  text-align: right;
+}
+
+/* Code block scrollbar styling */
+.message-code-block::-webkit-scrollbar {
+  height: 4px;
+}
+.message-code-block::-webkit-scrollbar-track {
+  background: transparent;
+}
+.message-code-block::-webkit-scrollbar-thumb {
+  background: var(--text-muted);
+  border-radius: 2px;
+}
+
+/* Bubble width cap — mobile-first */
+.bubble-width-cap {
+  max-width: 85%;
+}
+@media (min-width: 768px) {
+  .bubble-width-cap {
+    max-width: min(65%, 520px);
+  }
+}
+
+/* Message list container — prevent any horizontal bleed */
+.messages-container {
+  overflow-x: hidden;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Safe area padding for input on notched devices */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .chat-input-safe {
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+  }
 }

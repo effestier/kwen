@@ -266,19 +266,19 @@ export function MessageBubble({ message, showAvatar, showTail, onReact, onReply,
 
         {/* Bubble + metadata column */}
         <div className={cn(
-          'flex flex-col max-w-[78%] md:max-w-[min(65%,520px)] min-w-0 relative z-10',
+          'flex flex-col max-w-[80%] md:max-w-[min(65%,480px)] min-w-0 relative z-10',
           message.isMine ? 'items-end' : 'items-start'
         )} style={{ transform: swipeOffset > 0 ? `translateX(${(message.isMine ? -1 : 1) * swipeOffset}px)` : undefined, transition: swipeActiveRef.current ? 'none' : 'transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}>
           {/* Reply-to preview */}
           {message.reply_to && (
             <div className={cn(
-              'mb-1 px-3 py-1.5 rounded-xl text-xs border-l-2 max-w-full',
+              'mb-1 px-3 py-1.5 rounded-xl text-xs border-l-2 max-w-full min-w-0 overflow-hidden',
               message.isMine ? 'bg-black/10 border-black/20' : 'bg-[var(--bg-tertiary)] border-[var(--text-muted)]/30'
             )}>
-              <p className={`font-semibold text-[11px] ${message.isMine ? 'text-black/60' : 'text-[var(--accent-primary)]'}`}>
+              <p className={`font-semibold text-[11px] truncate ${message.isMine ? 'text-black/60' : 'text-[var(--accent-primary)]'}`}>
                 {message.reply_to.senderName}
               </p>
-              <p className={`truncate ${message.isMine ? 'text-black/40' : 'text-[var(--text-muted)]'}`}>
+              <p className={`message-text ${message.isMine ? 'text-black/40' : 'text-[var(--text-muted)]'}`}>
                 {message.reply_to.messageType === 'image' ? '📷 Photo' : message.reply_to.content}
               </p>
             </div>
@@ -350,14 +350,14 @@ export function MessageBubble({ message, showAvatar, showTail, onReact, onReply,
             {/* Text */}
             {message.content && message.content !== 'Photo' && message.message_type !== 'voice' && (
               <p className={cn(
-                'whitespace-pre-wrap break-all',
+                'message-text',
                 isEmojiOnly(message.content) ? 'text-[2.5rem] leading-tight' : 'text-[15px] leading-[1.35]'
               )}>
                 {message.content.split(/(https?:\/\/[^\s<>"{}|\\^`\[\]]+)/g).map((part, i) => {
                   if (/^https?:\/\//.test(part)) {
                     // Strip trailing punctuation that's likely not part of the URL
                     const cleanUrl = part.replace(/[.,;:!?)]+$/, '');
-                    const domain = cleanUrl.replace(/^https?:\/\//, '').split('/')[0];
+                    const displayText = cleanUrl.replace(/^https?:\/\//, '').split('/')[0] + (cleanUrl.replace(/^https?:\/\/[^\/]+/, '').length > 1 ? cleanUrl.replace(/^https?:\/\/[^\/]+/, '').split('?')[0].split('#')[0] : '');
                     return (
                       <a
                         key={i}
@@ -366,11 +366,11 @@ export function MessageBubble({ message, showAvatar, showTail, onReact, onReply,
                         rel="noopener noreferrer"
                         onClick={(e) => e.stopPropagation()}
                         className={cn(
-                          'underline-offset-2 hover:underline',
+                          'message-link underline-offset-2 hover:underline',
                           message.isMine ? 'text-white/90 hover:text-white' : 'text-[var(--accent-primary)] hover:opacity-80'
                         )}
                       >
-                        {domain}
+                        {displayText}
                       </a>
                     );
                   }

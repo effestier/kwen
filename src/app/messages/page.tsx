@@ -1922,9 +1922,7 @@ export default function MessagesPage() {
                       <span className="bg-[var(--accent-primary)] text-[var(--text-inverse)] text-[10px] font-bold min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1">
                         {unreadCount}
                       </span>
-                    ) : (
-                      <span>New messages</span>
-                    )}
+                    ) : null}
                   </button>
                 </div>
               )}

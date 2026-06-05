@@ -4,11 +4,14 @@ import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { BRAND } from '@/lib/brand/config';
+import { usePathname } from 'next/navigation';
 
 export function MobileHeader() {
   const [hasUnread, setHasUnread] = useState(false);
+  const pathname = usePathname();
   const supabaseRef = useRef(createClient());
   const supabase = supabaseRef.current;
+  const showIcons = !['/explore', '/messages', '/videos'].includes(pathname || '');
 
   useEffect(() => {
     // Check localStorage for persisted state
@@ -42,6 +45,7 @@ export function MobileHeader() {
         <span className="text-lg font-bold text-[var(--text-primary)] tracking-tight">{BRAND.name}</span>
       </Link>
 
+      {showIcons && (
       <div className="flex items-center gap-1">
         <Link
           href="/notifications"
@@ -69,6 +73,7 @@ export function MobileHeader() {
           </svg>
         </Link>
       </div>
+    )}
     </header>
   );
 }

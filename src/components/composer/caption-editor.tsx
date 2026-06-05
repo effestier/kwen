@@ -129,7 +129,7 @@ export function CaptionEditor({
           value={value}
           onChange={handleChange}
           placeholder={placeholder}
-          className="w-full min-h-[120px] p-3 bg-transparent text-[var(--text-primary)] text-sm resize-none outline-none placeholder:text-[var(--text-muted)]"
+          className="w-full min-h-[120px] p-3 bg-transparent text-[var(--text-primary)] text-sm resize-none outline-none overflow-x-hidden overflow-y-auto placeholder:text-[var(--text-muted)]" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', whiteSpace: 'pre-wrap' }}
           rows={4}
         />
 

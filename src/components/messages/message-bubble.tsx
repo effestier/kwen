@@ -235,7 +235,7 @@ export function MessageBubble({ message, showAvatar, showTail, onReact, onReply,
         ref={containerRef}
         className={cn(
           'group/msg relative',
-          message.isMine ? 'flex flex-row-reverse' : 'flex flex-row',
+          message.isMine ? 'flex flex-row-reverse min-w-0' : 'flex flex-row min-w-0',
           hasReactions && 'mb-6'
         )}
         onMouseEnter={() => setIsHovered(true)}

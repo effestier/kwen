@@ -1373,6 +1373,27 @@ body {
 }
 
 /* ===========================================
+   TEXT WRAPPING — Shared utility for all user-generated text
+   Prevents horizontal overflow from unbreakable strings (URLs, JWTs, hashes, etc.)
+   Apply to any element that renders user content.
+   =========================================== */
+.text-wrap-safe {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: pre-wrap;
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* Flex item text container — prevents flex overflow */
+.flex-text-container {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* ===========================================
    TEXTAREA — Auto-expand input
    =========================================== */
 
@@ -1380,10 +1401,14 @@ body {
   min-height: 44px;
   max-height: 180px;
   overflow-y: auto;
+  overflow-x: hidden;
   resize: none;
   scrollbar-width: thin;
   word-break: break-word;
   overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  width: 100%;
+  max-width: 100%;
 }
 
 @supports (field-sizing: content) {

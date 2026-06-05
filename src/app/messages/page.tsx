@@ -1633,7 +1633,7 @@ export default function MessagesPage() {
 
         {/* Chat Area */}
         <div className={cn(
-          'relative flex-1 flex flex-col bg-[var(--bg-primary)]',
+          'relative flex-1 flex flex-col min-w-0 bg-[var(--bg-primary)]',
           !showMobileChat && 'hidden md:flex'
         )}>
           {selectedConversation ? (
@@ -1930,10 +1930,10 @@ export default function MessagesPage() {
               )}
 
               {/* Message Input */}
-              <form onSubmit={handleSend} className="border-t border-[var(--border-subtle)] shrink-0 bg-[var(--bg-primary)] pb-[env(safe-area-inset-bottom,0px)]">
+              <form onSubmit={handleSend} className="border-t border-[var(--border-subtle)] shrink-0 min-w-0 bg-[var(--bg-primary)] pb-[env(safe-area-inset-bottom,0px)]">
                 {/* Reply preview */}
                 {replyTo && (
-                  <div className="px-3 pt-2">
+                  <div className="px-3 pt-2 min-w-0">
                     <ReplyPreview
                       senderName={replyTo.sender?.display_name || 'Unknown'}
                       content={replyTo.content}
@@ -1946,7 +1946,7 @@ export default function MessagesPage() {
 
                 {/* Image preview */}
                 {imagePreview && (
-                  <div className="px-3 pt-3 pb-0">
+                  <div className="px-3 pt-3 pb-0 min-w-0">
                     <div className="relative inline-block group">
                       <img src={imagePreview} alt="Preview" className="max-h-[120px] rounded-lg object-cover" />
                       {uploadProgress < 0 && (
@@ -1989,7 +1989,7 @@ export default function MessagesPage() {
                     onCancel={() => setIsRecordingVoice(false)}
                   />
                 ) : (
-                  <div className="chat-input-safe px-3 py-2 flex items-end gap-1.5">
+                  <div className="chat-input-safe px-3 py-2 flex items-end gap-1.5 min-w-0">
                     <input
                       ref={fileInputRef}
                       type="file"
@@ -2019,7 +2019,7 @@ export default function MessagesPage() {
                       placeholder="Message..."
                       disabled={!currentUserProfile}
                       rows={1}
-                      className="chat-textarea flex-1 resize-none overflow-hidden px-4 py-2.5 rounded-2xl bg-[var(--bg-tertiary)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none disabled:opacity-50 text-[16px] leading-[1.35]"
+                      className="chat-textarea flex-1 min-w-0 resize-none px-4 py-2.5 rounded-2xl bg-[var(--bg-tertiary)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none disabled:opacity-50 text-[16px] leading-[1.35]"
                       style={{ height: 'auto', minHeight: '44px', scrollbarGutter: 'stable' }}
                     />
                     {newMessage.trim() || imageFile ? (

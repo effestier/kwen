@@ -106,7 +106,8 @@ export function FileUpload({
 
       onUpload(uploadedUrls, mediaTypes, uploadedResults)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Upload failed')
+      // Don't expose raw error messages to users
+      setError('Upload failed. Please try again.')
     } finally {
       setUploading(false)
       setProgressMessage(null)

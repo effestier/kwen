@@ -92,7 +92,8 @@ export default function AccountPage() {
         detail: { display_name: displayName, avatar_url: avatarUrl }
       }));
     } catch (err: any) {
-      setError(err.message || 'Failed to save changes');
+      // Don't expose raw database error messages to users
+      setError('Failed to save changes. Please try again.');
     } finally {
       setSaving(false);
     }

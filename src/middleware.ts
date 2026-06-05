@@ -80,18 +80,32 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // Use getSession() — reads JWT from cookie directly, no network round-trip.
-  // getUser() validates against Supabase servers on every navigation which adds
-  // 20-100ms latency per route change. The JWT signature is already verified
-  // by the cookie mechanism, and expired tokens are handled by the client.
-  const { data: { session }, error } = await supabase.auth.getSession()
+  // getUser() validates the JWT signature + expiry against the Supabase Auth server.
+  // Do NOT replace this with getSession() — getSession() only reads the cookie and
+  // does NOT verify the signature, so a forged/expired token would pass.
+  const { data: { user }, error } = await supabase.auth.getUser()
 
-  if (error || !session?.user) {
-    // Invalid/expired session — redirect to login
+  if (error || !user) {
+    // Invalid/expired/forged session — redirect to login
     const loginUrl = new URL('/auth/login', request.url)
     loginUrl.searchParams.set('redirect', pathname)
     return NextResponse.redirect(loginUrl)
   }
+
+  // Authenticated routes must not be cached by CDNs or the browser bfcache —
+  // feed/messages/profile are user-specific and may include private content
+  // (drafts, deleted posts, restricted accounts).
+  response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, private')
+  response.headers.set('Pragma', 'no-cache')
+
+  // Security headers — apply to every response we let through.
+  // CSP 'frame-ancestors 'none'' replaces the JS clickjacking band-aid in
+  // src/lib/anti-tamper.ts (now removed).
+  response.headers.set('Content-Security-Policy', "frame-ancestors 'none'")
+  response.headers.set('X-Frame-Options', 'DENY')
+  response.headers.set('X-Content-Type-Options', 'nosniff')
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+  response.headers.set('Permissions-Policy', 'camera=(self), microphone=(self), geolocation=()')
 
   return response
 }

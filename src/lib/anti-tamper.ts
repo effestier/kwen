@@ -6,11 +6,14 @@ import { useEffect } from 'react';
  * Anti-tamper hook — light touch protections that don't break UX:
  * 1. Block DevTools keyboard shortcuts (F12, Ctrl+Shift+I/J/C, Ctrl+U)
  * 2. Block right-click context menu
- * 3. Prevent iframe embedding (clickjacking)
  *
+ * Removed: iframe-bust (now handled server-side via the
+ *   Content-Security-Policy: frame-ancestors 'none' header in middleware.ts,
+ *   which is correct, doesn't break the page if it ever fires in a legitimate
+ *   context, and doesn't rely on JS that can be disabled).
  * Removed: DevTools size detection (false positives), MutationObserver script
- * blocking (breaks third-party scripts), console silencing (breaks debugging),
- * global selectstart blocking (prevents text copy on mobile).
+ *   blocking (breaks third-party scripts), console silencing (breaks debugging),
+ *   global selectstart blocking (prevents text copy on mobile).
  */
 export function useAntiTamper() {
   useEffect(() => {
@@ -50,16 +53,6 @@ export function useAntiTamper() {
         return false;
       }
     };
-
-    // Prevent iframe embedding (clickjacking)
-    if (window.self !== window.top) {
-      try {
-        document.documentElement.innerHTML = '';
-        window.top!.location.href = window.self.location.href;
-      } catch {
-        document.documentElement.innerHTML = '';
-      }
-    }
 
     document.addEventListener('contextmenu', onContextMenu, { passive: false });
     document.addEventListener('keydown', onKeyDown, { passive: false });

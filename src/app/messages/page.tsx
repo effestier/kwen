@@ -2153,7 +2153,7 @@ export default function MessagesPage() {
             className="bg-[var(--bg-secondary)] w-full md:w-[420px] md:rounded-2xl rounded-t-2xl max-h-[80vh] flex flex-col animate-slide-in-from-bottom"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-4 pt-4 pb-2">
+            <div className="px-4 pt-4 pb-2 min-w-0">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-base font-bold text-[var(--text-primary)]">Forward to</h3>
                 <button
@@ -2166,9 +2166,9 @@ export default function MessagesPage() {
                 </button>
               </div>
               {/* Message preview */}
-              <div className="px-3 py-2 rounded-xl bg-[var(--bg-tertiary)] mb-3">
-                <p className="text-xs text-[var(--text-muted)] mb-0.5">{forwardMessage.sender?.display_name || 'User'}</p>
-                <p className="text-sm text-[var(--text-primary)] line-clamp-2">{forwardMessage.content || (forwardMessage.message_type === 'image' ? '📷 Photo' : forwardMessage.message_type === 'voice' ? '🎤 Voice message' : 'Media')}</p>
+              <div className="px-3 py-2 rounded-xl bg-[var(--bg-tertiary)] mb-3 min-w-0">
+                <p className="text-xs text-[var(--text-muted)] mb-0.5 break-words min-w-0" style={{ overflowWrap: 'anywhere' }}>{forwardMessage.sender?.display_name || 'User'}</p>
+                <p className="text-sm text-[var(--text-primary)] break-words max-w-full min-w-0" style={{ overflowWrap: 'anywhere', whiteSpace: 'pre-wrap' }}>{forwardMessage.content || (forwardMessage.message_type === 'image' ? '📷 Photo' : forwardMessage.message_type === 'voice' ? '🎤 Voice message' : 'Media')}</p>
               </div>
               {/* Search */}
               <div className="relative">

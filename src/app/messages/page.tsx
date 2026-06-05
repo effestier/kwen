@@ -1761,13 +1761,13 @@ export default function MessagesPage() {
                               </div>
                             )}
                             <div className={cn('flex w-full mt-2', msg.isMine ? 'justify-end' : 'justify-start')}>
-                              <div className={cn('max-w-[78%] md:max-w-[min(65%,520px)]')}>
+                              <div className={cn('max-w-[78%] md:max-w-[min(65%,520px)] min-w-0')}>
                                 <div className={cn(
-                                  'text-sm rounded-2xl px-3.5 py-2',
+                                  'text-sm rounded-2xl px-3.5 py-2 min-w-0',
                                   msg.isMine ? 'bg-[var(--accent-primary)] text-[var(--text-inverse)] rounded-br-md' : 'bg-[var(--bg-secondary)] text-[var(--text-primary)] rounded-bl-md',
                                   msg.status === 'failed' && 'opacity-60'
                                 )}>
-                                  {msg.content && msg.content !== 'Photo' && <p className="whitespace-pre-wrap text-sm">{msg.content}</p>}
+                                  {msg.content && msg.content !== 'Photo' && <p className="whitespace-pre-wrap break-all text-sm">{msg.content}</p>}
                                   {msg.media_url && (
                                     <div className="mt-1">
                                       <img src={msg.media_url} alt="" className="rounded-lg max-w-full max-h-[300px] object-contain" />

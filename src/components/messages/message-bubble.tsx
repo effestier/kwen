@@ -266,7 +266,7 @@ export function MessageBubble({ message, showAvatar, showTail, onReact, onReply,
 
         {/* Bubble + metadata column */}
         <div className={cn(
-          'flex flex-col max-w-[78%] md:max-w-[min(65%,520px)] relative z-10',
+          'flex flex-col max-w-[78%] md:max-w-[min(65%,520px)] min-w-0 relative z-10',
           message.isMine ? 'items-end' : 'items-start'
         )} style={{ transform: swipeOffset > 0 ? `translateX(${(message.isMine ? -1 : 1) * swipeOffset}px)` : undefined, transition: swipeActiveRef.current ? 'none' : 'transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}>
           {/* Reply-to preview */}
@@ -287,7 +287,7 @@ export function MessageBubble({ message, showAvatar, showTail, onReact, onReply,
           {/* Bubble */}
           <div
             className={cn(
-              'relative rounded-2xl px-3 py-[7px]',
+              'relative rounded-2xl px-3 py-[7px] min-w-0',
               showTail && message.isMine && 'bubble-tail-outgoing rounded-br-sm',
               showTail && !message.isMine && 'bubble-tail-incoming rounded-bl-sm',
               !showTail && message.isMine && 'rounded-br-md',
@@ -350,7 +350,7 @@ export function MessageBubble({ message, showAvatar, showTail, onReact, onReply,
             {/* Text */}
             {message.content && message.content !== 'Photo' && message.message_type !== 'voice' && (
               <p className={cn(
-                'whitespace-pre-wrap break-words',
+                'whitespace-pre-wrap break-all',
                 isEmojiOnly(message.content) ? 'text-[2.5rem] leading-tight' : 'text-[15px] leading-[1.35]'
               )}>
                 {message.content.split(/(https?:\/\/[^\s<>"{}|\\^`\[\]]+)/g).map((part, i) => {

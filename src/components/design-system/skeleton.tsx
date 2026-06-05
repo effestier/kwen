@@ -73,20 +73,40 @@ export function AvatarSkeleton({ size = 'md', className }: { size?: 'sm' | 'md' 
   );
 }
 
+/**
+ * Premium Card Skeleton - matches PostCard exact structure
+ * Eliminates CLS by matching avatar, text, media, and action button dimensions.
+ */
 export function CardSkeleton({ className }: { className?: string }) {
   return (
-    <div className={cn('space-y-3', className)}>
+    <div className={cn('space-y-3 p-4 border-b border-[var(--border-subtle)] animate-pulse', className)}>
+      {/* Header */}
       <div className="flex items-center gap-3">
-        <AvatarSkeleton size="md" />
-        <div className="flex-1 space-y-2">
-          <Skeleton variant="text" width="40%" />
-          <Skeleton variant="text" width="25%" />
+        <Skeleton variant="circular" width={32} height={32} className="bg-[var(--bg-tertiary)]" />
+        <div className="flex-1 space-y-1.5 pt-0.5">
+          <Skeleton variant="text" width="35%" height={14} className="bg-[var(--bg-tertiary)]" />
+          <Skeleton variant="text" width="20%" height={12} className="bg-[var(--bg-tertiary)]" />
         </div>
+        <Skeleton variant="rectangular" width={24} height={24} className="rounded-full bg-[var(--bg-tertiary)] ml-auto" />
       </div>
-      <Skeleton height={120} />
-      <div className="flex gap-2">
-        <Skeleton width={60} height={28} />
-        <Skeleton width={60} height={28} />
+
+      {/* Content */}
+      <div className="space-y-2 px-0.5">
+        <Skeleton variant="text" width="90%" height={15} className="bg-[var(--bg-tertiary)]" />
+        <Skeleton variant="text" width="75%" height={15} className="bg-[var(--bg-tertiary)]" />
+      </div>
+
+      {/* Media */}
+      <Skeleton className="w-full aspect-square rounded-xl bg-[var(--bg-tertiary)]" />
+
+      {/* Actions */}
+      <div className="flex items-center justify-between pt-1 px-0.5">
+        <div className="flex gap-4">
+          <Skeleton variant="rectangular" width={24} height={24} className="rounded bg-[var(--bg-tertiary)]" />
+          <Skeleton variant="rectangular" width={24} height={24} className="rounded bg-[var(--bg-tertiary)]" />
+          <Skeleton variant="rectangular" width={24} height={24} className="rounded bg-[var(--bg-tertiary)]" />
+        </div>
+        <Skeleton variant="rectangular" width={24} height={24} className="rounded bg-[var(--bg-tertiary)]" />
       </div>
     </div>
   );
@@ -127,13 +147,22 @@ export function MessageSkeleton({ className }: { className?: string }) {
   );
 }
 
+/**
+ * Premium Story Skeleton - matches Stories component exact structure
+ */
 export function StorySkeleton({ className }: { className?: string }) {
   return (
-    <div className={cn('flex gap-3', className)}>
+    <div className={cn('flex gap-3.5 overflow-x-auto scrollbar-hide px-4 py-2 animate-pulse', className)}>
+      {/* My Story */}
+      <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
+        <Skeleton variant="circular" width={56} height={56} className="border-2 border-transparent bg-[var(--bg-tertiary)]" />
+        <Skeleton variant="text" width={48} height={12} className="bg-[var(--bg-tertiary)]" />
+      </div>
+      {/* Other Users */}
       {[1, 2, 3, 4, 5].map((i) => (
-        <div key={i} className="flex flex-col items-center gap-1.5">
-          <Skeleton variant="circular" width={56} height={56} />
-          <Skeleton variant="text" width={48} />
+        <div key={i} className="flex flex-col items-center gap-1.5 flex-shrink-0">
+          <Skeleton variant="circular" width={56} height={56} className="border-[2.5px] border-transparent bg-[var(--bg-tertiary)]" />
+          <Skeleton variant="text" width={48} height={12} className="bg-[var(--bg-tertiary)]" />
         </div>
       ))}
     </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, type ReactNode } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { pushOverlay, popOverlay } from '@/lib/overlay-stack';
 
@@ -106,33 +107,44 @@ export function Modal({
     return () => document.removeEventListener('keydown', handleTab);
   }, [isOpen]);
 
-  if (!isOpen) return null;
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={title ? 'modal-title' : undefined}
-      aria-describedby={description ? 'modal-description' : undefined}
-    >
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-[var(--overlay)] animate-fadeIn"
-        onClick={closeOnOverlayClick ? onClose : undefined}
-        aria-hidden="true"
-      />
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={title ? 'modal-title' : undefined}
+          aria-describedby={description ? 'modal-description' : undefined}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.15, ease: 'easeOut' }}
+        >
+          {/* Backdrop */}
+          <motion.div
+            className="absolute inset-0 bg-[var(--overlay)]"
+            onClick={closeOnOverlayClick ? onClose : undefined}
+            aria-hidden="true"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+          />
 
-      {/* Modal content */}
-      <div
-        ref={modalRef}
-        className={cn(
-          'relative w-full bg-[var(--modal-bg)] rounded-2xl shadow-[var(--shadow-xl)]',
-          'animate-scaleIn',
-          'max-h-[90vh] overflow-hidden flex flex-col',
-          sizeStyles[size]
-        )}
-      >
+          {/* Modal content */}
+          <motion.div
+            ref={modalRef}
+            className={cn(
+              'relative w-full bg-[var(--modal-bg)] rounded-2xl shadow-[var(--shadow-xl)]',
+              'max-h-[90vh] overflow-hidden flex flex-col',
+              sizeStyles[size]
+            )}
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+          >
         {/* Header */}
         {(title || showCloseButton) && (
           <div className="flex items-center justify-between p-4 border-b border-[var(--border-subtle)]">

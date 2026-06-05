@@ -181,9 +181,9 @@ export default function MessagesPage() {
   useEffect(() => { currentUserProfileRef.current = currentUserProfile; }, [currentUserProfile]);
   useEffect(() => { selectedIdRef.current = selectedId; }, [selectedId]);
 
-  // Auto-focus textarea when opening a conversation
+  // Auto-focus textarea when opening a conversation (but not on mobile to prevent automatic keyboard popup)
   useEffect(() => {
-    if (selectedId && messageInputRef.current) {
+    if (selectedId && messageInputRef.current && !window.matchMedia('(max-width: 768px)').matches) {
       const timer = setTimeout(() => messageInputRef.current?.focus(), showMobileChat ? 300 : 100);
       return () => clearTimeout(timer);
     }

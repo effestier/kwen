@@ -957,7 +957,7 @@ export function StoryViewer({ users, initialUserIndex, initialStoryIndex, onClos
             {countdown && !poll && !question && (
               <CountdownDisplay countdown={countdown} />
             )}
-          </div>
+          </motion.div>
 
         </div>
 

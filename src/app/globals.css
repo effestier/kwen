@@ -1411,12 +1411,6 @@ body {
   max-width: 100%;
 }
 
-@supports (field-sizing: content) {
-  .chat-textarea {
-    field-sizing: content;
-    max-height: 180px;
-  }
-}
 
 /* ===========================================
    ADDITIONAL PRODUCTION POLISH

@@ -196,7 +196,6 @@ export function Modal({
           {children}
         </div>
       </div>
-      </div>
     </AnimatePresence>
   );
 }

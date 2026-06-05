@@ -254,16 +254,6 @@ export function MessageBubble({ message, showAvatar, showTail, onReact, onReply,
           </div>
         )}
 
-        {/* Avatar */}
-        {!message.isMine && (
-          <div className="w-8 flex-shrink-0 self-end">
-            {showAvatar && message.sender?.avatar_url && (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img src={message.sender.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" />
-            )}
-          </div>
-        )}
-
         {/* Bubble + metadata column */}
         <div className={cn(
           'flex flex-col max-w-[80%] md:max-w-[min(65%,480px)] min-w-0 relative z-10',

@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { checkRateLimit, UPLOAD_LIMIT } from '@/lib/rate-limit'
 
 export const maxDuration = 300 // 5 min for large video uploads
+export const dynamic = 'force-dynamic' // Never cache upload responses
 
 // Note: In static export (APIK), native uploads directly to Supabase, bypassing this route
 
@@ -67,6 +68,37 @@ async function validateFileMagic(file: File, declaredType: 'image' | 'video'): P
 
 export async function POST(request: NextRequest) {
   try {
+    // CSRF protection: verify Origin header matches our host
+    const origin = request.headers.get('origin')
+    const referer = request.headers.get('referer')
+    const host = request.headers.get('host')
+    const isNativeApp = request.headers.get('x-capacitor-platform') !== null
+
+    if (isNativeApp) {
+      // Native app — no origin/referer, allow through
+    } else if (origin) {
+      try {
+        const originUrl = new URL(origin)
+        if (originUrl.host !== host) {
+          return NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+        }
+      } catch {
+        return NextResponse.json({ error: 'Invalid origin' }, { status: 403 })
+      }
+    } else if (referer) {
+      try {
+        const refererUrl = new URL(referer)
+        if (refererUrl.host !== host) {
+          return NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+        }
+      } catch {
+        return NextResponse.json({ error: 'Invalid referer' }, { status: 403 })
+      }
+    } else {
+      // Browser request with no origin/referer — reject
+      return NextResponse.json({ error: 'Missing origin header' }, { status: 403 })
+    }
+
     const supabase = await createClient()
 
     // Authenticate
@@ -114,8 +146,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Rate limit: AFTER validation — only valid uploads consume quota
-    // failOpen=true: don't block users on RPC errors (Supabase hiccups)
-    const limit = await checkRateLimit(`upload:${user.id}`, UPLOAD_LIMIT, true)
+    // failClosed: block uploads if rate limiter is unavailable
+    const limit = await checkRateLimit(`upload:${user.id}`, UPLOAD_LIMIT, false)
     if (!limit.allowed) {
       const retryAfterSec = Math.ceil((limit.retryAfterMs || 0) / 1000)
       return NextResponse.json(

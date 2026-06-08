@@ -64,6 +64,26 @@ export async function sendMessage(conversationId: string, content: string, media
 
     if (!cleanContent && !media?.path && !storyId) return { error: 'Message cannot be empty' };
 
+    // Check block status — both directions
+    const { data: otherParticipant } = await supabase
+      .from('conversation_participants')
+      .select('user_id')
+      .eq('conversation_id', conversationId)
+      .neq('user_id', user.id)
+      .limit(1)
+      .maybeSingle();
+
+    if (otherParticipant) {
+      const { data: block } = await supabase
+        .from('blocks')
+        .select('blocker_id')
+        .or(`and(blocker_id.eq.${user.id},blocked_id.eq.${otherParticipant.user_id}),and(blocker_id.eq.${otherParticipant.user_id},blocked_id.eq.${user.id})`)
+        .limit(1)
+        .maybeSingle();
+
+      if (block) return { error: 'You cannot message this user' };
+    }
+
     const { data: participant } = await supabase
       .from('conversation_participants')
       .select('user_id')
@@ -756,7 +776,40 @@ export async function deleteMessage(messageId: string, deleteForEveryone: boolea
   }
 }
 
-export async function reportMessage(_messageId: string) {
-  // L2: No reports table yet — return honest status instead of fake success
-  return { success: false, message: 'Report system coming soon' };
+export async function reportMessage(messageId: string, reason: string) {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'Not authenticated' };
+    if (!messageId) return { error: 'Invalid message' };
+    if (!reason || reason.length < 3) return { error: 'Reason must be at least 3 characters' };
+
+    // Get the message sender to record who was reported
+    const { data: message } = await supabase
+      .from('messages')
+      .select('sender_id')
+      .eq('id', messageId)
+      .single();
+
+    if (!message) return { error: 'Message not found' };
+
+    const { error } = await supabase
+      .from('reports')
+      .insert({
+        reporter_id: user.id,
+        reported_user_id: message.sender_id,
+        message_id: messageId,
+        reason: reason.slice(0, 200),
+      });
+
+    if (error) {
+      // Unique constraint violation = already reported
+      if (error.code === '23505') return { error: 'You have already reported this message' };
+      return { error: 'Failed to submit report' };
+    }
+
+    return { success: true };
+  } catch {
+    return { error: 'Failed to submit report' };
+  }
 }

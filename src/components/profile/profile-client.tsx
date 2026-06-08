@@ -83,6 +83,7 @@ export function ProfileClient({ username, currentUserProfile }: { username: stri
   const [selectedHighlight, setSelectedHighlight] = useState<Highlight | null>(null);
   const [highlightStories, setHighlightStories] = useState<HighlightStory[]>([]);
   const [showCreateHighlight, setShowCreateHighlight] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
 
   // Owner actions sheet state
   const [selectedOwnerPost, setSelectedOwnerPost] = useState<Post | null>(null);
@@ -187,6 +188,10 @@ export function ProfileClient({ username, currentUserProfile }: { username: stri
             supabase.from('profiles').select('id, username, display_name, avatar_url, bio, is_verified').eq('id', authUser.id).single() as unknown as Promise<unknown>,
             targetProfile.id !== authUser.id
               ? supabase.from('follows').select('id').eq('follower_id', authUser.id).eq('following_id', targetProfile.id).single() as unknown as Promise<unknown>
+              : Promise.resolve({ data: null }),
+            // Check block status in both directions
+            targetProfile.id !== authUser.id
+              ? supabase.from('blocks').select('blocker_id').or(`and(blocker_id.eq.${authUser.id},blocked_id.eq.${targetProfile.id}),and(blocker_id.eq.${targetProfile.id},blocked_id.eq.${authUser.id})`).limit(1).maybeSingle() as unknown as Promise<unknown>
               : Promise.resolve({ data: null })
           );
         }
@@ -212,6 +217,7 @@ export function ProfileClient({ username, currentUserProfile }: { username: stri
           setCurrentUser((results[5] as any).data);
           if (targetProfile.id !== authUser.id) {
             setIsFollowing(!!(results[6] as any).data);
+            setIsBlocked(!!(results[7] as any).data);
           }
         }
 
@@ -365,7 +371,7 @@ export function ProfileClient({ username, currentUserProfile }: { username: stri
   };
 
   const handleMessage = async () => {
-    if (!profile || messaging) return;
+    if (!profile || messaging || isBlocked) return;
 
     setMessaging(true);
     try {
@@ -544,13 +550,15 @@ export function ProfileClient({ username, currentUserProfile }: { username: stri
                   >
                     {isFollowing ? 'Following' : 'Follow'}
                   </button>
-                  <button
-                    onClick={handleMessage}
-                    disabled={messaging}
-                    className="flex-1 py-2.5 rounded-xl bg-[var(--bg-tertiary)] text-[13px] font-semibold text-[var(--text-primary)] active:opacity-70 transition-opacity disabled:opacity-40"
-                  >
-                    {messaging ? '...' : 'Message'}
-                  </button>
+                  {!isBlocked && (
+                    <button
+                      onClick={handleMessage}
+                      disabled={messaging}
+                      className="flex-1 py-2.5 rounded-xl bg-[var(--bg-tertiary)] text-[13px] font-semibold text-[var(--text-primary)] active:opacity-70 transition-opacity disabled:opacity-40"
+                    >
+                      {messaging ? '...' : 'Message'}
+                    </button>
+                  )}
                   <button
                     onClick={() => setShowProfileMenu(!showProfileMenu)}
                     className="px-3 py-2.5 rounded-xl bg-[var(--bg-tertiary)] text-[var(--text-primary)] active:opacity-70 transition-opacity"

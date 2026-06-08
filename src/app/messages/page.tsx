@@ -1081,10 +1081,13 @@ export default function MessagesPage() {
   }, []);
 
   const handleReport = useCallback(async (messageId: string) => {
-    const result = await reportMessage(messageId);
-    if (result.message) {
-      showToast(result.message, result.success ? 'success' : 'error');
-    }
+    const reason = prompt('Why are you reporting this message?');
+    if (!reason || reason.length < 3) return;
+    const result = await reportMessage(messageId, reason);
+    showToast(
+      result.success ? 'Report submitted' : (result.error || 'Failed to report'),
+      result.success ? 'success' : 'error'
+    );
   }, []);
 
   const handleBlock = useCallback(async (userId: string) => {

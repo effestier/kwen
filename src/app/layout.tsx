@@ -4,6 +4,7 @@ import './globals.css';
 import { Providers } from '@/components/providers';
 import { BRAND } from '@/lib/brand/config';
 import { AntiTamper } from '@/components/security/anti-tamper';
+import { ErrorBoundary } from '@/components/security/error-boundary';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -133,7 +134,9 @@ export default function RootLayout({
         </a>
         <Providers>
           <AntiTamper />
-          {children}
+          <ErrorBoundary>
+            {children}
+          </ErrorBoundary>
         </Providers>
       </body>
     </html>

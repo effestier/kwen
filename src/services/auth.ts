@@ -104,7 +104,7 @@ export async function verifyOTP(email: string, token: string): Promise<AuthResul
 
     if (!existingProfile) {
       const displayName = cleanEmail.split('@')[0].slice(0, 50);
-      const tempUsername = `user_${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`;
+      const tempUsername = `__incomplete_${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`;
 
       const { error: profileError } = await supabase.from('profiles').upsert({
         id: data.user.id,
@@ -340,6 +340,26 @@ export async function updatePassword(currentPassword: string, newPassword: strin
     return { success: true };
   } catch {
     return { error: 'Failed to update password. Please try again.' };
+  }
+}
+
+// Profile completeness check — used to block login for half-created accounts
+export async function hasCompletedSignup(): Promise<boolean> {
+  try {
+    const supabase = createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) return false;
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('username')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    // Account is complete only if a profile with a real username exists (not __incomplete_ temp)
+    return !!profile?.username && !profile.username.startsWith('__incomplete_');
+  } catch {
+    return false;
   }
 }
 

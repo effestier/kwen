@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { sendOTP, verifyOTP, setPassword, completeProfile } from '@/services/auth';
+import { sendOTP, verifyOTP, setPassword, completeProfile, signOut, hasCompletedSignup } from '@/services/auth';
 import { BRAND } from '@/lib/brand/config';
 
 type Step = 'email' | 'otp' | 'complete';
@@ -28,6 +28,26 @@ export function RegisterForm() {
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const submittingRef = useRef(false);
   const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // If user already has a session (from partial signup) and registration is incomplete,
+  // skip email+OTP and go straight to the "complete profile" step
+  useEffect(() => {
+    const isIncomplete = searchParams.get('incomplete') === 'true';
+    if (!isIncomplete) return;
+    let cancelled = false;
+    (async () => {
+      const done = await hasCompletedSignup();
+      if (cancelled) return;
+      if (!done) {
+        setStep('complete');
+        setError(null);
+      } else {
+        // Already complete, go to feed
+        router.push('/feed');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [searchParams, router]);
 
   useEffect(() => {
     if (resendCooldown <= 0) return;
@@ -123,16 +143,28 @@ export function RegisterForm() {
 
     try {
       const pwResult = await setPassword(password);
-      if (pwResult.error) { setError(pwResult.error); return; }
+      if (pwResult.error) {
+        // Sign out so user can't just retry login — account is half-created
+        await signOut();
+        setError(pwResult.error + ' Please start signup again.');
+        return;
+      }
       const profileResult = await completeProfile(username, displayName);
-      if (profileResult.error) { setError(profileResult.error); return; }
+      if (profileResult.error) {
+        // Sign out so user can't just retry login — account is half-created
+        await signOut();
+        setError(profileResult.error + ' Please start signup again.');
+        return;
+      }
       // M25: Respect redirect param from URL — only allow safe internal paths
       const redirect = searchParams.get('redirect');
       const safeRedirect = redirect && redirect.startsWith('/') && !redirect.startsWith('//') && !redirect.startsWith('/\\') ? redirect : '/feed';
       router.push(safeRedirect);
       router.refresh();
     } catch {
-      setError('Could not connect. Check your internet and try again.');
+      // Unexpected error — sign out to prevent half-created account
+      await signOut();
+      setError('Could not connect. Please start signup again.');
     } finally {
       setLoading(false);
       submittingRef.current = false;

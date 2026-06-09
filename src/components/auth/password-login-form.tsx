@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { signInWithPassword, sendOTP, verifyOTP } from '@/services/auth';
+import { signInWithPassword, sendOTP, verifyOTP, hasCompletedSignup, signOut } from '@/services/auth';
 import { BRAND } from '@/lib/brand/config';
 
 type SubStep = 'credentials' | 'otp-email' | 'otp-verify';
@@ -40,6 +40,15 @@ export function PasswordLoginForm() {
 
       if (result.error) {
         setError(result.error);
+        return;
+      }
+
+      // If account exists but registration never finished (password set but no real profile),
+      // redirect to signup completion instead of blocking — user likely just needs to pick a username
+      const completedSignup = await hasCompletedSignup();
+      if (!completedSignup) {
+        await signOut();
+        router.push('/auth/register?incomplete=true');
         return;
       }
 
@@ -118,6 +127,24 @@ export function PasswordLoginForm() {
       if (result.error) {
         setError(result.error);
         return;
+      }
+
+      // Security: check if user completed registration (has real profile, not temp/__incomplete_)
+      const { createClient } = await import('@/lib/supabase/client');
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('username')
+          .eq('id', user.id)
+          .single();
+        if (!profile || profile.username.startsWith('__incomplete_')) {
+          // Account exists but registration never finished — force them to complete it
+          await supabase.auth.signOut();
+          router.push('/auth/register?error=Please complete your registration first');
+          return;
+        }
       }
 
       // M25: Respect redirect param from URL — only allow safe internal paths

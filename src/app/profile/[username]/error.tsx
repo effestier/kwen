@@ -24,7 +24,7 @@ export default function ProfileError({
         </p>
         <button
           onClick={reset}
-          className="px-4 py-2 bg-[var(--accent)] text-white rounded-full text-sm font-medium hover:opacity-90 transition-opacity"
+          className="px-4 py-2 bg-[var(--accent-primary)] text-[var(--text-inverse)] rounded-full text-sm font-medium hover:opacity-90 transition-opacity"
         >
           Try again
         </button>

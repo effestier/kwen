@@ -30,7 +30,7 @@ export default function OGImage() {
             left: 0,
             right: 0,
             height: '4px',
-            background: 'linear-gradient(90deg, #6366f1, #8b5cf6, #a855f7)',
+            background: 'linear-gradient(90deg, #666666, #999999, #cccccc)',
           }}
         />
 
@@ -43,7 +43,7 @@ export default function OGImage() {
             width: '80px',
             height: '80px',
             borderRadius: '16px',
-            background: 'linear-gradient(135deg, #6366f1, #a855f7)',
+            background: 'linear-gradient(135deg, #555555, #999999)',
             marginBottom: '32px',
           }}
         >

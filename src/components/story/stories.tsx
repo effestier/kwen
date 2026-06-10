@@ -187,7 +187,7 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
                 className={cn(
                   'w-14 h-14 rounded-full p-0.5',
                   hasUnviewedMyStory
-                    ? 'bg-gradient-to-br from-[#a78bfa] via-[#7c3aed] to-[#6366f1]'
+                    ? 'bg-gradient-to-br from-white via-gray-300 to-gray-500'
                     : myStories.length > 0
                       ? 'bg-[var(--border-subtle)]'
                       : 'bg-[var(--border-subtle)]'
@@ -203,7 +203,7 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
                 </div>
               </div>
               {/* Add icon — always visible so user can add more stories */}
-              <div className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-[#7c3aed] flex items-center justify-center border-2 border-[var(--bg-primary)] shadow-[0_0_8px_rgba(124,58,237,0.4)]">
+              <div className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-white flex items-center justify-center border-2 border-[var(--bg-primary)] shadow-[0_0_8px_rgba(255,255,255,0.3)]">
                 <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M5 12h14" /><path d="M12 5v14" />
                 </svg>
@@ -236,7 +236,7 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
                     'w-[62px] h-[62px] rounded-full p-[2.5px]',
                     allViewed
                       ? 'bg-[var(--border-subtle)]'
-                      : 'bg-gradient-to-br from-[#a78bfa] via-[#7c3aed] to-[#6366f1]'
+                      : 'bg-gradient-to-br from-white via-gray-300 to-gray-500'
                   )}
                 >
                   <div className="w-full h-full rounded-full p-[2px] bg-[var(--bg-primary)] overflow-hidden">

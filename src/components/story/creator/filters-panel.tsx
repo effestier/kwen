@@ -62,7 +62,7 @@ export function FiltersPanel({ filters, onChange, previewUrl }: FiltersPanelProp
                 />
               ) : (
                 <div
-                  className="w-full h-full bg-gradient-to-br from-purple-500 to-pink-500"
+                  className="w-full h-full bg-gradient-to-br from-gray-500 to-gray-700"
                   style={getFilterStyle(preset.values)}
                 />
               )}

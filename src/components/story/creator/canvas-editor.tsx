@@ -334,7 +334,7 @@ export function CanvasEditor({
               </div>
             )}
             {overlay.data.stickerType === 'countdown' && (
-              <div className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl p-4 min-w-[180px]">
+              <div className="bg-gradient-to-r from-gray-600 to-gray-800 rounded-xl p-4 min-w-[180px]">
                 <p className="text-white font-semibold text-center text-sm mb-1">{overlay.data.title as string}</p>
                 <p className="text-white text-2xl font-bold text-center">00:00:00</p>
               </div>

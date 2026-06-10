@@ -37,9 +37,9 @@ export const BRAND: BrandConfig = {
     icon: '⬡',
   },
   colors: {
-    primary: '#a78bfa',
-    secondary: '#8888a0',
-    accent: '#7c3aed',
+    primary: '#ffffff',
+    secondary: '#888888',
+    accent: '#ffffff',
   },
   social: {
     website: siteUrl,

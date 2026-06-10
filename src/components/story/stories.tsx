@@ -202,12 +202,14 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
                   />
                 </div>
               </div>
-              {/* Add icon — always visible so user can add more stories */}
-              <div className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-white flex items-center justify-center border-2 border-[var(--bg-primary)] shadow-[0_0_8px_rgba(255,255,255,0.3)]">
-                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M5 12h14" /><path d="M12 5v14" />
-                </svg>
-              </div>
+              {/* Add icon — only show when no active story */}
+              {myStories.length === 0 && (
+                <div className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-white flex items-center justify-center border-2 border-[var(--bg-primary)] shadow-[0_0_8px_rgba(255,255,255,0.3)]">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5 12h14" /><path d="M12 5v14" />
+                  </svg>
+                </div>
+              )}
             </div>
             <span className="text-[11px] text-[var(--text-muted)] max-w-[62px] truncate text-center">
               {myStories.length > 0 ? 'My story' : 'Add story'}

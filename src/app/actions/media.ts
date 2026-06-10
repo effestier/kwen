@@ -230,7 +230,8 @@ export async function createPostWithMedia(formData: FormData) {
       .single()
 
     if (postError) {
-      return { error: 'Failed to create post' }
+      console.error('Post insert error:', postError)
+      return { error: `Failed to create post: ${postError.message}` }
     }
 
     // Add media to post_media table
@@ -247,30 +248,39 @@ export async function createPostWithMedia(formData: FormData) {
         }
       })
 
-      await supabase.from('post_media').insert(mediaRecords)
+      const { error: mediaInsertError } = await supabase.from('post_media').insert(mediaRecords)
+      if (mediaInsertError) {
+        console.error('Post media insert error:', mediaInsertError)
+        return { error: `Failed to save media: ${mediaInsertError.message}` }
+      }
     }
 
     // Extract and save mentions — DB trigger creates notifications
-    if (content) {
-      const mentions = content.match(/@[\w.]+/g)
-      if (mentions && mentions.length > 0) {
-        const usernames = [...new Set(mentions.map(m => m.slice(1).toLowerCase()))]
-        const { data: mentionedProfiles } = await supabase
-          .from('profiles')
-          .select('id, username')
-          .in('username', usernames)
+    // Wrapped in try-catch: mentions are non-critical, don't fail the whole post
+    try {
+      if (content) {
+        const mentions = content.match(/@[\w.]+/g)
+        if (mentions && mentions.length > 0) {
+          const usernames = [...new Set(mentions.map(m => m.slice(1).toLowerCase()))]
+          const { data: mentionedProfiles } = await supabase
+            .from('profiles')
+            .select('id, username')
+            .in('username', usernames)
 
-        if (mentionedProfiles && mentionedProfiles.length > 0) {
-          const otherMentions = mentionedProfiles.filter(p => p.id !== user.id)
-          if (otherMentions.length > 0) {
-            const mentionRecords = otherMentions.map(p => ({
-              post_id: post.id,
-              user_id: p.id,
-            }))
-            await supabase.from('post_mentions').insert(mentionRecords)
+          if (mentionedProfiles && mentionedProfiles.length > 0) {
+            const otherMentions = mentionedProfiles.filter(p => p.id !== user.id)
+            if (otherMentions.length > 0) {
+              const mentionRecords = otherMentions.map(p => ({
+                post_id: post.id,
+                user_id: p.id,
+              }))
+              await supabase.from('post_mentions').insert(mentionRecords)
+            }
           }
         }
       }
+    } catch (mentionErr) {
+      console.error('Failed to save mentions (non-critical):', mentionErr)
     }
 
     return { success: true, postId: post.id }

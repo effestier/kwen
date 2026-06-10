@@ -47,8 +47,16 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
   const router = useRouter();
   const [viewerOpen, setViewerOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' } | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const supabase = createClient();
+
+  const showToast = useCallback((message: string, type: 'error' | 'success' = 'error') => {
+    setToast({ message, type });
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToast(null), 4000);
+  }, []);
 
   // Get current user's stories
   const myStories = useMemo(() => stories.filter(s => s.user_id === currentUser?.id), [stories, currentUser?.id]);
@@ -151,15 +159,15 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
 
       if (storyResult.error) {
         console.error('Failed to create story:', storyResult.error);
-        alert(`Story upload failed: ${storyResult.error}`);
+        showToast(`Story upload failed: ${storyResult.error}`);
       } else {
-        // Trigger parent refresh - this will update stories prop
+        showToast('Story posted!', 'success');
         onUploadSuccess?.();
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown upload error';
       console.error('Story upload error:', err);
-      alert(`Story upload failed: ${message}`);
+      showToast(message);
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) {
@@ -269,6 +277,27 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
         onChange={handleFileChange}
         className="hidden"
       />
+
+      {/* Toast notification */}
+      {toast && (
+        <div className="fixed left-1/2 -translate-x-1/2 z-[9999] px-5 py-3 rounded-xl shadow-lg flex items-center gap-3 max-w-sm animate-fadeInDown" style={{ top: 'max(env(safe-area-inset-top), 12px)' }}>
+          {toast.type === 'error' ? (
+            <div className="bg-[var(--destructive)] text-white flex items-center gap-3">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="8" y2="12" /><line x1="12" x2="12.01" y1="16" y2="16" />
+              </svg>
+              <span className="text-sm font-medium">{toast.message}</span>
+            </div>
+          ) : (
+            <div className="bg-[var(--success)] text-white flex items-center gap-3">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
+              <span className="text-sm font-medium">{toast.message}</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Story viewer modal */}
       {viewerOpen && groupedUsers.length > 0 && (

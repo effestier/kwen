@@ -146,8 +146,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Rate limit: AFTER validation — only valid uploads consume quota
-    // failClosed: block uploads if rate limiter is unavailable
-    const limit = await checkRateLimit(`upload:${user.id}`, UPLOAD_LIMIT, false)
+    // failOpen: allow uploads even if rate limiter is unavailable (RPC down, etc.)
+    const limit = await checkRateLimit(`upload:${user.id}`, UPLOAD_LIMIT, true)
     if (!limit.allowed) {
       const retryAfterSec = Math.ceil((limit.retryAfterMs || 0) / 1000)
       return NextResponse.json(
@@ -173,8 +173,8 @@ export async function POST(request: NextRequest) {
       })
 
     if (uploadError) {
-      console.error('Upload error:', uploadError)
-      return NextResponse.json({ error: 'Upload failed' }, { status: 500 })
+      console.error('Storage upload error:', uploadError.message ?? uploadError)
+      return NextResponse.json({ error: `Storage upload failed: ${uploadError.message}` }, { status: 500 })
     }
 
     // Get public URL
@@ -224,8 +224,8 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (dbError) {
-      console.error('DB error:', dbError)
-      // Don't fail - file is uploaded, just log the error
+      console.error('Media table insert error:', dbError.message ?? dbError)
+      // Don't fail — file is uploaded, just log the error
     }
 
     const result: UploadResult = {

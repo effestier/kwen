@@ -151,12 +151,15 @@ export function Stories({ stories, currentUser, onUploadSuccess }: StoriesProps)
 
       if (storyResult.error) {
         console.error('Failed to create story:', storyResult.error);
+        alert(`Story upload failed: ${storyResult.error}`);
       } else {
         // Trigger parent refresh - this will update stories prop
         onUploadSuccess?.();
       }
     } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown upload error';
       console.error('Story upload error:', err);
+      alert(`Story upload failed: ${message}`);
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) {

@@ -350,6 +350,7 @@ input, textarea, select, [contenteditable="true"] {
   line-height: 1.15;
   color: var(--text-primary);
   padding: 1rem;
+  text-align: center;
 }
 
 .heading-sub {

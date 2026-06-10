@@ -29,11 +29,12 @@ export function RegisterForm() {
   const submittingRef = useRef(false);
   const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const isIncompleteMode = searchParams.get('incomplete') === 'true';
+
   // If user already has a session (from partial signup) and registration is incomplete,
   // skip email+OTP and go straight to the "complete profile" step
   useEffect(() => {
-    const isIncomplete = searchParams.get('incomplete') === 'true';
-    if (!isIncomplete) return;
+    if (!isIncompleteMode) return;
     let cancelled = false;
     (async () => {
       const done = await hasCompletedSignup();
@@ -47,7 +48,7 @@ export function RegisterForm() {
       }
     })();
     return () => { cancelled = true; };
-  }, [searchParams, router]);
+  }, [isIncompleteMode, router]);
 
   useEffect(() => {
     if (resendCooldown <= 0) return;
@@ -117,7 +118,7 @@ export function RegisterForm() {
     e.preventDefault();
     setError(null);
 
-    if (!username || !displayName || !password || !confirmPassword) {
+    if (!username || !displayName) {
       setError('Please fill in all fields');
       return;
     }
@@ -125,16 +126,24 @@ export function RegisterForm() {
       setError('Username must be 3-30 characters, lowercase letters, numbers, and underscores only');
       return;
     }
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters');
-      return;
-    }
-    if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
-      setError('Password must contain at least one letter and one number');
+    // Password validation only when password is provided (optional in incomplete mode)
+    const hasPassword = !!password;
+    if (hasPassword) {
+      if (password !== confirmPassword) {
+        setError('Passwords do not match');
+        return;
+      }
+      if (password.length < 8) {
+        setError('Password must be at least 8 characters');
+        return;
+      }
+      if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
+        setError('Password must contain at least one letter and one number');
+        return;
+      }
+    } else if (!isIncompleteMode) {
+      // Password required only for fresh signup (not incomplete mode where it may already be set)
+      setError('Please fill in all fields');
       return;
     }
     if (submittingRef.current || loading) return;
@@ -142,12 +151,19 @@ export function RegisterForm() {
     setLoading(true);
 
     try {
-      const pwResult = await setPassword(password);
-      if (pwResult.error) {
-        // Sign out so user can't just retry login — account is half-created
-        await signOut();
-        setError(pwResult.error + ' Please start signup again.');
-        return;
+      // Set password if provided
+      if (hasPassword) {
+        const pwResult = await setPassword(password);
+        if (pwResult.error) {
+          // In incomplete mode, password may already be set — "same password" error means it's fine
+          if (isIncompleteMode && pwResult.error.toLowerCase().includes('different')) {
+            // Password was already set, continue to profile
+          } else {
+            await signOut();
+            setError(pwResult.error + ' Please start signup again.');
+            return;
+          }
+        }
       }
       const profileResult = await completeProfile(username, displayName);
       if (profileResult.error) {
@@ -265,7 +281,7 @@ export function RegisterForm() {
           <div><label htmlFor="username-input" className="sr-only">Username</label><input id="username-input" type="text" placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value.toLowerCase())} required pattern="^[a-z0-9_]{3,30}$" title="3-30 characters, lowercase letters, numbers, and underscores only" autoComplete="username" className="w-full px-4 py-3 rounded-xl bg-[var(--bg-tertiary)] border border-[var(--border-subtle)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-strong)] text-[var(--text-primary)]" /><p className="text-xs text-[var(--text-muted)] mt-2">This will be your unique URL: /profile/{username || 'username'}</p></div>
           <div className="relative"><label htmlFor="password-input" className="sr-only">Password</label><input id="password-input" type={showPassword ? 'text' : 'password'} placeholder="Password (min 8 chars, 1 letter, 1 number)" value={password} onChange={(e) => setPasswordValue(e.target.value)} required autoComplete="new-password" className="w-full px-4 py-3 pr-12 rounded-xl bg-[var(--bg-tertiary)] border border-[var(--border-subtle)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-strong)] text-[var(--text-primary)]" /><button type="button" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? 'Hide password' : 'Show password'} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)]">{showPassword ? (<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>) : (<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>)}</button></div>
           <div><label htmlFor="confirm-password-input" className="sr-only">Confirm password</label><input id="confirm-password-input" type={showPassword ? 'text' : 'password'} placeholder="Confirm password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required autoComplete="new-password" className="w-full px-4 py-3 rounded-xl bg-[var(--bg-tertiary)] border border-[var(--border-subtle)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-strong)] text-[var(--text-primary)]" /></div>
-          <button type="submit" disabled={loading || !username || !displayName || !password || !confirmPassword} className="w-full py-3 rounded-xl bg-[var(--accent-primary)] text-[var(--text-inverse)] text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50">{loading ? 'Creating account...' : 'Create account'}</button>
+          <button type="submit" disabled={loading || !username || !displayName || (!isIncompleteMode && (!password || !confirmPassword))} className="w-full py-3 rounded-xl bg-[var(--accent-primary)] text-[var(--text-inverse)] text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50">{loading ? 'Creating account...' : isIncompleteMode ? 'Complete profile' : 'Create account'}</button>
         </form>
       </div>
     );

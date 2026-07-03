@@ -63,6 +63,15 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   ...(isCapacitorBuild ? { output: 'export', trailingSlash: true } : {}),
+  async redirects() {
+    return [
+      {
+        source: '/auth/signup',
+        destination: '/auth/register',
+        permanent: true,
+      },
+    ];
+  },
   images: {
     ...(isCapacitorBuild ? { unoptimized: true } : {}),
     remotePatterns: [

@@ -85,7 +85,7 @@ export function validateFile(file: File, type: UploadType): string | null {
 export function generateFileName(originalName: string, userId: string): string {
   const ext = originalName.split('.').pop() || 'jpg'
   const timestamp = Date.now()
-  const random = Math.random().toString(36).substring(2, 8)
+  const random = crypto.randomUUID().replace(/-/g, '').substring(0, 8)
   return `${userId}/${timestamp}-${random}.${ext}`
 }
 

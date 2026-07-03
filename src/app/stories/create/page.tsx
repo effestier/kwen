@@ -325,12 +325,12 @@ export default function CreateStoryPage() {
           }).select().single();
 
           if (retryErr) {
-            showToast(`Failed to create story: ${retryErr.message}`, 10);
+            showToast('Failed to create story. Please try again.', 10);
             return;
           }
           storyData = retryStory;
         } else {
-          showToast(`Failed to create story: ${storyError.message}`, 10);
+          showToast('Failed to create story. Please try again.', 10);
           return;
         }
       }
@@ -363,7 +363,7 @@ export default function CreateStoryPage() {
             if (result.error) stickerErrors.push(`Countdown: ${result.error}`);
           }
         } catch (err) {
-          stickerErrors.push(`Sticker save failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+          stickerErrors.push(`Sticker save failed: ${err instanceof Error ? 'Operation failed' : 'Unknown error'}`);
         }
       }
       if (stickerErrors.length > 0) {
@@ -394,8 +394,8 @@ export default function CreateStoryPage() {
       if (err instanceof RateLimitError) {
         showToast(`Upload limit reached. Try again in ${err.retryAfterSec}s`, err.retryAfterSec);
       } else {
-        const message = err instanceof Error ? err.message : 'Failed to post story';
-        showToast(message, 10);
+        const message = 'Upload failed. Please try again.';
+        showToast('Upload failed. Please try again.', 10);
         console.error('[StoryPost]', err);
       }
     } finally {

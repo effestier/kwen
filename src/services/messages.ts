@@ -74,14 +74,26 @@ export async function sendMessage(conversationId: string, content: string, media
       .maybeSingle();
 
     if (otherParticipant) {
-      const { data: block } = await supabase
+      // Check block in both directions using parameterized queries
+      const { data: block1 } = await supabase
         .from('blocks')
         .select('blocker_id')
-        .or(`and(blocker_id.eq.${user.id},blocked_id.eq.${otherParticipant.user_id}),and(blocker_id.eq.${otherParticipant.user_id},blocked_id.eq.${user.id})`)
+        .eq('blocker_id', user.id)
+        .eq('blocked_id', otherParticipant.user_id)
         .limit(1)
         .maybeSingle();
 
-      if (block) return { error: 'You cannot message this user' };
+      if (block1) return { error: 'You cannot message this user' };
+
+      const { data: block2 } = await supabase
+        .from('blocks')
+        .select('blocker_id')
+        .eq('blocker_id', otherParticipant.user_id)
+        .eq('blocked_id', user.id)
+        .limit(1)
+        .maybeSingle();
+
+      if (block2) return { error: 'You cannot message this user' };
     }
 
     const { data: participant } = await supabase

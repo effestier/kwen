@@ -1,6 +1,7 @@
 // Server action converted to client-side for static export
 
 import { createClient } from '@/lib/supabase/client'
+import { checkRateLimit, POST_LIMIT, STORY_LIMIT } from '@/lib/rate-limit'
 
 const ALLOWED_MEDIA_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/webm']
 const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'webm']
@@ -175,6 +176,13 @@ export async function createPostWithMedia(formData: FormData) {
       return { error: 'Not authenticated' }
     }
 
+    // Rate limit post creation (failOpen so a Supabase blip doesn't block all posts)
+    const postLimit = await checkRateLimit(`post:${user.id}`, POST_LIMIT, true)
+    if (!postLimit.allowed) {
+      const retryAfterSec = Math.ceil((postLimit.retryAfterMs || 0) / 1000)
+      return { error: `Too many posts. Try again in ${retryAfterSec}s.`, retryAfterSec }
+    }
+
     const content = (formData.get('content') as string | null)?.trim().slice(0, 5000) || null
     const location = (formData.get('location') as string | null)?.trim().slice(0, 200) || null
     const visibility = (formData.get('visibility') as string | null) || 'public'
@@ -296,6 +304,13 @@ export async function uploadStory(mediaUrl: string, mediaType: string = 'image')
 
     if (!user) {
       return { error: 'Not authenticated' }
+    }
+
+    // Rate limit story uploads (failOpen so a Supabase blip doesn't block stories)
+    const storyLimit = await checkRateLimit(`story:${user.id}`, STORY_LIMIT, true)
+    if (!storyLimit.allowed) {
+      const retryAfterSec = Math.ceil((storyLimit.retryAfterMs || 0) / 1000)
+      return { error: `Too many stories. Try again in ${retryAfterSec}s.`, retryAfterSec }
     }
 
     if (!isValidMediaUrl(mediaUrl)) {

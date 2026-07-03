@@ -74,3 +74,16 @@ export const ANON_UPLOAD_LIMIT: RateLimitConfig = {
   windowMs: 5 * 60 * 1000, // 5 minutes
   maxAttempts: 5,           // 5 uploads per 5 minutes for unauthenticated
 };
+
+// Story creation: stories are 24h ephemeral, so this is a soft cap to stop
+// rapid-fire spam (50/hour is plenty for a real user).
+export const STORY_LIMIT: RateLimitConfig = {
+  windowMs: 60 * 60 * 1000, // 1 hour
+  maxAttempts: 50,
+};
+
+// Post creation: cap to slow down bot accounts and runaway scripts.
+export const POST_LIMIT: RateLimitConfig = {
+  windowMs: 60 * 60 * 1000, // 1 hour
+  maxAttempts: 30,           // 30 posts per hour is generous for a real user
+};

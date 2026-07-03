@@ -220,7 +220,7 @@ export default function MessagesPage() {
 
       if (convsRes.error) {
         console.error('[MESSAGES] RPC error:', convsRes.error);
-        setLoadError(`Failed to load conversations: ${convsRes.error.message}`);
+        setLoadError('Failed to load conversations. Please try again.');
         setLoading(false);
         return;
       }
@@ -802,13 +802,13 @@ export default function MessagesPage() {
 
     const error = validateRawFile(file);
     if (error) {
-      showToast(error);
+      showToast('Operation failed. Please try again.');
       return;
     }
 
     const contentError = await verifyImageContent(file);
     if (contentError) {
-      showToast(contentError);
+      showToast('Operation failed. Please try again.');
       return;
     }
 
@@ -909,7 +909,7 @@ export default function MessagesPage() {
     // Voice retry: re-upload blob
     if (failedData.blob) {
       const timestamp = Date.now();
-      const random = Math.random().toString(36).substring(2, 8);
+      const random = crypto.randomUUID().replace(/-/g, '').substring(0, 8);
       const ext = failedData.blob.type.includes('webm') ? 'webm' : failedData.blob.type.includes('mp4') ? 'm4a' : 'webm';
       const voicePath = `${uid}/conversations/${sid}/${timestamp}-${random}.${ext}`;
 
@@ -946,7 +946,7 @@ export default function MessagesPage() {
         const thumbnail = await generateThumbnail(failedData.file);
 
         const timestamp = Date.now();
-        const random = Math.random().toString(36).substring(2, 8);
+        const random = crypto.randomUUID().replace(/-/g, '').substring(0, 8);
         const basePath = `${uid}/conversations/${sid}`;
         const imagePath = `${basePath}/${timestamp}-${random}.webp`;
         const thumbPath = `${basePath}/${timestamp}-${random}-thumb.webp`;
@@ -1044,7 +1044,7 @@ export default function MessagesPage() {
   const handleDelete = useCallback(async (messageId: string, deleteForEveryone: boolean) => {
     const result = await deleteMessage(messageId, deleteForEveryone);
     if (result.error) {
-      showToast(result.error);
+      showToast('Failed to delete message. Please try again.');
       return;
     }
     if (result.action === 'deleted_for_me') {
@@ -1085,7 +1085,7 @@ export default function MessagesPage() {
     if (!reason || reason.length < 3) return;
     const result = await reportMessage(messageId, reason);
     showToast(
-      result.success ? 'Report submitted' : (result.error || 'Failed to report'),
+      result.success ? 'Report submitted' : 'Failed to report message',
       result.success ? 'success' : 'error'
     );
   }, []);
@@ -1104,7 +1104,7 @@ export default function MessagesPage() {
       // Close mobile chat view
       setShowMobileChat(false);
     } else {
-      showToast(result.error || 'Failed to block user');
+      showToast('Operation failed. Please try again.');
     }
     setBlockUserId(null);
   }, [blockUserId, showToast]);
@@ -1120,7 +1120,7 @@ export default function MessagesPage() {
     if (result.success) {
       showToast('Message forwarded', 'success');
     } else {
-      showToast(result.error || 'Failed to forward');
+      showToast('Failed to forward message. Please try again.');
     }
     setForwardMessage(null);
     setForwardSearch('');
@@ -1143,7 +1143,7 @@ export default function MessagesPage() {
       }
       showToast('Conversation deleted', 'success');
     } else {
-      showToast('Failed to delete conversation');
+      showToast('Operation failed. Please try again.');
     }
     setDeleteConvId(null);
   }, [deleteConvId, currentUserId, selectedId, showToast]);
@@ -1201,7 +1201,7 @@ export default function MessagesPage() {
 
         // 3. Upload both to organized path (UID must be first segment for RLS policy)
         const timestamp = Date.now();
-        const random = Math.random().toString(36).substring(2, 8);
+        const random = crypto.randomUUID().replace(/-/g, '').substring(0, 8);
         const basePath = `${uid}/conversations/${sid}`;
         const imagePath = `${basePath}/${timestamp}-${random}.webp`;
         const thumbPath = `${basePath}/${timestamp}-${random}-thumb.webp`;
@@ -1210,7 +1210,7 @@ export default function MessagesPage() {
         const imgResult = await uploadWithProgress(imagePath, compressed.file, 'image/webp', setUploadProgress);
 
         if (imgResult.error) {
-          showToast(imgResult.error);
+          showToast('Operation failed. Please try again.');
           setUploadProgress(-1);
           setSending(false);
           return;
@@ -1228,7 +1228,7 @@ export default function MessagesPage() {
           height: compressed.height,
         };
       } catch (err) {
-        showToast(err instanceof Error ? err.message : 'Failed to process image.');
+        showToast('Failed to process image. Please try again.');
         setUploadProgress(-1);
         setSending(false);
         return;
@@ -1236,7 +1236,7 @@ export default function MessagesPage() {
       setUploadProgress(-1);
     }
 
-    const tempId = `temp-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+    const tempId = `temp-${Date.now()}-${crypto.randomUUID().replace(/-/g, '').substring(0, 9)}`;
     tid.add(tempId);
 
     const displayContent = newMessage.trim() || (media ? 'Photo' : '');
@@ -1333,13 +1333,13 @@ export default function MessagesPage() {
 
     // Upload voice blob
     const timestamp = Date.now();
-    const random = Math.random().toString(36).substring(2, 8);
+    const random = crypto.randomUUID().replace(/-/g, '').substring(0, 8);
     const ext = blob.type.includes('webm') ? 'webm' : blob.type.includes('mp4') ? 'm4a' : 'webm';
     const voicePath = `${uid}/conversations/${sid}/${timestamp}-${random}.${ext}`;
 
     const uploadResult = await uploadWithProgress(voicePath, blob, blob.type, () => {});
     if (uploadResult.error) {
-      showToast(uploadResult.error);
+      showToast('Upload failed. Please try again.');
       setSending(false);
       return;
     }
@@ -1351,7 +1351,7 @@ export default function MessagesPage() {
       duration,
     };
 
-    const tempId = `temp-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+    const tempId = `temp-${Date.now()}-${crypto.randomUUID().replace(/-/g, '').substring(0, 9)}`;
     tid.add(tempId);
 
     const tempMessage: Message = {

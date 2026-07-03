@@ -21,6 +21,7 @@ export default function LandingPage() {
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-[var(--bg-primary)]">
+      <h1 className="sr-only">KWEN — Connect. Share. Discover.</h1>
       <Spinner size="lg" />
     </div>
   );

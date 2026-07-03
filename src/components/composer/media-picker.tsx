@@ -47,7 +47,7 @@ export function MediaPicker({ selected, onSelect, maxItems = 10 }: MediaPickerPr
       }
 
       newItems.push({
-        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        id: `${Date.now()}-${crypto.randomUUID().replace(/-/g, '').substring(0, 8)}`,
         file,
         url,
         type,

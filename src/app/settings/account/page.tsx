@@ -103,7 +103,7 @@ export default function AccountPage() {
     const file = event.target.files?.[0];
     if (!file || !profile) return;
 
-    // Validate file type
+    // Validate file type (MIME can be spoofed — also check magic bytes below)
     if (!file.type.startsWith('image/')) {
       setError('Please select an image file');
       return;
@@ -111,6 +111,18 @@ export default function AccountPage() {
     // Validate file size (5MB)
     if (file.size > 5 * 1024 * 1024) {
       setError('Image must be smaller than 5MB');
+      return;
+    }
+    // Validate magic bytes to prevent disguised executables
+    const header = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+    const validMagic =
+      (header[0] === 0xFF && header[1] === 0xD8 && header[2] === 0xFF) || // JPEG
+      (header[0] === 0x89 && header[1] === 0x50 && header[2] === 0x4E && header[3] === 0x47) || // PNG
+      (header[0] === 0x47 && header[1] === 0x49 && header[2] === 0x46) || // GIF
+      (header[0] === 0x52 && header[1] === 0x49 && header[2] === 0x46 && header[3] === 0x46 &&
+        header[8] === 0x57 && header[9] === 0x45 && header[10] === 0x42 && header[11] === 0x50); // WebP
+    if (!validMagic) {
+      setError('File content does not match an image format');
       return;
     }
 

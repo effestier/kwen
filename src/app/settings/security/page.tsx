@@ -26,13 +26,28 @@ export default function SecurityPage() {
       return;
     }
 
-    if (newPassword.length < 8) {
-      setError('Password must be at least 8 characters');
+    if (newPassword.length < 12) {
+      setError('Password must be at least 12 characters');
       return;
     }
 
-    if (!/[a-zA-Z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
-      setError('Password must contain at least one letter and one number');
+    if (!/[a-z]/.test(newPassword)) {
+      setError('Password must contain a lowercase letter');
+      return;
+    }
+
+    if (!/[A-Z]/.test(newPassword)) {
+      setError('Password must contain an uppercase letter');
+      return;
+    }
+
+    if (!/[0-9]/.test(newPassword)) {
+      setError('Password must contain a number');
+      return;
+    }
+
+    if (!/[^a-zA-Z0-9]/.test(newPassword)) {
+      setError('Password must contain a special character');
       return;
     }
 

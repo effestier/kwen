@@ -18,10 +18,15 @@ function isValidEmail(email: string): boolean {
 }
 
 function isStrongPassword(pw: string): { valid: boolean; error?: string } {
-  if (pw.length < 8) return { valid: false, error: 'Password must be at least 8 characters' };
+  if (pw.length < 12) return { valid: false, error: 'Password must be at least 12 characters' };
   if (pw.length > 128) return { valid: false, error: 'Password is too long' };
-  if (!/[a-zA-Z]/.test(pw)) return { valid: false, error: 'Password must contain at least one letter' };
-  if (!/[0-9]/.test(pw)) return { valid: false, error: 'Password must contain at least one number' };
+  if (!/[a-z]/.test(pw)) return { valid: false, error: 'Password must contain a lowercase letter' };
+  if (!/[A-Z]/.test(pw)) return { valid: false, error: 'Password must contain an uppercase letter' };
+  if (!/[0-9]/.test(pw)) return { valid: false, error: 'Password must contain a number' };
+  if (!/[^a-zA-Z0-9]/.test(pw)) return { valid: false, error: 'Password must contain a special character' };
+  const lowerPw = pw.toLowerCase();
+  const commonPasswords = ['password', '123456789012', 'qwerty123456', 'letmein123456', 'welcome12345'];
+  if (commonPasswords.some(c => lowerPw.includes(c))) return { valid: false, error: 'Password is too common' };
   return { valid: true };
 }
 

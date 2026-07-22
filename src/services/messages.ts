@@ -111,11 +111,11 @@ export async function sendMessage(conversationId: string, content: string, media
     } else if (voiceDuration != null && media?.path) {
       messageType = 'voice';
     } else if (media?.path) {
-      messageType = cleanContent ? 'mixed' : 'image';
+      messageType = cleanContent ? 'mixed' : (media.mimeType?.startsWith('video/') ? 'video' : 'image');
     } else {
       messageType = 'text';
     }
-    const messageContent = cleanContent || (voiceDuration != null ? '' : media?.path ? 'Photo' : storyId ? '' : '');
+    const messageContent = cleanContent || (voiceDuration != null ? '' : media?.path ? (media.mimeType?.startsWith('video/') ? 'Video' : 'Photo') : storyId ? '' : '');
 
     const insertData: Record<string, unknown> = {
       conversation_id: conversationId,
@@ -132,6 +132,10 @@ export async function sendMessage(conversationId: string, content: string, media
 
     // duration column doesn't exist yet (migration 041 not applied)
     // Voice messages work without it — the player reads duration from the audio file
+
+    if (media?.duration != null) {
+      insertData.duration = media.duration;
+    }
 
     if (replyToMessageId) {
       insertData.reply_to_message_id = replyToMessageId;
@@ -178,6 +182,18 @@ export async function sendMessage(conversationId: string, content: string, media
         .single();
       message = retry2.data;
       error = retry2.error;
+    }
+
+    // Fallback: video message_type not in CHECK constraint — use 'image'
+    if (error && insertData.message_type === 'video') {
+      insertData.message_type = 'image';
+      const retry3 = await supabase
+        .from('messages')
+        .insert(insertData)
+        .select()
+        .single();
+      message = retry3.data;
+      error = retry3.error;
     }
 
     if (error) return { error: 'Failed to send message' };
@@ -344,7 +360,7 @@ export async function getMessages(conversationId: string) {
     }
     for (const r of replyToResult.data || []) {
       if (r.thumbnail_url && !r.thumbnail_url.startsWith('http')) pathsToSign.add(r.thumbnail_url);
-      if (r.media_url && !r.media_url.startsWith('http') && r.message_type === 'image') pathsToSign.add(r.media_url);
+      if (r.media_url && !r.media_url.startsWith('http') && (r.message_type === 'image' || r.message_type === 'video')) pathsToSign.add(r.media_url);
     }
 
     const signedUrlMap = new Map<string, string>();
@@ -491,7 +507,7 @@ export async function getOlderMessages(conversationId: string, beforeCreatedAt: 
     }
     for (const r of replyToResult.data || []) {
       if (r.thumbnail_url && !r.thumbnail_url.startsWith('http')) pathsToSign.add(r.thumbnail_url);
-      if (r.media_url && !r.media_url.startsWith('http') && r.message_type === 'image') pathsToSign.add(r.media_url);
+      if (r.media_url && !r.media_url.startsWith('http') && (r.message_type === 'image' || r.message_type === 'video')) pathsToSign.add(r.media_url);
     }
 
     const signedUrlMap = new Map<string, string>();

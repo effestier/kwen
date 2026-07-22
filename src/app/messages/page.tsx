@@ -11,6 +11,7 @@ import { getMessages, getOlderMessages, sendMessage, markConversationAsRead, mar
 import type { MediaMetadata } from '@/services/messages';
 import { MessageBubble, type MessageBubbleData } from '@/components/messages/message-bubble';
 import { compressForMessage, generateThumbnail, validateRawFile, verifyImageContent } from '@/lib/image-compress';
+import { compressVideo, validateVideo, getVideoDuration } from '@/lib/media/video-compress';
 import { ListSkeleton, Skeleton } from '@/components/design-system/skeleton';
 import { blockUser } from '@/services/posts';
 import { VoiceRecorder } from '@/components/messages/voice-recorder';
@@ -111,6 +112,8 @@ export default function MessagesPage() {
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [videoPreview, setVideoPreview] = useState<string | null>(null);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(-1); // -1 = idle, 0-100 = uploading
   const [enlargedImage, setEnlargedImage] = useState<{ url: string; mediaPath?: string } | null>(null);
   const [failedMessages, setFailedMessages] = useState<Map<string, FailedMessageData>>(new Map());
@@ -249,6 +252,7 @@ export default function MessagesPage() {
         .map(r => {
           const isLastMine = r.last_message_sender_id === user.id;
           const preview = r.last_message_type === 'image' ? '📷 Photo'
+            : r.last_message_type === 'video' ? '🎬 Video'
             : r.last_message_type === 'voice' ? '🎤 Voice message'
             : r.last_message_type === 'mixed' ? `📷 Photo · ${r.last_message_content}`
             : (r.last_message_content || '');
@@ -347,7 +351,7 @@ export default function MessagesPage() {
       .channel('conversations-updates')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, async (payload) => {
         const msg = payload.new as { id: string; conversation_id: string; content: string; sender_id: string; created_at: string; message_type?: string };
-        const rawPreview = msg.message_type === 'image' ? 'Photo' : msg.message_type === 'voice' ? '🎤 Voice message' : msg.message_type === 'mixed' ? `Photo · ${msg.content}` : msg.content;
+        const rawPreview = msg.message_type === 'image' ? 'Photo' : msg.message_type === 'video' ? '🎬 Video' : msg.message_type === 'voice' ? '🎤 Voice message' : msg.message_type === 'mixed' ? `Photo · ${msg.content}` : msg.content;
         const isMine = msg.sender_id === currentUserIdRef.current;
         const preview = isMine ? `You: ${rawPreview}` : rawPreview;
 
@@ -393,7 +397,7 @@ export default function MessagesPage() {
         setConversations(prev => prev.map(c => {
           if (c.id !== updated.conversation_id) return c;
           const isDeleted = updated.content === 'This message was deleted';
-          const preview = isDeleted ? '🚫 Message deleted' : updated.message_type === 'image' ? 'Photo' : updated.message_type === 'voice' ? '🎤 Voice message' : updated.content;
+          const preview = isDeleted ? '🚫 Message deleted' : updated.message_type === 'image' ? 'Photo' : updated.message_type === 'video' ? '🎬 Video' : updated.message_type === 'voice' ? '🎤 Voice message' : updated.content;
           return { ...c, last_message: preview };
         }));
       })
@@ -478,6 +482,7 @@ export default function MessagesPage() {
     const newConversations: Conversation[] = paged.map(r => {
       const isLastMine = r.last_message_sender_id === user.id;
       const preview = r.last_message_type === 'image' ? '📷 Photo'
+        : r.last_message_type === 'video' ? '🎬 Video'
         : r.last_message_type === 'voice' ? '🎤 Voice message'
         : r.last_message_type === 'mixed' ? `📷 Photo · ${r.last_message_content}`
         : (r.last_message_content || '');
@@ -800,6 +805,44 @@ export default function MessagesPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Handle video files
+    if (file.type.startsWith('video/')) {
+      const error = validateVideo(file, 'chat');
+      if (error) {
+        showToast('Operation failed. Please try again.');
+        e.target.value = '';
+        return;
+      }
+
+      // Quick video content check — verify it loads
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      const videoUrl = URL.createObjectURL(file);
+      const canPlay = await new Promise<boolean>((resolve) => {
+        video.onloadedmetadata = () => {
+          URL.revokeObjectURL(video.src);
+          resolve(true);
+        };
+        video.onerror = () => resolve(false);
+        video.src = videoUrl;
+      });
+      if (!canPlay) {
+        showToast('Operation failed. Please try again.');
+        URL.revokeObjectURL(videoUrl);
+        e.target.value = '';
+        setVideoFile(null);
+        setVideoPreview(null);
+        return;
+      }
+
+      setVideoFile(file);
+      setVideoPreview(videoUrl);
+      setImageFile(null);
+      setImagePreview(null);
+      e.target.value = '';
+      return;
+    }
+
     const error = validateRawFile(file);
     if (error) {
       showToast('Operation failed. Please try again.');
@@ -813,6 +856,8 @@ export default function MessagesPage() {
     }
 
     setImageFile(file);
+    setVideoFile(null);
+    setVideoPreview(null);
     const reader = new FileReader();
     reader.onload = () => setImagePreview(reader.result as string);
     reader.readAsDataURL(file);
@@ -824,6 +869,12 @@ export default function MessagesPage() {
   const clearImagePreview = () => {
     setImagePreview(null);
     setImageFile(null);
+  };
+
+  const clearVideoPreview = () => {
+    if (videoPreview) URL.revokeObjectURL(videoPreview);
+    setVideoPreview(null);
+    setVideoFile(null);
   };
 
   const getOrRefreshSignedUrl = async (path: string): Promise<string | null> => {
@@ -1179,7 +1230,7 @@ export default function MessagesPage() {
     const profile = currentUserProfileRef.current;
     const tid = sentTempIdsRef.current;
 
-    if ((!newMessage.trim() && !imageFile) || !sid || sending || !uid || !profile) return;
+    if ((!newMessage.trim() && !imageFile && !videoFile) || !sid || sending || !uid || !profile) return;
 
     // Haptic feedback on send
     if (typeof navigator !== 'undefined' && navigator.vibrate) {
@@ -1234,16 +1285,53 @@ export default function MessagesPage() {
         return;
       }
       setUploadProgress(-1);
+    } else if (videoFile) {
+      setUploadProgress(0);
+      try {
+        const { videoBlob, thumbnailBlob, width, height, duration: videoDur } = await compressVideo(videoFile);
+
+        const timestamp = Date.now();
+        const random = crypto.randomUUID().replace(/-/g, '').substring(0, 8);
+        const basePath = `${uid}/conversations/${sid}`;
+        const videoPath = `${basePath}/${timestamp}-${random}.mp4`;
+        const thumbPath = `${basePath}/${timestamp}-${random}-thumb.webp`;
+
+        const vidResult = await uploadWithProgress(videoPath, videoBlob, videoFile.type, setUploadProgress);
+        if (vidResult.error) {
+          showToast('Operation failed. Please try again.');
+          setUploadProgress(-1);
+          setSending(false);
+          return;
+        }
+
+        const thumbResult = await uploadWithProgress(thumbPath, thumbnailBlob, 'image/webp', () => {});
+
+        media = {
+          path: videoPath,
+          thumbnailPath: thumbResult.error ? videoPath : thumbPath,
+          mimeType: videoFile.type,
+          fileSize: videoBlob.size,
+          width,
+          height,
+          duration: Math.round(videoDur),
+        };
+      } catch (err) {
+        showToast('Failed to process video. Please try again.');
+        setUploadProgress(-1);
+        setSending(false);
+        return;
+      }
+      setUploadProgress(-1);
     }
 
     const tempId = `temp-${Date.now()}-${crypto.randomUUID().replace(/-/g, '').substring(0, 9)}`;
     tid.add(tempId);
 
-    const displayContent = newMessage.trim() || (media ? 'Photo' : '');
-    const messageType = media ? (newMessage.trim() ? 'mixed' : 'image') : 'text';
+    const displayContent = newMessage.trim() || (media ? (videoFile ? 'Video' : 'Photo') : '');
+    const messageType = media ? (newMessage.trim() ? 'mixed' : (videoFile ? 'video' : 'image')) : 'text';
 
     // For temp message display, use blob URL from the file
-    const tempMediaUrl = imageFile ? URL.createObjectURL(imageFile) : null;
+    const tempMediaUrl = imageFile ? URL.createObjectURL(imageFile) : videoFile ? URL.createObjectURL(videoFile) : null;
 
     const tempMessage: Message = {
       id: tempId,
@@ -1264,10 +1352,11 @@ export default function MessagesPage() {
       reactions: {},
       my_reaction: null,
       status: 'sending',
-      file: imageFile ?? undefined,
+      file: imageFile ?? videoFile ?? undefined,
     };
     setMessages(prev => deduplicateMessages([...prev, tempMessage]));
-    clearImagePreview();
+    if (videoFile) clearVideoPreview();
+    else clearImagePreview();
     setNewMessage('');
     // Reset textarea height after clearing
     if (messageInputRef.current) {
@@ -1308,7 +1397,7 @@ export default function MessagesPage() {
       if (tempMediaUrl) URL.revokeObjectURL(tempMediaUrl);
       // Mark as failed instead of removing — user can retry
       setMessages(prev => prev.map(m => m.id === tempId ? { ...m, status: 'failed' as const, media_url: null, thumbnail_url: null } : m));
-      setFailedMessages(prev => new Map(prev).set(tempId, { content: displayContent, media, file: imageFile ?? undefined, replyToMessageId: replyTo?.id }));
+      setFailedMessages(prev => new Map(prev).set(tempId, { content: displayContent, media, file: imageFile ?? videoFile ?? undefined, replyToMessageId: replyTo?.id }));
     }
     setSending(false);
     // Re-focus input after sending (desktop only — mobile keyboard would flicker)
@@ -1972,6 +2061,44 @@ export default function MessagesPage() {
                   </div>
                 )}
 
+                {/* Video preview */}
+                {videoPreview && (
+                  <div className="px-3 pt-3 pb-0 min-w-0">
+                    <div className="relative inline-block group">
+                      <video src={videoPreview} className="max-h-[160px] rounded-lg" controls />
+                      {uploadProgress < 0 && (
+                        <button
+                          type="button"
+                          onClick={clearVideoPreview}
+                          aria-label="Remove video"
+                          className="absolute -top-2.5 -right-2.5 w-8 h-8 rounded-full bg-[var(--bg-tertiary)] border border-[var(--border-subtle)] text-[var(--text-muted)] flex items-center justify-center text-sm font-medium hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] active:scale-90 transition-all shadow-sm"
+                        >
+                          ✕
+                        </button>
+                      )}
+                      {uploadProgress >= 0 && (
+                        <div className="absolute inset-0 bg-black/60 rounded-lg flex flex-col items-center justify-center gap-2 backdrop-blur-[2px]">
+                          <div className="w-10 h-10 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                          <span className="text-white text-xs font-semibold tabular-nums">{uploadProgress}%</span>
+                          <div className="w-24 h-1.5 bg-white/20 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-[var(--accent-primary)] rounded-full transition-all duration-300 ease-out"
+                              style={{ width: `${uploadProgress}%` }}
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => { setUploadProgress(-1); setSending(false); clearVideoPreview(); }}
+                            className="text-white/70 text-[10px] font-medium mt-1 hover:text-white active:text-white transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Voice recorder or normal input */}
                 {isRecordingVoice ? (
                   <VoiceRecorder
@@ -1983,7 +2110,7 @@ export default function MessagesPage() {
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept="image/jpeg,image/png,image/webp,image/avif"
+                      accept="image/jpeg,image/png,image/webp,image/avif,video/mp4,video/webm,video/quicktime"
                       onChange={handleImageSelect}
                       className="hidden"
                       aria-label="Upload image"
@@ -2012,7 +2139,7 @@ export default function MessagesPage() {
                       className="chat-textarea flex-1 min-w-0 resize-none px-4 py-2.5 rounded-2xl bg-[var(--bg-tertiary)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none disabled:opacity-50 text-[16px] leading-[1.35]"
                       style={{ height: 'auto', minHeight: '44px', scrollbarGutter: 'stable' }}
                     />
-                    {newMessage.trim() || imageFile ? (
+                    {newMessage.trim() || imageFile || videoFile ? (
                       <button
                         type="submit"
                         disabled={sending || !currentUserProfile}
@@ -2158,7 +2285,7 @@ export default function MessagesPage() {
               {/* Message preview */}
               <div className="px-3 py-2 rounded-xl bg-[var(--bg-tertiary)] mb-3">
                 <p className="text-xs text-[var(--text-muted)] mb-0.5">{forwardMessage.sender?.display_name || 'User'}</p>
-                <p className="text-sm text-[var(--text-primary)] line-clamp-2 break-all">{forwardMessage.content || (forwardMessage.message_type === 'image' ? '📷 Photo' : forwardMessage.message_type === 'voice' ? '🎤 Voice message' : 'Media')}</p>
+                <p className="text-sm text-[var(--text-primary)] line-clamp-2 break-all">{forwardMessage.content || (forwardMessage.message_type === 'image' ? '📷 Photo' : forwardMessage.message_type === 'video' ? '🎬 Video' : forwardMessage.message_type === 'voice' ? '🎤 Voice message' : 'Media')}</p>
               </div>
               {/* Search */}
               <div className="relative">

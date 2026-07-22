@@ -174,7 +174,7 @@ export async function POST(request: NextRequest) {
 
     if (uploadError) {
       console.error('Storage upload error:', uploadError.message ?? uploadError)
-      return NextResponse.json({ error: `Storage upload failed: ${uploadError.message}` }, { status: 500 })
+      return NextResponse.json({ error: 'Storage upload failed' }, { status: 500 })
     }
 
     // Get public URL

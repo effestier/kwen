@@ -269,7 +269,7 @@ export function MessageBubble({ message, showAvatar, showTail, onReact, onReply,
                 {message.reply_to.senderName}
               </p>
               <p className={`message-text ${message.isMine ? 'text-black/40' : 'text-[var(--text-muted)]'}`}>
-                {message.reply_to.messageType === 'image' ? '📷 Photo' : message.reply_to.content}
+                {message.reply_to.messageType === 'image' ? '📷 Photo' : message.reply_to.messageType === 'video' ? '🎬 Video' : message.reply_to.content}
               </p>
             </div>
           )}
@@ -317,6 +317,21 @@ export function MessageBubble({ message, showAvatar, showTail, onReact, onReply,
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={message.media_url} alt="Shared photo" className="w-full h-auto object-cover" loading="lazy" />
+              </div>
+            )}
+
+            {/* Video */}
+            {message.message_type === 'video' && message.media_url && (
+              <div className="rounded-lg overflow-hidden mb-1 max-w-[280px]">
+                <video
+                  src={message.media_url}
+                  controls
+                  preload="metadata"
+                  className="w-full h-auto max-h-[400px] object-cover"
+                  poster={message.thumbnail_url || undefined}
+                >
+                  Your browser does not support the video tag.
+                </video>
               </div>
             )}
 
@@ -558,6 +573,9 @@ export function MessageBubble({ message, showAvatar, showTail, onReact, onReply,
                 {message.media_url && (message.message_type === 'image' || message.message_type === 'mixed') && (
                   <p className="text-xs text-[var(--text-muted)] mt-1">📷 Photo</p>
                 )}
+                {message.media_url && message.message_type === 'video' && (
+                  <p className="text-xs text-[var(--text-muted)] mt-1">🎬 Video</p>
+                )}
               </div>
 
               {/* Quick reactions */}
@@ -664,6 +682,10 @@ export function MessageBubble({ message, showAvatar, showTail, onReact, onReply,
               {message.media_url && (message.message_type === 'image' || message.message_type === 'mixed') && (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img src={message.media_url} alt="" className="w-14 h-14 rounded-lg object-cover mb-1" />
+              )}
+              {message.media_url && message.message_type === 'video' && (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img src={message.thumbnail_url || ''} alt="" className="w-14 h-14 rounded-lg object-cover mb-1" />
               )}
               {message.content && message.message_type !== 'voice' && (
                 <p className="text-sm text-[var(--text-primary)] line-clamp-2 leading-snug">{message.content}</p>

@@ -15,10 +15,10 @@ export function ReplyPreview({ senderName, content, messageType, mediaUrl, onCan
       <div className="flex-1 min-w-0">
         <p className="text-xs font-semibold text-[var(--accent-primary)]">{senderName}</p>
         <p className="text-[13px] text-[var(--text-muted)] break-all leading-tight">
-          {messageType === 'image' ? '📷 Photo' : content}
+          {messageType === 'image' ? '📷 Photo' : messageType === 'video' ? '🎬 Video' : content}
         </p>
       </div>
-      {messageType === 'image' && mediaUrl && (
+      {(messageType === 'image' || messageType === 'video') && mediaUrl && (
         <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={mediaUrl} alt="" className="w-full h-full object-cover" />

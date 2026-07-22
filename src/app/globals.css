@@ -51,8 +51,8 @@
   --story-overlay: rgba(0, 0, 0, 0.85);
   --gradient-start: #555555;
   --gradient-end: #333333;
-  --skeleton-bg: #ececec;
-  --skeleton-shine: #e0e0e0;
+  --skeleton-bg: #e8e8e8;
+  --skeleton-shine: #d0d0d0;
   --scrollbar-track: transparent;
   --scrollbar-thumb: #d0d0d0;
   --scrollbar-thumb-hover: #b8b8b8;
@@ -120,7 +120,7 @@
     --gradient-start: #ffffff;
     --gradient-end: #999999;
     --skeleton-bg: #1a1a1a;
-    --skeleton-shine: #2a2a2a;
+    --skeleton-shine: #333333;
     --scrollbar-track: transparent;
     --scrollbar-thumb: #2a2a2a;
     --scrollbar-thumb-hover: #444444;
@@ -183,7 +183,7 @@
   --gradient-start: #ffffff;
   --gradient-end: #999999;
   --skeleton-bg: #1a1a1a;
-  --skeleton-shine: #2a2a2a;
+  --skeleton-shine: #333333;
   --scrollbar-track: transparent;
   --scrollbar-thumb: #2a2a2a;
   --scrollbar-thumb-hover: #444444;
@@ -523,10 +523,10 @@ input, textarea, select, [contenteditable="true"] {
 
 /* Skeleton loading */
 .skeleton {
-  background: var(--skeleton-bg);
+  background-color: var(--skeleton-bg);
   background-image: linear-gradient(90deg, var(--skeleton-bg) 0%, var(--skeleton-shine) 50%, var(--skeleton-bg) 100%);
   background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
+  animation: shimmer 1.5s ease-in-out infinite;
   border-radius: var(--radius-sm, 4px);
 }
 
@@ -1111,10 +1111,10 @@ input[type="range"]::-moz-range-thumb {
    =========================================== */
 
 .img-skeleton {
-  background: var(--skeleton-bg);
+  background-color: var(--skeleton-bg);
   background-image: linear-gradient(90deg, var(--skeleton-bg) 0%, var(--skeleton-shine) 50%, var(--skeleton-bg) 100%);
   background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
+  animation: shimmer 1.5s ease-in-out infinite;
 }
 
 /* ===========================================

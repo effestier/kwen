@@ -1,4 +1,7 @@
 // Server action converted to client-side for static export
+// NOTE: Rate limiting here is advisory — a malicious user can bypass client-side
+// checks. The real protection is the Supabase RPC (runs server-side) plus
+// database-level RLS policies. This is an inherent limitation of static export.
 
 import { createClient } from '@/lib/supabase/client'
 import { checkRateLimit, POST_LIMIT, STORY_LIMIT } from '@/lib/rate-limit'

@@ -26,6 +26,40 @@ const PUBLIC_ROUTES = [
   '/download',
 ]
 
+// Full Content-Security-Policy — applied to ALL page routes via middleware.
+// This replaces the partial CSP that was previously split between next.config.ts
+// (full CSP) and middleware.ts (frame-ancestors only). Having it all in one place
+// avoids middleware silently overwriting the next.config.ts CSP with a weaker one.
+const CSP_DIRECTIVES = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' blob: data: https://*.supabase.co https://*.supabase.in https://*.supabase.com https://challenges.cloudflare.com",
+  "media-src 'self' blob: https://*.supabase.co https://*.supabase.in https://*.supabase.com",
+  "font-src 'self' data:",
+  "connect-src 'self' https://unpkg.com https://*.supabase.co https://*.supabase.in https://*.supabase.com wss://*.supabase.co wss://*.supabase.in wss://*.supabase.com https://challenges.cloudflare.com",
+  "frame-src https://challenges.cloudflare.com",
+  "worker-src 'self' blob:",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "object-src 'none'",
+  "upgrade-insecure-requests",
+].join('; ')
+
+function setSecurityHeaders(headers: Headers) {
+  headers.set('Content-Security-Policy', CSP_DIRECTIVES)
+  headers.set('X-Frame-Options', 'DENY')
+  headers.set('X-Content-Type-Options', 'nosniff')
+  headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+  headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload')
+  headers.set('X-DNS-Prefetch-Control', 'off')
+  headers.set('Cross-Origin-Opener-Policy', 'same-origin')
+  headers.set('Cross-Origin-Resource-Policy', 'same-origin')
+  headers.set('Cross-Origin-Embedder-Policy', 'credentialless')
+  headers.set('Permissions-Policy', 'camera=(self), microphone=(self), geolocation=(), interest-cohort=(), browsing-topics=(), join-ad-interest-group=(), run-ad-auction()')
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
@@ -38,7 +72,9 @@ export async function middleware(request: NextRequest) {
     // Only skip auth for paths that look like files (have extension at the end)
     /\.\w{2,5}$/.test(pathname)
   ) {
-    return NextResponse.next()
+    const response = NextResponse.next()
+    setSecurityHeaders(response.headers)
+    return response
   }
 
   // Check if route is public
@@ -47,7 +83,9 @@ export async function middleware(request: NextRequest) {
   )
 
   if (isPublic) {
-    return NextResponse.next()
+    const response = NextResponse.next()
+    setSecurityHeaders(response.headers)
+    return response
   }
 
   // Check if route is protected
@@ -56,7 +94,9 @@ export async function middleware(request: NextRequest) {
   )
 
   if (!isProtected) {
-    return NextResponse.next()
+    const response = NextResponse.next()
+    setSecurityHeaders(response.headers)
+    return response
   }
 
   // Create Supabase server client with request/response cookies
@@ -98,14 +138,8 @@ export async function middleware(request: NextRequest) {
   response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, private')
   response.headers.set('Pragma', 'no-cache')
 
-  // Security headers — apply to every response we let through.
-  // CSP 'frame-ancestors 'none'' replaces the JS clickjacking band-aid in
-  // src/lib/anti-tamper.ts (now removed).
-  response.headers.set('Content-Security-Policy', "frame-ancestors 'none'")
-  response.headers.set('X-Frame-Options', 'DENY')
-  response.headers.set('X-Content-Type-Options', 'nosniff')
-  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
-  response.headers.set('Permissions-Policy', 'camera=(self), microphone=(self), geolocation=()')
+  // Apply full security headers
+  setSecurityHeaders(response.headers)
 
   return response
 }

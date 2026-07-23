@@ -197,7 +197,10 @@ export async function saveStoryToHighlight(
   }
 
   // Add story to highlight
-  const addResult = await addStoryToHighlight(highlightId!, storyId)
+  if (!highlightId) {
+    return { error: 'No highlight ID available' }
+  }
+  const addResult = await addStoryToHighlight(highlightId, storyId)
   if (addResult.error) {
     return { error: addResult.error }
   }

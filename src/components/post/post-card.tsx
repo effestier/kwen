@@ -11,6 +11,7 @@ import { EditPostModal } from '@/components/post/edit-post-modal';
 import { renderRichText } from '@/lib/text-utils';
 import { MediaCarousel } from '@/components/post/media-carousel';
 import { HeartAnimation } from '@/components/post/heart-animation';
+import { createClient } from '@/lib/supabase/client';
 
 const CommentsModal = dynamic(() => import('@/components/comments/comments-modal').then(mod => ({ default: mod.CommentsModal })), {
   loading: () => null,
@@ -139,6 +140,25 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete, feedIndex, isInfinit
   // H3: Track delete timeout for proper cleanup
   const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const handleReport = useCallback(async () => {
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      await supabase.from('reports').insert({
+        reporter_id: user.id,
+        reported_user_id: post.user.id,
+        post_id: post.id,
+        reason: 'Reported via post menu',
+      });
+    } catch {
+      // Non-critical — report is best-effort
+    }
+    setShowReportedToast(true);
+    setShowMoreMenu(false);
+    setTimeout(() => setShowReportedToast(false), 3000);
+  }, [post.user.id, post.id]);
+
   const handleDelete = useCallback(async () => {
     setShowMoreMenu(false);
     setDeleted(true);
@@ -256,7 +276,7 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete, feedIndex, isInfinit
                       {/* Hide like count */}
                       <button onClick={async () => {
                         const result = await toggleHideLikes(post.id);
-                        if (result.success) setHideLikes(result.hideLikes!);
+                        if (result.success && result.hideLikes !== undefined) setHideLikes(result.hideLikes);
                       }} className="w-full px-3 py-2.5 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] active:bg-[var(--bg-tertiary)] flex items-center gap-3">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
                         {hideLikes ? 'Show like count' : 'Hide like count'}
@@ -265,7 +285,7 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete, feedIndex, isInfinit
                       {/* Turn off commenting */}
                       <button onClick={async () => {
                         const result = await toggleDisableComments(post.id);
-                        if (result.success) setDisableComments(result.disableComments!);
+                        if (result.success && result.disableComments !== undefined) setDisableComments(result.disableComments);
                       }} className="w-full px-3 py-2.5 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] active:bg-[var(--bg-tertiary)] flex items-center gap-3">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
                         {disableComments ? 'Turn on commenting' : 'Turn off commenting'}
@@ -292,7 +312,7 @@ const PostCardInner = ({ post, isOwnPost = false, onDelete, feedIndex, isInfinit
                   ) : (
                     <>
                       {/* Report */}
-                      <button onClick={() => { setShowReportedToast(true); setShowMoreMenu(false); setTimeout(() => setShowReportedToast(false), 3000); }} className="w-full px-3 py-2.5 text-left text-sm text-[var(--destructive)] hover:bg-[var(--bg-secondary)] active:bg-[var(--bg-tertiary)] flex items-center gap-3">
+                      <button onClick={handleReport} className="w-full px-3 py-2.5 text-left text-sm text-[var(--destructive)] hover:bg-[var(--bg-secondary)] active:bg-[var(--bg-tertiary)] flex items-center gap-3">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" x2="4" y1="22" y2="15" /></svg>
                         Report
                       </button>

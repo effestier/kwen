@@ -23,7 +23,7 @@ BEGIN
     AND archived_at IS NULL
     AND deleted_at IS NULL;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- =============================================
 -- UNARCHIVE POST (restore from archive)
@@ -37,7 +37,7 @@ BEGIN
     AND user_id = auth.uid()
     AND archived_at IS NOT NULL;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- =============================================
 -- TOGGLE HIDE LIKES
@@ -55,7 +55,7 @@ BEGIN
 
   RETURN COALESCE(new_val, false);
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- =============================================
 -- TOGGLE DISABLE COMMENTS
@@ -73,7 +73,7 @@ BEGIN
 
   RETURN COALESCE(new_val, false);
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- =============================================
 -- UPDATE SELECT POLICY: exclude archived posts from feed

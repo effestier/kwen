@@ -67,7 +67,7 @@ BEGIN
 
   RETURN jsonb_build_object('allowed', true);
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- Cleanup function to remove expired entries (run via pg_cron or manually)
 CREATE OR REPLACE FUNCTION public.cleanup_rate_limits()
@@ -75,4 +75,4 @@ RETURNS void AS $$
 BEGIN
   DELETE FROM public.rate_limits WHERE reset_at < now() - interval '1 hour';
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;

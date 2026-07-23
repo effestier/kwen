@@ -157,7 +157,8 @@ export async function compressVideo(
 
   // Read compressed video
   const outputData = await ffmpeg.readFile('output.mp4')
-  const videoBlob = new Blob([new Uint8Array(outputData as Uint8Array)], { type: 'video/mp4' })
+  if (!(outputData instanceof Uint8Array)) throw new Error('Failed to read compressed video')
+  const videoBlob = new Blob([new Uint8Array(outputData)], { type: 'video/mp4' })
 
   // If still too large, try with higher CRF
   let finalBlob = videoBlob
@@ -177,7 +178,9 @@ export async function compressVideo(
       'output2.mp4',
     ])
     const output2Data = await ffmpeg.readFile('output2.mp4')
-    finalBlob = new Blob([new Uint8Array(output2Data as Uint8Array)], { type: 'video/mp4' })
+    if (output2Data instanceof Uint8Array) {
+      finalBlob = new Blob([new Uint8Array(output2Data)], { type: 'video/mp4' })
+    }
   }
 
   // Generate thumbnail
@@ -191,7 +194,8 @@ export async function compressVideo(
   ])
 
   const thumbData = await ffmpeg.readFile('thumb.jpg')
-  const thumbnailBlob = new Blob([new Uint8Array(thumbData as Uint8Array)], { type: 'image/jpeg' })
+  if (!(thumbData instanceof Uint8Array)) throw new Error('Failed to read thumbnail')
+  const thumbnailBlob = new Blob([new Uint8Array(thumbData)], { type: 'image/jpeg' })
 
   // Cleanup
   await ffmpeg.deleteFile('input.mp4')

@@ -350,7 +350,7 @@ export function PostDetailClient({ postId }: { postId: string }) {
             {post.images.length > 0 ? (
               <div className="relative">
                 <div className="aspect-[4/5] lg:aspect-auto lg:max-h-[calc(100vh-56px)] lg:w-full">
-                  {post.mediaType[activeImage] === 'video' ? (
+                  {activeImage < post.mediaType.length && activeImage < post.images.length && post.mediaType[activeImage] === 'video' ? (
                     <video
                       src={post.images[activeImage]}
                       className="w-full h-full object-contain lg:object-cover"

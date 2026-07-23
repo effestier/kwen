@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "build:static": "cross-env CAPACITOR_BUILD=1 next build",
-    "cap:prebuild": "rm -f out/kwen.apk",
+    "cap:prebuild": "node -e \"const fs=require('fs');try{fs.rmSync('out/kwen.apk')}catch{}\"",
     "cap:sync": "npm run cap:prebuild && npx cap sync android",
     "cap:open": "npx cap open android",
     "cap:build": "npm run build:static && npm run cap:sync"

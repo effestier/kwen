@@ -68,14 +68,17 @@ async function validateFileMagic(file: File, declaredType: 'image' | 'video'): P
 
 export async function POST(request: NextRequest) {
   try {
-    // CSRF protection: verify Origin header matches our host
+    // CSRF protection: verify Origin/Referer header matches our host.
+    // Native apps (Capacitor) don't send Origin/Referer, so we check for a
+    // custom header that browser JS cannot set cross-origin (CORS blocks it).
     const origin = request.headers.get('origin')
     const referer = request.headers.get('referer')
     const host = request.headers.get('host')
     const isNativeApp = request.headers.get('x-capacitor-platform') !== null
+    const hasNonBrowserHeader = request.headers.get('x-requested-with') !== null
 
-    if (isNativeApp) {
-      // Native app — no origin/referer, allow through
+    if (isNativeApp && hasNonBrowserHeader) {
+      // Native Capacitor app — validated via custom header that CORS blocks from browser JS
     } else if (origin) {
       try {
         const originUrl = new URL(origin)

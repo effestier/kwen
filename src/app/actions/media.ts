@@ -177,7 +177,7 @@ export async function createPostWithMedia(formData: FormData) {
     }
 
     // Rate limit post creation (failOpen so a Supabase blip doesn't block all posts)
-    const postLimit = await checkRateLimit(`post:${user.id}`, POST_LIMIT, true)
+    const postLimit = await checkRateLimit(supabase, `post:${user.id}`, POST_LIMIT, true)
     if (!postLimit.allowed) {
       const retryAfterSec = Math.ceil((postLimit.retryAfterMs || 0) / 1000)
       return { error: `Too many posts. Try again in ${retryAfterSec}s.`, retryAfterSec }
@@ -307,7 +307,7 @@ export async function uploadStory(mediaUrl: string, mediaType: string = 'image')
     }
 
     // Rate limit story uploads (failOpen so a Supabase blip doesn't block stories)
-    const storyLimit = await checkRateLimit(`story:${user.id}`, STORY_LIMIT, true)
+    const storyLimit = await checkRateLimit(supabase, `story:${user.id}`, STORY_LIMIT, true)
     if (!storyLimit.allowed) {
       const retryAfterSec = Math.ceil((storyLimit.retryAfterMs || 0) / 1000)
       return { error: `Too many stories. Try again in ${retryAfterSec}s.`, retryAfterSec }

@@ -1,7 +1,7 @@
 // Serverless-compatible rate limiter using Supabase
 // Replaces the in-memory Map that was bypassable on Vercel
 
-import { createClient } from '@/lib/supabase/server'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 export interface RateLimitConfig {
   windowMs: number;
@@ -9,12 +9,12 @@ export interface RateLimitConfig {
 }
 
 export async function checkRateLimit(
+  supabase: SupabaseClient,
   key: string,
   config: RateLimitConfig,
   failOpen: boolean = false
 ): Promise<{ allowed: boolean; retryAfterMs?: number }> {
   try {
-    const supabase = await createClient()
 
     const { data, error } = await supabase.rpc('check_rate_limit', {
       p_key: key,

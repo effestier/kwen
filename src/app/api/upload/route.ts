@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
 
     // Rate limit: AFTER validation — only valid uploads consume quota
     // failOpen: allow uploads even if rate limiter is unavailable (RPC down, etc.)
-    const limit = await checkRateLimit(`upload:${user.id}`, UPLOAD_LIMIT, true)
+    const limit = await checkRateLimit(supabase, `upload:${user.id}`, UPLOAD_LIMIT, true)
     if (!limit.allowed) {
       const retryAfterSec = Math.ceil((limit.retryAfterMs || 0) / 1000)
       return NextResponse.json(

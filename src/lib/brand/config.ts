@@ -19,6 +19,11 @@ export interface BrandConfig {
     website: string;
     supportEmail: string;
   };
+  owner: {
+    name: string;
+    role: string;
+    url: string;
+  };
   auth: {
     siteUrl: string;
     redirectUrl: string;
@@ -44,6 +49,11 @@ export const BRAND: BrandConfig = {
   social: {
     website: siteUrl,
     supportEmail: 'support@kwen.in',
+  },
+  owner: {
+    name: 'Karan',
+    role: 'Founder & Owner',
+    url: siteUrl,
   },
   auth: {
     siteUrl,

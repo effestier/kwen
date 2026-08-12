@@ -28,6 +28,9 @@ export const metadata: Metadata = {
     template: `%s | ${BRAND.name}`,
   },
   description: 'Connect. Share. Discover. KWEN brings stories, messaging, posts, reels, and communities together in a fast, modern social experience.',
+  authors: [{ name: BRAND.owner.name, url: BRAND.owner.url }],
+  creator: BRAND.owner.name,
+  publisher: BRAND.name,
   metadataBase: new URL(BRAND.auth.siteUrl),
   alternates: {
     canonical: '/',
@@ -83,6 +86,11 @@ export default function RootLayout({
     logo: `${BRAND.social.website}/web-app-manifest-512x512.png`,
     description: BRAND.tagline,
     sameAs: [BRAND.social.website],
+    founder: {
+      '@type': 'Person',
+      name: BRAND.owner.name,
+      url: BRAND.owner.url,
+    },
     contactPoint: {
       '@type': 'ContactPoint',
       email: BRAND.social.supportEmail,
@@ -103,6 +111,18 @@ export default function RootLayout({
     },
   });
 
+  const jsonLdOwner = JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'Person',
+    name: BRAND.owner.name,
+    url: BRAND.owner.url,
+    affiliation: {
+      '@type': 'Organization',
+      name: BRAND.name,
+      url: BRAND.social.website,
+    },
+  });
+
   return (
     <html lang="en" suppressHydrationWarning className={inter.variable}>
       <head>
@@ -119,6 +139,10 @@ export default function RootLayout({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: jsonLdWebSite }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: jsonLdOwner }}
         />
       </head>
       <body className="antialiased">
